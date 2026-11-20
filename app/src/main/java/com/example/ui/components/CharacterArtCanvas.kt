@@ -60,10 +60,12 @@ fun LokaPortraitCanvas(
         val spriteSize = minOf(w, h) * 0.88f
 
         if (isFutureTransformed || expression == PortraitExpression.DETERMINED) {
-            drawCircle(
-                color = SoulSeraphCyan.copy(alpha = if (isFutureTransformed) 0.22f else 0.14f),
-                radius = minOf(w, h) * 0.45f,
-                center = Offset(cx, cy)
+            val auraSize = minOf(w, h) * 0.86f
+            drawRect(
+                color = SoulSeraphCyan.copy(alpha = if (isFutureTransformed) 0.24f else 0.14f),
+                topLeft = Offset(cx - auraSize * 0.5f, cy - auraSize * 0.5f),
+                size = SizeCompat(auraSize, auraSize),
+                style = Stroke(2.5f)
             )
         }
 
@@ -125,13 +127,12 @@ fun LokaPortraitCanvas(
                 drawRect(Color(0xFF140E0A), Offset(cx - u * 0.7f, cy + u * 1.3f), SizeCompat(u * 1.4f, u * 1.4f))
             }
             PortraitExpression.ANGRY -> {
-                drawLine(Color(0xFF140E0A), Offset(cx - u * 4.2f, cy - u * 2.5f), Offset(cx - u * 1.2f, cy - u * 1.7f), strokeWidth = u * 0.9f)
-                drawLine(Color(0xFF140E0A), Offset(cx + u * 4.2f, cy - u * 2.5f), Offset(cx + u * 1.2f, cy - u * 1.7f), strokeWidth = u * 0.9f)
+                drawRect(Color(0xFF140E0A), Offset(cx - u * 4.2f, cy - u * 2.5f), SizeCompat(u * 2.8f, u * 0.85f))
+                drawRect(Color(0xFF140E0A), Offset(cx + u * 1.4f, cy - u * 2.5f), SizeCompat(u * 2.8f, u * 0.85f))
                 drawRect(Color(0xFFEF4444), Offset(cx + u * 2.5f, cy - u * 0.9f), SizeCompat(u * 0.95f, u * 0.95f))
             }
             PortraitExpression.DETERMINED -> {
-                drawCircle(Color(0xFF38BDF8).copy(alpha = 0.55f), radius = u * 2.1f, center = Offset(cx + u * 3.0f, cy - u * 0.8f))
-                drawPixelSaveStar(Offset(cx + u * 3.0f, cy - u * 0.8f), u * 1.25f, Color(0xFF38BDF8))
+                drawPixelSaveStar(Offset(cx + u * 3.0f, cy - u * 0.8f), u * 1.5f, Color(0xFF38BDF8))
             }
             PortraitExpression.NEUTRAL -> Unit
         }
@@ -166,6 +167,91 @@ fun LokaFullBodySpriteCanvas(
 }
 
 /**
+ * Deltarune-style Combat Stance Canvas for Loka (standing on left side of the battle stage facing right).
+ */
+@Composable
+fun LokaBattleStanceCanvas(
+    modifier: Modifier = Modifier,
+    isGlitched: Boolean = false,
+    isDefending: Boolean = false,
+    isSlashing: Boolean = false,
+    weaponAccent: Color = SepiaGold,
+    expression: PortraitExpression = PortraitExpression.DETERMINED
+) {
+    val transition = rememberInfiniteTransition(label = "lokaDeltaruneStance")
+    val idleBob by transition.animateFloat(
+        initialValue = -2f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(720, easing = LinearEasing), RepeatMode.Reverse),
+        label = "idleBob"
+    )
+    Canvas(modifier = modifier) {
+        val lungeX = if (isSlashing) size.width * 0.14f else 0f
+        val cx = size.width * 0.46f + lungeX
+        val cy = size.height * 0.52f + idleBob
+        val targetSize = minOf(size.width, size.height) * 0.86f
+
+        // Stepped pixel shadow beneath Loka's boots
+        drawSteppedPixelShadow(
+            center = Offset(cx, cy + targetSize * 0.44f),
+            widthPx = targetSize * 0.72f,
+            heightPx = targetSize * 0.14f,
+            color = Color(0x88000000)
+        )
+
+        val palette = mapOf(
+            'O' to Color(0xFF0A080C),
+            'H' to Color(0xFF7C2614),
+            'h' to Color(0xFFB8452A),
+            'd' to Color(0xFF4E170C),
+            'S' to Color(0xFFEBC7A8),
+            's' to Color(0xFFD2A37E),
+            'r' to Color(0xFFE89A8A),
+            'W' to Color.White,
+            'G' to Color(0xFF6B7D85),
+            'C' to (if (isGlitched) Color.White else if (expression == PortraitExpression.DETERMINED) Color(0xFF7DD3FC) else Color(0xFF38BDF8)),
+            'l' to Color(0xFF9CA3AF),
+            'T' to Color(0xFF747982),
+            't' to Color(0xFF52565E),
+            'Y' to SepiaGold,
+            'y' to Color(0xFFB45309),
+            'P' to Color(0xFFD6C29F),
+            'p' to Color(0xFFB09B76),
+            'B' to Color(0xFF3A271B),
+            'b' to Color(0xFF5C3E2A)
+        )
+
+        drawPixelMatrix(
+            rows = PixelSprites.lokaBattleStanceGrid,
+            palette = palette,
+            center = Offset(cx, cy),
+            targetSizePx = targetSize
+        )
+
+        // Pixel sword/stick blade gleam held toward enemy
+        val px = targetSize / 26f
+        val armX = cx + targetSize * 0.25f
+        val armY = cy + targetSize * 0.04f
+        if (isDefending) {
+            // Deltarune Cyan/Gold Guard Pixel Shield Barrier
+            drawRect(Color(0xFF0A0A10), Offset(armX + px, cy - targetSize * 0.34f), SizeCompat(px * 4.5f, targetSize * 0.68f))
+            drawRect(SoulSeraphCyan, Offset(armX + px * 1.5f, cy - targetSize * 0.30f), SizeCompat(px * 3.2f, targetSize * 0.60f), style = Stroke(3f))
+            drawPixelSaveStar(Offset(armX + px * 3.1f, cy), px * 1.4f, SoulSeraphCyan, Color.White)
+        } else {
+            val bladeLen = if (isSlashing) targetSize * 0.42f else targetSize * 0.28f
+            val bladeY = if (isSlashing) armY - px * 2f else armY - px * 4f
+            // Stepped diagonal pixel weapon blade
+            for (s in 0..4) {
+                val bx = armX + s * (bladeLen / 5f)
+                val by = bladeY - s * (px * 1.1f)
+                drawRect(Color(0xFF0A0A0D), Offset(bx - 1f, by - 1f), SizeCompat(px * 2.1f, px * 2.1f))
+                drawRect(weaponAccent, Offset(bx, by), SizeCompat(px * 1.6f, px * 1.6f))
+            }
+        }
+    }
+}
+
+/**
  * Crisp top-down Undertale-style Overworld Pixel Sprite for Frisk-bodied Loka.
  */
 fun DrawScope.drawLokaOverworldSprite(
@@ -173,11 +259,10 @@ fun DrawScope.drawLokaOverworldSprite(
     unit: Float,
     isGlitched: Boolean
 ) {
-    // Pixel floor shadow
-    drawOval(
-        color = Color.Black.copy(alpha = 0.45f),
-        topLeft = Offset(center.x - unit * 1.02f, center.y + unit * 1.08f),
-        size = SizeCompat(unit * 2.04f, unit * 0.62f)
+    drawSteppedPixelShadow(
+        center = Offset(center.x, center.y + unit * 1.38f),
+        widthPx = unit * 2.04f,
+        heightPx = unit * 0.56f
     )
 
     val palette = mapOf(
@@ -221,6 +306,7 @@ fun BossSpriteCanvas(
     isHitFlash: Boolean,
     isSpareReady: Boolean,
     expression: PortraitExpression = PortraitExpression.NEUTRAL,
+    monochromeBattle: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val transition = rememberInfiniteTransition(label = "bossPixelSprite")
@@ -240,13 +326,20 @@ fun BossSpriteCanvas(
     Canvas(modifier = modifier) {
         val cx = size.width * 0.5f + (if (isHitFlash || expression == PortraitExpression.SURPRISED) jitter * 7f else 0f)
         val cy = size.height * 0.5f + stepBob
-        val targetPx = minOf(size.width, size.height) * 0.92f
+        val targetPx = minOf(size.width, size.height) * 0.90f
+
+        drawSteppedPixelShadow(
+            center = Offset(cx, cy + targetPx * 0.44f),
+            widthPx = targetPx * 0.80f,
+            heightPx = targetPx * 0.14f,
+            color = Color(0x88000000)
+        )
 
         if (isSpareReady || expression == PortraitExpression.HAPPY) {
             drawPixelSaveStar(Offset(cx - targetPx * 0.42f, cy - targetPx * 0.36f), targetPx * 0.08f, Color(0xFFFACC15))
             drawPixelSaveStar(Offset(cx + targetPx * 0.42f, cy - targetPx * 0.36f), targetPx * 0.08f, Color(0xFFFACC15))
         } else if (expression == PortraitExpression.ANGRY) {
-            drawCircle(Color.Red.copy(alpha = 0.16f), radius = targetPx * 0.48f, center = Offset(cx, cy))
+            drawRect(Color.Red.copy(alpha = 0.25f), Offset(cx - targetPx * 0.48f, cy - targetPx * 0.48f), SizeCompat(targetPx * 0.96f, targetPx * 0.96f), style = Stroke(2f))
         }
 
         drawUndertaleBossPixelSprite(
@@ -254,7 +347,8 @@ fun BossSpriteCanvas(
             center = Offset(cx, cy),
             sizePx = targetPx,
             isHitFlash = isHitFlash,
-            isSpareReady = isSpareReady
+            isSpareReady = isSpareReady,
+            monochromeBattle = monochromeBattle
         )
     }
 }
@@ -269,32 +363,31 @@ fun DrawScope.drawSoulEmblem(
     splitHalfIndex: Int? = null
 ) {
     if (hasGreenShield) {
-        drawCircle(
-            color = SoulType.GREEN.color.copy(alpha = 0.24f),
-            radius = sizePx * 1.85f,
-            center = center
-        )
-        drawCircle(
-            color = SoulType.GREEN.secondaryColor ?: SoulType.GREEN.color,
-            radius = sizePx * 1.85f,
-            center = center,
-            style = Stroke(width = 2.8f)
-        )
+        val sr = sizePx * 1.85f
+        val st = (sr * 0.14f).coerceAtLeast(2.5f)
+        val shieldCol = SoulType.GREEN.secondaryColor ?: SoulType.GREEN.color
+        drawSteppedPixelShadow(center = center, widthPx = sr * 2.0f, heightPx = sr * 2.0f, color = SoulType.GREEN.color.copy(alpha = 0.20f))
+        // Crisp 1-pixel stepped octagon frame
+        drawRect(shieldCol, Offset(center.x - sr * 0.65f, center.y - sr), SizeCompat(sr * 1.30f, st))
+        drawRect(shieldCol, Offset(center.x - sr * 0.65f, center.y + sr - st), SizeCompat(sr * 1.30f, st))
+        drawRect(shieldCol, Offset(center.x - sr, center.y - sr * 0.65f), SizeCompat(st, sr * 1.30f))
+        drawRect(shieldCol, Offset(center.x + sr - st, center.y - sr * 0.65f), SizeCompat(st, sr * 1.30f))
+        drawRect(shieldCol, Offset(center.x - sr * 0.85f, center.y - sr * 0.85f), SizeCompat(sr * 0.25f, sr * 0.25f))
+        drawRect(shieldCol, Offset(center.x + sr * 0.60f, center.y - sr * 0.85f), SizeCompat(sr * 0.25f, sr * 0.25f))
+        drawRect(shieldCol, Offset(center.x - sr * 0.85f, center.y + sr * 0.60f), SizeCompat(sr * 0.25f, sr * 0.25f))
+        drawRect(shieldCol, Offset(center.x + sr * 0.60f, center.y + sr * 0.60f), SizeCompat(sr * 0.25f, sr * 0.25f))
     }
 
-    // Olive Soul visibly larger hitbox ring (matching drawing 5)
+    // Olive Soul visibly larger hitbox stepped pixel frame
     if (soul == SoulType.GREEN) {
-        drawCircle(
-            color = (soul.secondaryColor ?: soul.color).copy(alpha = 0.18f),
-            radius = sizePx * soul.hitboxScale * 1.15f,
-            center = center
-        )
-        drawCircle(
-            color = (soul.secondaryColor ?: soul.color).copy(alpha = 0.65f),
-            radius = sizePx * soul.hitboxScale * 1.15f,
-            center = center,
-            style = Stroke(width = 2f)
-        )
+        val hr = sizePx * soul.hitboxScale * 1.15f
+        val ht = 2.5f
+        val oliveCol = (soul.secondaryColor ?: soul.color).copy(alpha = 0.72f)
+        drawRect((soul.secondaryColor ?: soul.color).copy(alpha = 0.16f), Offset(center.x - hr, center.y - hr), SizeCompat(hr * 2f, hr * 2f))
+        drawRect(oliveCol, Offset(center.x - hr, center.y - hr), SizeCompat(hr * 2f, ht))
+        drawRect(oliveCol, Offset(center.x - hr, center.y + hr - ht), SizeCompat(hr * 2f, ht))
+        drawRect(oliveCol, Offset(center.x - hr, center.y - hr), SizeCompat(ht, hr * 2f))
+        drawRect(oliveCol, Offset(center.x + hr - ht, center.y - hr), SizeCompat(ht, hr * 2f))
     }
 
     val alpha = if (isInvulnerable) blinkAlpha else 1f
@@ -305,7 +398,12 @@ fun DrawScope.drawSoulEmblem(
     }
 
     if (soul == SoulType.SPLIT_DUO) {
-        drawCircle(color = Color.White.copy(alpha = 0.18f * alpha), radius = sizePx * 1.35f, center = center)
+        drawSteppedPixelShadow(
+            center = center,
+            widthPx = sizePx * 2.6f,
+            heightPx = sizePx * 2.2f,
+            color = Color.White.copy(alpha = 0.16f * alpha)
+        )
         drawSplitPixelHeart(
             center = center,
             sizePx = sizePx,
@@ -372,11 +470,12 @@ fun AshenFlowerCanvas(
         val cy = h * 0.5f
         val spriteSize = minOf(w, h) * 0.90f
 
-        // Ground soil shadow beneath Ashen's roots
-        drawOval(
-            color = Color(0xFF1A1A20),
-            topLeft = Offset(w * 0.22f, h * 0.77f),
-            size = SizeCompat(w * 0.56f, h * 0.16f)
+        // Stepped pixel soil shadow beneath Ashen's roots
+        drawSteppedPixelShadow(
+            center = Offset(w * 0.5f, h * 0.85f),
+            widthPx = w * 0.56f,
+            heightPx = h * 0.14f,
+            color = Color(0xFF1A1A20)
         )
 
         val palette = mapOf(
@@ -402,8 +501,8 @@ fun AshenFlowerCanvas(
                 drawRect(Color(0xFF09090B), Offset(cx - u * 1.8f, cy - u * 0.8f), SizeCompat(u * 3.6f, u * 0.85f))
             }
             PortraitExpression.SURPRISED -> {
-                drawCircle(Color.White, radius = u * 0.95f, center = Offset(cx - u * 2.0f, cy - u * 2.5f))
-                drawCircle(Color.White, radius = u * 0.95f, center = Offset(cx + u * 2.0f, cy - u * 2.5f))
+                drawRect(Color.White, Offset(cx - u * 2.8f, cy - u * 3.2f), SizeCompat(u * 1.6f, u * 1.8f))
+                drawRect(Color.White, Offset(cx + u * 1.2f, cy - u * 3.2f), SizeCompat(u * 1.6f, u * 1.8f))
             }
             else -> Unit
         }

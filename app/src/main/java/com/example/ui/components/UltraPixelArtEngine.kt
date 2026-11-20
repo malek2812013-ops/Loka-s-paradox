@@ -62,30 +62,17 @@ object UltraPixelArtEngine {
             }
         }
 
-        // Run EPX/Scale2x passes until resolution is >= 96px for silky pixel-art diagonals
-        var cw = w0
-        var ch = h0
-        while (max(cw, ch) < 96) {
-            val upscaled = scale2xEpx(pixels, cw, ch)
-            pixels = upscaled
-            cw *= 2
-            ch *= 2
-        }
-
-        // Aspect-preserving nearest fit into 128x128 (or 128x148 for tall sprites)
+        // Pure 100% Undertale authentic crisp nearest-neighbor pixel upscaling (zero corner rounding!)
         val targetW = SPRITE_RES
-        val targetH = if (ch > cw) ((SPRITE_RES * ch.toFloat() / cw.toFloat()).toInt().coerceIn(SPRITE_RES, 160)) else SPRITE_RES
+        val targetH = if (h0 > w0) ((SPRITE_RES * h0.toFloat() / w0.toFloat()).toInt().coerceIn(SPRITE_RES, 160)) else SPRITE_RES
         val hdPixels = IntArray(targetW * targetH)
         for (y in 0 until targetH) {
-            val sy = (y * ch) / targetH
+            val sy = (y * h0) / targetH
             for (x in 0 until targetW) {
-                val sx = (x * cw) / targetW
-                hdPixels[y * targetW + x] = pixels[sy * cw + sx]
+                val sx = (x * w0) / targetW
+                hdPixels[y * targetW + x] = pixels[sy * w0 + sx]
             }
         }
-
-        // Apply 128-resolution pixel-art rim-light, inner shadow & 2x2 Bayer micro-dithering
-        applyMicroPixelSurfaceShader(hdPixels, targetW, targetH)
 
         val bmp = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888)
         bmp.setPixels(hdPixels, 0, targetW, 0, 0, targetW, targetH)
@@ -94,91 +81,48 @@ object UltraPixelArtEngine {
         return img
     }
 
-    private fun scale2xEpx(src: IntArray, w: Int, h: Int): IntArray {
-        val nw = w * 2
-        val nh = h * 2
-        val dst = IntArray(nw * nh)
+    /**
+     * Generates a cached 256x144 Undertale/Deltarune crisp pixel void horizon backdrop for BattleScreen.
+     */
+    fun getDeltaruneBattleBgBitmap(): ImageBitmap {
+        val key = "deltarune_battle_bg_256x144"
+        sceneCache.get(key)?.let { return it }
+
+        val w = STAGE_W
+        val h = STAGE_H
+        val pixels = IntArray(w * h)
         for (y in 0 until h) {
             for (x in 0 until w) {
-                val p = src[y * w + x]
-                val a = if (y > 0) src[(y - 1) * w + x] else 0
-                val b = if (x + 1 < w) src[y * w + (x + 1)] else 0
-                val c = if (x > 0) src[y * w + (x - 1)] else 0
-                val d = if (y + 1 < h) src[(y + 1) * w + x] else 0
-
-                val p1 = if (c == a && c != d && a != b) a else p
-                val p2 = if (a == b && AEqCheck(a, c) && b != d) b else p
-                val p3 = if (d == c && d != b && c != a) c else p
-                val p4 = if (b == d && b != a && d != c) d else p
-
-                val ox = x * 2
-                val oy = y * 2
-                dst[oy * nw + ox] = p1
-                dst[oy * nw + ox + 1] = p2
-                dst[(oy + 1) * nw + ox] = p3
-                dst[(oy + 1) * nw + ox + 1] = p4
-            }
-        }
-        return dst
-    }
-
-    private fun AEqCheck(a: Int, c: Int): Boolean = a != c
-
-    private fun applyMicroPixelSurfaceShader(pixels: IntArray, w: Int, h: Int) {
-        val original = pixels.copyOf()
-        for (y in 1 until h - 1) {
-            for (x in 1 until w - 1) {
-                val argb = original[y * w + x]
-                if ((argb ushr 24) == 0) continue
-
-                val r = (argb ushr 16) and 0xFF
-                val g = (argb ushr 8) and 0xFF
-                val b = argb and 0xFF
-                val lum = (r * 30 + g * 59 + b * 11) / 100
-                // Preserve crisp dark outlines verbatim
-                if (lum < 34) continue
-
-                val left = original[y * w + (x - 1)]
-                val top = original[(y - 1) * w + x]
-                val right = original[y * w + (x + 1)]
-                val bottom = original[(y + 1) * w + x]
-
-                val leftIsDark = isOutlineOrEmpty(left)
-                val topIsDark = isOutlineOrEmpty(top)
-                val rightIsDark = isOutlineOrEmpty(right)
-                val bottomIsDark = isOutlineOrEmpty(bottom)
-
-                var delta = 0
-                if ((topIsDark || leftIsDark) && !(bottomIsDark || rightIsDark)) {
-                    delta += 18
-                } else if ((bottomIsDark || rightIsDark) && !(topIsDark || leftIsDark)) {
-                    delta -= 18
-                } else if (left == argb && right == argb && top == argb && bottom == argb) {
-                    // Subtle 2x2 Bayer sub-pixel dithering across flat interior color zones
-                    val bayer = ((x and 1) * 2) xor (y and 1)
-                    delta += when (bayer) {
-                        0 -> 5
-                        3 -> -5
-                        else -> 0
+                val isTile = (x % 16 == 0) || (y % 16 == 0)
+                val bayer = ((x and 1) shl 1) or (y and 1)
+                val argb = when {
+                    y < 18 -> if (bayer == 0 && (x + y) % 7 == 0) 0xFF1F0936.toInt() else 0xFF000000.toInt()
+                    y in 18..42 -> {
+                        val wave = ((x / 8) + y) % 5 == 0
+                        when {
+                            isTile -> 0xFF280B42.toInt()
+                            wave && bayer < 2 -> 0xFF1A072B.toInt()
+                            else -> 0xFF07020D.toInt()
+                        }
+                    }
+                    else -> {
+                        val gridStepX = x % 20 == 0
+                        val gridStepY = y % 14 == 0
+                        when {
+                            gridStepX || gridStepY -> 0xFF3E1263.toInt()
+                            bayer == 0 && (x / 20 + y / 14) % 2 == 0 -> 0xFF0E0418.toInt()
+                            else -> 0xFF030106.toInt()
+                        }
                     }
                 }
-
-                if (delta != 0) {
-                    val nr = (r + delta).coerceIn(0, 255)
-                    val ng = (g + delta).coerceIn(0, 255)
-                    val nb = (b + delta).coerceIn(0, 255)
-                    pixels[y * w + x] = (0xFF shl 24) or (nr shl 16) or (ng shl 8) or nb
-                }
+                pixels[y * w + x] = argb
             }
         }
-    }
-
-    private fun isOutlineOrEmpty(argb: Int): Boolean {
-        if ((argb ushr 24) == 0) return true
-        val r = (argb ushr 16) and 0xFF
-        val g = (argb ushr 8) and 0xFF
-        val b = argb and 0xFF
-        return (r * 30 + g * 59 + b * 11) / 100 < 42
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        bmp.setPixels(pixels, 0, w, 0, 0, w, h)
+        val img = bmp.asImageBitmap()
+        sceneCache.put(key, img)
+        return img
     }
 
     /**

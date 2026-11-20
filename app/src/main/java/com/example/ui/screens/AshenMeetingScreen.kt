@@ -57,6 +57,7 @@ import com.example.ui.components.AshenFlowerCanvas
 import com.example.ui.components.LokaFullBodySpriteCanvas
 import com.example.ui.components.UltraPixelArtEngine
 import com.example.ui.components.drawPixelSaveStar
+import com.example.ui.components.drawSteppedPixelShadow
 import com.example.ui.theme.ParchmentInk
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -236,12 +237,11 @@ fun AshenMeetingScreen(
                     contentAlignment = Alignment.BottomCenter
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        drawOval(
-                            brush = Brush.radialGradient(
-                                colors = listOf(Color(0x44D6C29F), Color.Transparent)
-                            ),
-                            topLeft = Offset(size.width * 0.14f, size.height * 0.78f),
-                            size = Size(size.width * 0.72f, size.height * 0.18f)
+                        drawSteppedPixelShadow(
+                            center = Offset(size.width * 0.5f, size.height * 0.87f),
+                            widthPx = size.width * 0.68f,
+                            heightPx = size.height * 0.16f,
+                            color = Color(0x36D6C29F)
                         )
                     }
                     LokaFullBodySpriteCanvas(
@@ -256,17 +256,17 @@ fun AshenMeetingScreen(
                     contentAlignment = Alignment.BottomCenter
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        drawOval(
-                            brush = Brush.radialGradient(
-                                colors = listOf(Color(0x55E4E4E7), Color(0x2252525B), Color.Transparent)
-                            ),
-                            topLeft = Offset(size.width * 0.08f, size.height * 0.70f),
-                            size = Size(size.width * 0.84f, size.height * 0.24f)
+                        drawSteppedPixelShadow(
+                            center = Offset(size.width * 0.5f, size.height * 0.82f),
+                            widthPx = size.width * 0.78f,
+                            heightPx = size.height * 0.22f,
+                            color = Color(0x38E4E4E7)
                         )
-                        drawOval(
-                            color = Color(0xFF27272E),
-                            topLeft = Offset(size.width * 0.28f, size.height * 0.77f),
-                            size = Size(size.width * 0.44f, size.height * 0.11f)
+                        drawSteppedPixelShadow(
+                            center = Offset(size.width * 0.5f, size.height * 0.82f),
+                            widthPx = size.width * 0.42f,
+                            heightPx = size.height * 0.10f,
+                            color = Color(0xFF27272E)
                         )
                     }
                     AshenFlowerCanvas(

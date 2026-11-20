@@ -69,10 +69,9 @@ import com.example.ui.components.drawDummyRoomProps
 import com.example.ui.components.drawLokaOverworldSprite
 import com.example.ui.components.drawPixelBrickSaveMonument
 import com.example.ui.components.drawSaveStar
+import com.example.ui.components.drawSteppedPixelShadow
 import com.example.ui.components.drawUndertaleBossPixelSprite
 import kotlin.math.roundToInt
-import com.example.ui.theme.EspressoCard
-import com.example.ui.theme.EspressoSurface
 import com.example.ui.theme.GlitchCyan
 import com.example.ui.theme.HpBarGreen
 import com.example.ui.theme.MercyYellow
@@ -242,8 +241,8 @@ fun RuinsTutorialScreen(
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(8.dp)
-                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(4.dp))
-                    .border(1.dp, Color(0xFFA855F7).copy(alpha = 0.55f), RoundedCornerShape(4.dp))
+                    .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(0.dp))
+                    .border(1.5.dp, Color(0xFFA855F7), RoundedCornerShape(0.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             )
 
@@ -255,8 +254,8 @@ fun RuinsTutorialScreen(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .padding(start = 6.dp)
-                        .background(Color(0xC809090D), RoundedCornerShape(4.dp))
-                        .border(1.dp, SepiaAmber.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(0.dp))
+                        .border(1.5.dp, SepiaAmber, RoundedCornerShape(0.dp))
                         .padding(horizontal = 6.dp, vertical = 3.dp)
                 )
             }
@@ -268,8 +267,8 @@ fun RuinsTutorialScreen(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .padding(end = 6.dp)
-                        .background(Color(0xC809090D), RoundedCornerShape(4.dp))
-                        .border(1.dp, SepiaAmber.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(0.dp))
+                        .border(1.5.dp, SepiaAmber, RoundedCornerShape(0.dp))
                         .padding(horizontal = 6.dp, vertical = 3.dp)
                 )
             }
@@ -318,8 +317,8 @@ fun RuinsTutorialScreen(
                         expression = lokaExpr,
                         modifier = Modifier
                             .size(48.dp)
-                            .background(EspressoCard, RoundedCornerShape(6.dp))
-                            .border(1.5.dp, SepiaAmber, RoundedCornerShape(6.dp))
+                            .background(Color.Black, RoundedCornerShape(0.dp))
+                            .border(2.dp, Color.White, RoundedCornerShape(0.dp))
                     )
                     Column {
                         Text(tr(lang, "LOKA", "لوكا"), style = MaterialTheme.typography.titleMedium, color = SepiaGold)
@@ -333,7 +332,8 @@ fun RuinsTutorialScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(
                         onClick = onToggleLanguage,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SepiaDarkBorder),
+                        shape = RoundedCornerShape(0.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, SepiaDarkBorder),
                         modifier = Modifier.testTag("ruins_language_button")
                     ) {
                         Text(lang.buttonLabel, style = MaterialTheme.typography.labelSmall, color = SepiaGold)
@@ -469,6 +469,7 @@ fun RuinsTutorialScreen(
                     exitMonologueStep in 1..3 -> {
                         Button(
                             onClick = { exitMonologueStep++ },
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = GlitchCyan, contentColor = ObsidianBg),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -482,6 +483,7 @@ fun RuinsTutorialScreen(
                     exitMonologueStep >= 4 -> {
                         Button(
                             onClick = onExitRuins,
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SepiaAmber, contentColor = ObsidianBg),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -495,6 +497,7 @@ fun RuinsTutorialScreen(
                     nearPillar && !state.ruinsLoreRead -> {
                         Button(
                             onClick = onInspectLore,
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC084FC), contentColor = ObsidianBg),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -508,6 +511,7 @@ fun RuinsTutorialScreen(
                     nearCandy && !state.ruinsCandyClaimed -> {
                         Button(
                             onClick = onClaimCandy,
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SepiaGold, contentColor = ObsidianBg),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -521,6 +525,7 @@ fun RuinsTutorialScreen(
                     nearSwitch && !state.ruinsSwitchActivated -> {
                         Button(
                             onClick = onActivateSwitch,
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SepiaGold, contentColor = ObsidianBg),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -538,6 +543,7 @@ fun RuinsTutorialScreen(
                                     dummyExplained = true
                                     onPracticeDummy()
                                 },
+                                shape = RoundedCornerShape(0.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC084FC), contentColor = ObsidianBg),
                                 modifier = Modifier
                                     .weight(1f)
@@ -549,7 +555,8 @@ fun RuinsTutorialScreen(
                             if (!dummyExplained) {
                                 OutlinedButton(
                                     onClick = { dummyExplained = true },
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, SepiaAmber),
+                                    shape = RoundedCornerShape(0.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.5.dp, SepiaAmber),
                                     modifier = Modifier.height(48.dp)
                                 ) {
                                     Text(tr(lang, "HOW TO?", "كيف؟"), style = MaterialTheme.typography.labelSmall, color = SepiaAmber)
@@ -561,6 +568,7 @@ fun RuinsTutorialScreen(
                     nearGate && state.ruinsSwitchActivated && (state.ruinsDummyPracticed || dummyExplained) -> {
                         Button(
                             onClick = { exitMonologueStep = 1 },
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = HpBarGreen, contentColor = ObsidianBg),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -577,7 +585,8 @@ fun RuinsTutorialScreen(
                                 onClick = {
                                     if (introDialogueStep < dialogueLines.lastIndex) introDialogueStep++
                                 },
-                                border = androidx.compose.foundation.BorderStroke(1.dp, SepiaDarkBorder),
+                                shape = RoundedCornerShape(0.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, SepiaDarkBorder),
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(48.dp)
@@ -597,7 +606,8 @@ fun RuinsTutorialScreen(
                             }
                             OutlinedButton(
                                 onClick = onToggleControls,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, SepiaDarkBorder),
+                                shape = RoundedCornerShape(0.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, SepiaDarkBorder),
                                 modifier = Modifier.height(48.dp)
                             ) {
                                 Text(if (lang == AppLanguage.AR) state.controlScheme.labelAr else state.controlScheme.label, style = MaterialTheme.typography.labelSmall, color = MutedSepiaInk)
@@ -660,15 +670,10 @@ private fun DrawScope.drawRuinsChamber(
         val fx = tx * size.width
         val fy = wallH * 0.52f
         val flicker = kotlin.math.sin(ambientClock * 9f + idx * 2.1f) * 2.dp.toPx()
-        drawCircle(
-            brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                colors = listOf(Color(0x55F59E0B), Color(0x18F97316), Color.Transparent),
-                center = Offset(fx, fy),
-                radius = 44.dp.toPx() + flicker
-            ),
-            radius = 44.dp.toPx() + flicker,
-            center = Offset(fx, fy)
-        )
+        // Stepped pixel torch glow blocks (authentic Undertale lighting)
+        val glowW = 36.dp.toPx() + flicker
+        drawRect(Color(0x16F97316), Offset(fx - glowW * 0.65f, fy - glowW * 0.45f), Size(glowW * 1.3f, glowW * 0.9f))
+        drawRect(Color(0x2CF59E0B), Offset(fx - glowW * 0.42f, fy - glowW * 0.30f), Size(glowW * 0.84f, glowW * 0.6f))
         drawRect(Color(0xFF475569), Offset(fx - 3.dp.toPx(), fy), Size(6.dp.toPx(), 12.dp.toPx()))
         drawRect(Color(0xFFEA580C), Offset(fx - 5.dp.toPx(), fy - 9.dp.toPx() - flicker * 0.4f), Size(10.dp.toPx(), 9.dp.toPx()))
         drawRect(Color(0xFFFACC15), Offset(fx - 3.dp.toPx(), fy - 7.dp.toPx() - flicker * 0.3f), Size(6.dp.toPx(), 6.dp.toPx()))
@@ -712,7 +717,7 @@ private fun DrawScope.drawRuinsChamber(
             // Ancient Lore Pillar Monument
             val pc = Offset(pillarPos.first * size.width, pillarPos.second * size.height)
             val runeGlow = if (loreRead) SepiaGold else GlitchCyan
-            drawCircle(color = runeGlow.copy(alpha = 0.22f), radius = 26.dp.toPx(), center = pc)
+            drawSteppedPixelShadow(Offset(pc.x, pc.y + 18.dp.toPx()), 42.dp.toPx(), 14.dp.toPx(), runeGlow.copy(alpha = 0.22f))
             drawRect(Color(0xFF421A54), Offset(pc.x - 16.dp.toPx(), pc.y - 24.dp.toPx()), Size(32.dp.toPx(), 44.dp.toPx()))
             drawRect(Color(0xFF6B2D84), Offset(pc.x - 13.dp.toPx(), pc.y - 21.dp.toPx()), Size(26.dp.toPx(), 38.dp.toPx()))
             drawRect(Color(0xFFA864BF), Offset(pc.x - 16.dp.toPx(), pc.y - 24.dp.toPx()), Size(32.dp.toPx(), 44.dp.toPx()), style = Stroke(2.5f))
@@ -752,7 +757,7 @@ private fun DrawScope.drawRuinsChamber(
 
             // Golden Ruins Brick & Moss Switch Pedestal
             val sc = Offset(switchPos.first * size.width, switchPos.second * size.height)
-            drawCircle(color = (if (switchActive) HpBarGreen else MercyYellow).copy(alpha = 0.24f), radius = 28.dp.toPx(), center = sc)
+            drawSteppedPixelShadow(Offset(sc.x, sc.y + 16.dp.toPx()), 44.dp.toPx(), 14.dp.toPx(), (if (switchActive) HpBarGreen else MercyYellow).copy(alpha = 0.24f))
             drawPixelBrickSaveMonument(
                 center = Offset(sc.x, sc.y + 4.dp.toPx()),
                 sizePx = 30.dp.toPx(),
@@ -770,7 +775,7 @@ private fun DrawScope.drawRuinsChamber(
             drawRect(Color(0xFFA864BF), Offset(cc.x - 14.dp.toPx(), cc.y - 6.dp.toPx()), Size(28.dp.toPx(), 18.dp.toPx()), style = Stroke(2f))
             if (!candyClaimed) {
                 val bob = kotlin.math.sin(ambientClock * 4f) * 2.5.dp.toPx()
-                drawCircle(color = SepiaGold.copy(alpha = 0.25f), radius = 18.dp.toPx(), center = Offset(cc.x, cc.y - 10.dp.toPx() + bob))
+                drawSteppedPixelShadow(Offset(cc.x, cc.y - 10.dp.toPx() + bob), 24.dp.toPx(), 18.dp.toPx(), SepiaGold.copy(alpha = 0.24f))
                 drawSaveStar(center = Offset(cc.x, cc.y - 10.dp.toPx() + bob), radius = 7.dp.toPx(), color = SepiaGold)
             }
         }
@@ -793,7 +798,7 @@ private fun DrawScope.drawRuinsChamber(
             // Crisp Pixel Cotton Dummy on wooden stand with shaded Sack & Crate props
             val dc = Offset(dummyPos.first * size.width, dummyPos.second * size.height)
             drawDummyRoomProps(dummyCenter = dc, unitPx = 11.dp.toPx())
-            drawCircle(color = (if (dummyPracticed) HpBarGreen else Color(0xFFC084FC)).copy(alpha = 0.22f), radius = 24.dp.toPx(), center = dc)
+            drawSteppedPixelShadow(Offset(dc.x, dc.y + 14.dp.toPx()), 40.dp.toPx(), 12.dp.toPx(), (if (dummyPracticed) HpBarGreen else Color(0xFFC084FC)).copy(alpha = 0.24f))
             drawUndertaleBossPixelSprite(
                 enemyId = com.example.model.EnemyId.RUINS_DUMMY,
                 center = dc,

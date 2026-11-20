@@ -99,9 +99,14 @@ data class BattleUiState(
     val bossExpression: PortraitExpression = PortraitExpression.NEUTRAL,
     val speakerExpression: PortraitExpression = PortraitExpression.DETERMINED,
 
-    // Fight timing bar (0f..1f)
-    val fightCursorPos: Float = 0f,
-    val fightCursorDir: Float = 1f,
+    // Fight timing bar (Deltarune right-to-left sweep toward target box at x = 0.16f)
+    val fightCursorPos: Float = 0.96f,
+    val fightCursorDir: Float = -1f,
+
+    // Deltarune TP (Tension Points 0..100) & Defend guard state
+    val tpPercent: Int = 0,
+    val isDefending: Boolean = false,
+    val tpGrazeCooldownSec: Float = 0f,
 
     // Bullet-hell entities
     val phaseTimerSec: Float = 0f,
@@ -241,8 +246,9 @@ class BattleViewModel : ViewModel() {
             it.copy(
                 phase = BattlePhase.FIGHT_MINIGAME,
                 subTab = MenuSubTab.ROOT,
-                fightCursorPos = 0.05f,
-                fightCursorDir = 1f,
+                fightCursorPos = 0.96f,
+                fightCursorDir = -1f,
+                isDefending = false,
                 lastStrikeDamage = null
             )
         }
@@ -251,22 +257,27 @@ class BattleViewModel : ViewModel() {
     fun commitFightStrike() {
         _state.update { s ->
             if (s.phase != BattlePhase.FIGHT_MINIGAME) return@update s
-            val accuracy = 1f - abs(s.fightCursorPos - 0.5f) * 2f
-            val baseCrit = if (EnemyId.VEX in s.activeAllies) 0.78f else 0.86f
-            val critThreshold = (baseCrit - s.equippedWeapon.critWindowBonus).coerceAtLeast(0.62f)
-            val isCrit = accuracy >= critThreshold
+            val targetX = 0.16f
+            val dist = abs(s.fightCursorPos - targetX)
+            val accuracy = (1f - (dist / 0.56f)).coerceIn(0.05f, 1f)
+            val critWindow = 0.048f + (s.equippedWeapon.critWindowBonus * 0.40f) +
+                (if (EnemyId.VEX in s.activeAllies) 0.015f else 0f)
+            val isCrit = dist <= critWindow
 
-            val rawDamage = 13 + (accuracy * 17).toInt() + s.attackBonus
-            val weaponMultDamage = (rawDamage * s.equippedWeapon.strikeMultiplier * (if (isCrit) 1.25f else 1f)).toInt()
+            val rawDamage = 13 + (accuracy * 18).toInt() + s.attackBonus
+            val weaponMultDamage = (rawDamage * s.equippedWeapon.strikeMultiplier * (if (isCrit) 1.35f else 1f)).toInt()
             val scaledDamage = (weaponMultDamage * s.activeSoul.damageMultiplier).toInt().coerceAtLeast(1)
             val finalDamage = s.activeSoul.flatDamageCap ?: scaledDamage
             val newHp = (s.enemyHp - finalDamage).coerceAtLeast(0)
+            val tpGain = if (isCrit) 18 else 10
+            val nextTp = (s.tpPercent + tpGain).coerceAtMost(100)
             RetroSoundEngine.playStrike(isCrit && s.activeSoul != SoulType.WHITE_SICK && s.activeSoul != SoulType.PURPLE)
             hitFlashTimer = 0.36f
 
             if (newHp <= 0) {
                 s.copy(
                     enemyHp = 0,
+                    tpPercent = nextTp,
                     lastStrikeDamage = finalDamage,
                     lastStrikeCritical = isCrit,
                     slashFxTimerSec = 0.55f,
@@ -280,13 +291,14 @@ class BattleViewModel : ViewModel() {
             } else {
                 val quip = s.enemy.attackQuips[(s.turnNumber - 1) % s.enemy.attackQuips.size]
                 val msg = when {
-                    s.activeSoul == SoulType.WHITE_SICK -> "Sick White Soul hit for ONLY 1 DMG!  $quip"
-                    s.activeSoul == SoulType.PURPLE -> "Purple Soul swift light strike ($finalDamage DMG)!  $quip"
-                    isCrit -> "${s.equippedWeapon.name} CRITICAL HIT ($finalDamage DMG)!  $quip"
-                    else -> "${s.equippedWeapon.name} hit for $finalDamage DMG!  $quip"
+                    s.activeSoul == SoulType.WHITE_SICK -> "Sick White Soul hit for ONLY 1 DMG! (+$tpGain% TP)  $quip"
+                    s.activeSoul == SoulType.PURPLE -> "Purple Soul swift strike ($finalDamage DMG, +$tpGain% TP)!  $quip"
+                    isCrit -> "${s.equippedWeapon.name} CRITICAL HIT! ($finalDamage DMG · +$tpGain% TP)  $quip"
+                    else -> "${s.equippedWeapon.name} hit for $finalDamage DMG! (+$tpGain% TP)  $quip"
                 }
                 s.copy(
                     enemyHp = newHp,
+                    tpPercent = nextTp,
                     lastStrikeDamage = finalDamage,
                     lastStrikeCritical = isCrit,
                     slashFxTimerSec = 0.48f,
@@ -297,6 +309,82 @@ class BattleViewModel : ViewModel() {
                     dialogueText = msg
                 )
             }
+        }
+    }
+
+    fun performDefend() {
+        _state.update { s ->
+            if (s.phase != BattlePhase.PLAYER_MENU) return@update s
+            val gainedTp = 16
+            val nextTp = (s.tpPercent + gainedTp).coerceAtMost(100)
+            RetroSoundEngine.playSoulSwitch(3)
+            s.copy(
+                tpPercent = nextTp,
+                isDefending = true,
+                subTab = MenuSubTab.ROOT,
+                speakerExpression = PortraitExpression.DETERMINED,
+                phase = BattlePhase.ENEMY_DIALOGUE,
+                dialogueText = "Loka guards firmly! +$gainedTp% TP gained and incoming attack DMG halved!"
+            )
+        }
+    }
+
+    fun performTpXSlash() {
+        _state.update { s ->
+            if (s.phase != BattlePhase.PLAYER_MENU || s.tpPercent < 50) return@update s
+            val nextTp = (s.tpPercent - 50).coerceAtLeast(0)
+            val baseDmg = ((28 + s.attackBonus * 2) * s.equippedWeapon.strikeMultiplier * s.activeSoul.damageMultiplier).toInt().coerceAtLeast(2)
+            val finalDamage = s.activeSoul.flatDamageCap ?: baseDmg
+            val newHp = (s.enemyHp - finalDamage).coerceAtLeast(0)
+            RetroSoundEngine.playStrike(true)
+            hitFlashTimer = 0.42f
+            if (newHp <= 0) {
+                s.copy(
+                    enemyHp = 0,
+                    tpPercent = nextTp,
+                    lastStrikeDamage = finalDamage,
+                    lastStrikeCritical = true,
+                    slashFxTimerSec = 0.62f,
+                    isEnemyHitFlash = true,
+                    bossExpression = PortraitExpression.SURPRISED,
+                    speakerExpression = PortraitExpression.DETERMINED,
+                    phase = BattlePhase.VICTORY,
+                    battleWonSpared = false,
+                    dialogueText = s.enemy.defeatLine
+                )
+            } else {
+                s.copy(
+                    enemyHp = newHp,
+                    tpPercent = nextTp,
+                    lastStrikeDamage = finalDamage,
+                    lastStrikeCritical = true,
+                    slashFxTimerSec = 0.56f,
+                    isEnemyHitFlash = true,
+                    subTab = MenuSubTab.ROOT,
+                    bossExpression = PortraitExpression.ANGRY,
+                    speakerExpression = PortraitExpression.DETERMINED,
+                    phase = BattlePhase.ENEMY_DIALOGUE,
+                    dialogueText = "X-SLASH (50% TP)! Unleashed $finalDamage twin-arc DMG! ${s.enemy.attackQuips[(s.turnNumber - 1) % s.enemy.attackQuips.size]}"
+                )
+            }
+        }
+    }
+
+    fun performTpMercyPulse() {
+        _state.update { s ->
+            if (s.phase != BattlePhase.PLAYER_MENU || s.tpPercent < 40 || !s.enemy.canBefriend) return@update s
+            val nextTp = (s.tpPercent - 40).coerceAtLeast(0)
+            val newMercy = (s.mercyProgress + 45).coerceAtMost(100)
+            RetroSoundEngine.playSpareChime()
+            s.copy(
+                tpPercent = nextTp,
+                mercyProgress = newMercy,
+                subTab = MenuSubTab.ROOT,
+                bossExpression = if (newMercy >= 100) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
+                speakerExpression = PortraitExpression.HAPPY,
+                phase = BattlePhase.ENEMY_DIALOGUE,
+                dialogueText = "HEART PULSE (40% TP)! Golden warmth reaches ${s.enemy.name}! (+45% Mercy)"
+            )
         }
     }
 
@@ -671,16 +759,14 @@ class BattleViewModel : ViewModel() {
             val nextSlash = (s.slashFxTimerSec - dt).coerceAtLeast(0f)
             when (s.phase) {
                 BattlePhase.FIGHT_MINIGAME -> {
-                    var nextPos = s.fightCursorPos + s.fightCursorDir * dt * 1.35f * s.equippedWeapon.cursorSpeedMultiplier
-                    var nextDir = s.fightCursorDir
-                    if (nextPos >= 1f) {
-                        nextPos = 1f; nextDir = -1f
-                    } else if (nextPos <= 0f) {
-                        nextPos = 0f; nextDir = 1f
+                    // Deltarune Fight Bar sweeps Right -> Left toward target box at x = 0.16f
+                    var nextPos = s.fightCursorPos - dt * 0.92f * s.equippedWeapon.cursorSpeedMultiplier
+                    if (nextPos <= 0.02f) {
+                        nextPos = 0.96f
                     }
                     s.copy(
                         fightCursorPos = nextPos,
-                        fightCursorDir = nextDir,
+                        fightCursorDir = -1f,
                         isEnemyHitFlash = flashState,
                         slashFxTimerSec = nextSlash
                     )
@@ -717,6 +803,8 @@ class BattleViewModel : ViewModel() {
                 playerHp = finalHp,
                 hasGreenShield = finalShield,
                 mercyProgress = finalMercy,
+                tpPercent = (s.tpPercent + 10).coerceAtMost(100),
+                isDefending = false,
                 ashenHelpingThisTurn = canAshenJoin,
                 bullets = emptyList(),
                 lasers = emptyList(),
@@ -735,9 +823,9 @@ class BattleViewModel : ViewModel() {
                 dialogueText = when {
                     canAshenJoin && s.enemy.canBefriend -> "* Ashen joined the fight to help! +5 HP, Shield raised & +12% Mercy!"
                     canAshenJoin -> "* Ashen helps! +5 HP & Shield raised! (${s.enemy.name} won't accept Mercy—FIGHT or FLEE!)"
-                    !s.enemy.canBefriend -> "Turn $nextTurn — Hostile monster! Cannot be befriended. FIGHT or FLEE!"
-                    finalMercy >= 100 -> "${s.enemy.name} is ready to be your friend! Open ACT to SPARE."
-                    else -> "Turn $nextTurn — Choose FIGHT, ACT, ITEM, or call an ALLY."
+                    !s.enemy.canBefriend -> "Turn $nextTurn — Hostile monster! FIGHT, DEFEND (+TP), or FLEE!"
+                    finalMercy >= 100 -> "${s.enemy.name} is SPARE-ready! Press MERCY to befriend!"
+                    else -> "Turn $nextTurn — FIGHT, ACT, ITEM, MERCY, or DEFEND for TP!"
                 }
             )
         }
@@ -928,8 +1016,10 @@ class BattleViewModel : ViewModel() {
         val hitRadius = 0.032f * s.activeSoul.hitboxScale * splitScale
 
         val totalDefense = s.defenseBonus + s.activeSoul.defenseBonus
-        val rawIncoming = (s.enemy.attackPower - totalDefense).coerceAtLeast(1)
-        val actualIncoming = rawIncoming * s.activeSoul.incomingDamageMultiplier
+        val rawIncoming = (s.enemy.attackPower - totalDefense).coerceAtLeast(1) * s.activeSoul.incomingDamageMultiplier
+        val actualIncoming = if (s.isDefending) ((rawIncoming + 1) / 2).coerceAtLeast(1) else rawIncoming
+        var tpNow = s.tpPercent
+        var grazeCd = (s.tpGrazeCooldownSec - dt).coerceAtLeast(0f)
 
         fun applyDamageAt(hitX: Float, hitY: Float, hitOnControlledHalf: Boolean) {
             if (shield) {
@@ -991,13 +1081,19 @@ class BattleViewModel : ViewModel() {
 
             val distMain = hypot(nx - sx, ny - sy)
             val distSecond = if (s.isSplitActive) hypot(nx - s.secondHalfX, ny - s.secondHalfY) else 99f
-            val hitMain = !mirageActive && distMain < (hitRadius + b.radiusNorm * 0.72f)
-            val hitSecond = !mirageActive && s.isSplitActive && distSecond < (hitRadius + b.radiusNorm * 0.72f)
+            val hitThresh = hitRadius + b.radiusNorm * 0.72f
+            val hitMain = !mirageActive && distMain < hitThresh
+            val hitSecond = !mirageActive && s.isSplitActive && distSecond < hitThresh
 
             if ((hitMain || hitSecond) && invuln <= 0f) {
                 val blocked = shield
                 applyDamageAt(if (hitMain) sx else s.secondHalfX, if (hitMain) sy else s.secondHalfY, hitMain)
                 if (blocked) continue
+            } else if (grazeCd <= 0f && (distMain < hitThresh * 2.35f || distSecond < hitThresh * 2.35f)) {
+                // Deltarune Graze -> +TP tension sparks!
+                tpNow = (tpNow + 2).coerceAtMost(100)
+                grazeCd = 0.14f
+                extraParticles += ArenaParticle(sx, sy, 0f, -0.15f, 0.22f, 0.22f, Color.White, 4f)
             }
 
             nextBullets += b.copy(x = nx, y = ny, vx = nvx, vy = nvy, bouncesLeft = bounces, ageSec = b.ageSec + dt)
@@ -1088,6 +1184,8 @@ class BattleViewModel : ViewModel() {
             soulX = sx,
             soulY = sy,
             playerHp = hp,
+            tpPercent = tpNow,
+            tpGrazeCooldownSec = grazeCd,
             invulnTimerSec = invuln,
             hasGreenShield = shield,
             greenOrbitAngle = (s.greenOrbitAngle + dt * 210f) % 360f,

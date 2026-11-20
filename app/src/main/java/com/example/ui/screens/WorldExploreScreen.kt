@@ -96,10 +96,10 @@ import com.example.ui.components.drawOverworldNpcSprite
 import com.example.ui.components.drawPixelBrickSaveMonument
 import com.example.ui.components.drawPixelChest
 import com.example.ui.components.drawPixelSaveStar
+import com.example.ui.components.drawSteppedPixelShadow
 import com.example.ui.components.drawUndertaleBossPixelSprite
 import com.example.ui.components.drawZoneDoorway
 import com.example.ui.theme.DangerRed
-import com.example.ui.theme.EspressoSurface
 import com.example.ui.theme.GlitchCyan
 import com.example.ui.theme.GlitchMagenta
 import com.example.ui.theme.HpBarGreen
@@ -288,10 +288,11 @@ fun WorldExploreScreen(
                         if (!state.teleportControlMastered) {
                             val (rx, ry) = state.paradoxRiftPos
                             val rc = Offset(rx * size.width, ry * size.height)
-                            val pulseR = 14.dp.toPx() + sin(ambientClock * 4f) * 3.dp.toPx()
-                            drawCircle(color = GlitchMagenta.copy(alpha = 0.28f), radius = pulseR + 5.dp.toPx(), center = rc)
-                            drawCircle(color = GlitchCyan, radius = 11.dp.toPx(), center = rc, style = Stroke(2.4f))
-                            drawCircle(color = Color.Black, radius = 5.5.dp.toPx(), center = rc)
+                            val pulse = 13.dp.toPx() + sin(ambientClock * 4f) * 2.5.dp.toPx()
+                            drawSteppedPixelShadow(rc, pulse * 2.4f, pulse * 2.0f, GlitchMagenta.copy(alpha = 0.28f))
+                            drawRect(GlitchCyan, Offset(rc.x - 10.dp.toPx(), rc.y - 10.dp.toPx()), Size(20.dp.toPx(), 20.dp.toPx()), style = Stroke(2.4f))
+                            drawRect(Color.Black, Offset(rc.x - 6.dp.toPx(), rc.y - 6.dp.toPx()), Size(12.dp.toPx(), 12.dp.toPx()))
+                            drawRect(Color.White, Offset(rc.x - 2.dp.toPx(), rc.y - 2.dp.toPx()), Size(4.dp.toPx(), 4.dp.toPx()))
                         }
 
                         // Ashen Save Point in Central Plaza framed by brick-and-moss sanctuary plinth & pixel stars
@@ -376,10 +377,11 @@ fun WorldExploreScreen(
                         val bobY = sin(ambientClock * 2.4f + boss.yNorm * 7f) * 2.dp.toPx()
                         val c = Offset(boss.xNorm * size.width, boss.yNorm * size.height + bobY)
                         val isFriend = boss.id in state.friendAllies
-                        drawCircle(
-                            color = (if (isFriend) HpBarGreen else boss.accentColor).copy(alpha = 0.28f),
-                            radius = 20.dp.toPx(),
-                            center = c
+                        drawSteppedPixelShadow(
+                            center = Offset(c.x, c.y + 13.dp.toPx()),
+                            widthPx = 36.dp.toPx(),
+                            heightPx = 10.dp.toPx(),
+                            color = (if (isFriend) HpBarGreen else boss.accentColor).copy(alpha = 0.30f)
                         )
                         drawUndertaleBossPixelSprite(
                             enemyId = boss.id,
@@ -407,27 +409,30 @@ fun WorldExploreScreen(
                         )
                     }
                 } else {
-                    // Glitched Void: disappearing ghosts + Echo-Loka (locked until journey ends!)
+                    // Glitched Void: disappearing pixel ghosts + Echo-Loka (locked until journey ends!)
                     state.glitchGhosts.forEach { ghost ->
                         val gc = Offset(ghost.xNorm * size.width, ghost.yNorm * size.height)
                         val alpha = (ghost.ttlSec / 1.5f).coerceIn(0.15f, 0.85f)
-                        drawCircle(color = Color.White.copy(alpha = alpha * 0.6f), radius = 8.dp.toPx(), center = Offset(gc.x, gc.y - 10.dp.toPx()))
-                        drawRect(color = GlitchCyan.copy(alpha = alpha * 0.5f), topLeft = Offset(gc.x - 7.dp.toPx(), gc.y - 2.dp.toPx()), size = Size(14.dp.toPx(), 16.dp.toPx()))
+                        drawRect(Color.White.copy(alpha = alpha * 0.65f), Offset(gc.x - 7.dp.toPx(), gc.y - 16.dp.toPx()), Size(14.dp.toPx(), 12.dp.toPx()))
+                        drawRect(Color.Black, Offset(gc.x - 4.dp.toPx(), gc.y - 12.dp.toPx()), Size(3.dp.toPx(), 4.dp.toPx()))
+                        drawRect(Color.Black, Offset(gc.x + 1.dp.toPx(), gc.y - 12.dp.toPx()), Size(3.dp.toPx(), 4.dp.toPx()))
+                        drawRect(color = GlitchCyan.copy(alpha = alpha * 0.5f), topLeft = Offset(gc.x - 7.dp.toPx(), gc.y - 3.dp.toPx()), size = Size(14.dp.toPx(), 15.dp.toPx()))
                     }
 
                     val (ex, ey) = state.echoLokaPos
                     val ec = Offset(ex * size.width, ey * size.height)
                     val echoUnlocked = state.isJourneyCompleteForEcho
-                    drawCircle(
-                        color = (if (echoUnlocked) GlitchMagenta else DangerRed).copy(alpha = 0.28f),
-                        radius = 22.dp.toPx(),
-                        center = ec
+                    drawSteppedPixelShadow(
+                        center = Offset(ec.x, ec.y + 14.dp.toPx()),
+                        widthPx = 42.dp.toPx(),
+                        heightPx = 12.dp.toPx(),
+                        color = (if (echoUnlocked) GlitchMagenta else DangerRed).copy(alpha = 0.30f)
                     )
                     if (!echoUnlocked) {
-                        drawCircle(
-                            color = DangerRed.copy(alpha = 0.72f),
-                            radius = 24.dp.toPx(),
-                            center = ec,
+                        drawRect(
+                            color = DangerRed.copy(alpha = 0.80f),
+                            topLeft = Offset(ec.x - 21.dp.toPx(), ec.y - 21.dp.toPx()),
+                            size = Size(42.dp.toPx(), 42.dp.toPx()),
                             style = Stroke(2.2f)
                         )
                     }
@@ -463,8 +468,8 @@ fun WorldExploreScreen(
                         .align(Alignment.TopCenter)
                         .padding(10.dp)
                         .fillMaxWidth(0.92f)
-                        .background(Color(0xD90E0C12), RoundedCornerShape(6.dp))
-                        .border(1.5.dp, GlitchCyan.copy(alpha = 0.75f), RoundedCornerShape(6.dp))
+                        .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(0.dp))
+                        .border(2.dp, GlitchCyan, RoundedCornerShape(0.dp))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
@@ -484,8 +489,8 @@ fun WorldExploreScreen(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(8.dp)
-                        .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(6.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                        .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(0.dp))
+                        .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -531,11 +536,11 @@ fun WorldExploreScreen(
                                 start = 4.dp,
                                 end = if (door.edge == null) 14.dp else 4.dp
                             )
-                            .background(Color(0xC809090D), RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(0.dp))
                             .border(
-                                1.dp,
-                                if (door.edge == null) GlitchCyan else SepiaAmber.copy(alpha = 0.8f),
-                                RoundedCornerShape(4.dp)
+                                1.5.dp,
+                                if (door.edge == null) GlitchCyan else SepiaAmber,
+                                RoundedCornerShape(0.dp)
                             )
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
@@ -927,7 +932,8 @@ fun WorldExploreScreen(
         val kName = if (lang == AppLanguage.AR) kid.nameAr else kid.name
         AlertDialog(
             onDismissRequest = { activeKidDialog = null },
-            containerColor = EspressoSurface,
+            shape = RoundedCornerShape(0.dp),
+            containerColor = Color.Black,
             title = { Text(kName, style = MaterialTheme.typography.titleMedium, color = kid.accentColor) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -963,6 +969,7 @@ fun WorldExploreScreen(
                                 onKillKid(kid.id)
                                 activeKidDialog = null
                             },
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = DangerRed, contentColor = ParchmentInk),
                             modifier = Modifier.testTag("kid_kill_button")
                         ) {
@@ -973,6 +980,7 @@ fun WorldExploreScreen(
                                 onHelpKid(kid.id)
                                 activeKidDialog = null
                             },
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = HpBarGreen, contentColor = ObsidianBg),
                             modifier = Modifier.testTag("kid_help_button")
                         ) {
@@ -982,7 +990,7 @@ fun WorldExploreScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { activeKidDialog = null }) {
+                TextButton(onClick = { activeKidDialog = null }, shape = RoundedCornerShape(0.dp)) {
                     Text(tr(lang, "CLOSE", "إغلاق"), color = ParchmentInk)
                 }
             }
@@ -994,7 +1002,8 @@ fun WorldExploreScreen(
         val alreadyDone = lm.id in state.completedLandmarkIds
         AlertDialog(
             onDismissRequest = { activeLandmarkDialog = null },
-            containerColor = EspressoSurface,
+            shape = RoundedCornerShape(0.dp),
+            containerColor = Color.Black,
             title = {
                 Text(
                     text = "${if (lm.isSecret) "[SECRET] " else ""}${lm.name}",
@@ -1036,7 +1045,8 @@ fun WorldExploreScreen(
         val claimed = npc.id in state.claimedNpcEvents
         AlertDialog(
             onDismissRequest = { activeNpcDialog = null },
-            containerColor = EspressoSurface,
+            shape = RoundedCornerShape(0.dp),
+            containerColor = Color.Black,
             title = { Text("${npc.name} · ${npc.race}", style = MaterialTheme.typography.titleMedium, color = npc.accentColor) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1051,6 +1061,7 @@ fun WorldExploreScreen(
                             onClaimNpcEvent(npc.id)
                             activeNpcDialog = null
                         },
+                        shape = RoundedCornerShape(0.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = SepiaAmber, contentColor = ObsidianBg)
                     ) {
                         Text(tr(lang, "ACCEPT GIFT", "اقبل الهدية"), style = MaterialTheme.typography.labelLarge)
@@ -1058,7 +1069,7 @@ fun WorldExploreScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { activeNpcDialog = null }) {
+                TextButton(onClick = { activeNpcDialog = null }, shape = RoundedCornerShape(0.dp)) {
                     Text(tr(lang, "CLOSE", "إغلاق"), color = ParchmentInk)
                 }
             }
@@ -1069,7 +1080,8 @@ fun WorldExploreScreen(
     if (showBagDialog) {
         AlertDialog(
             onDismissRequest = { showBagDialog = false },
-            containerColor = EspressoSurface,
+            shape = RoundedCornerShape(0.dp),
+            containerColor = Color.Black,
             title = { Text(tr(lang, "LOKA'S BAG & STATUS", "حقيبة وحالة لوكا"), style = MaterialTheme.typography.titleMedium, color = SepiaGold) },
             text = {
                 Column(
@@ -1103,6 +1115,7 @@ fun WorldExploreScreen(
                             FilterChip(
                                 selected = weapon.id == state.equippedWeaponId,
                                 onClick = { onEquipWeapon(weapon.id) },
+                                shape = RoundedCornerShape(0.dp),
                                 label = { Text(if (lang == AppLanguage.AR) weapon.nameAr else weapon.name, style = MaterialTheme.typography.labelSmall) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = weapon.accentColor.copy(alpha = 0.24f),
@@ -1122,6 +1135,7 @@ fun WorldExploreScreen(
                             FilterChip(
                                 selected = armor.id == state.equippedArmorId,
                                 onClick = { onEquipArmor(armor.id) },
+                                shape = RoundedCornerShape(0.dp),
                                 label = { Text(armor.name, style = MaterialTheme.typography.labelSmall) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = SepiaAmber.copy(alpha = 0.22f),
@@ -1132,7 +1146,7 @@ fun WorldExploreScreen(
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onToggleControls) {
+                        OutlinedButton(onClick = onToggleControls, shape = RoundedCornerShape(0.dp)) {
                             Text(
                                 text = if (lang == AppLanguage.AR) state.controlScheme.labelAr else state.controlScheme.label,
                                 style = MaterialTheme.typography.labelSmall,
@@ -1142,7 +1156,7 @@ fun WorldExploreScreen(
                         OutlinedButton(onClick = {
                             showBagDialog = false
                             onWatchStoryIntro()
-                        }) {
+                        }, shape = RoundedCornerShape(0.dp)) {
                             Text(tr(lang, "Replay Story", "إعادة القصة"), style = MaterialTheme.typography.labelSmall, color = SepiaAmber)
                         }
                         OutlinedButton(
@@ -1150,6 +1164,7 @@ fun WorldExploreScreen(
                                 showBagDialog = false
                                 confirmResetDialog = true
                             },
+                            shape = RoundedCornerShape(0.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, DangerRed),
                             modifier = Modifier.testTag("bag_reset_save_button")
                         ) {
@@ -1159,7 +1174,7 @@ fun WorldExploreScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showBagDialog = false }) {
+                TextButton(onClick = { showBagDialog = false }, shape = RoundedCornerShape(0.dp)) {
                     Text(tr(lang, "CLOSE", "إغلاق"), color = SepiaAmber)
                 }
             }
@@ -1169,7 +1184,8 @@ fun WorldExploreScreen(
     if (confirmResetDialog) {
         AlertDialog(
             onDismissRequest = { confirmResetDialog = false },
-            containerColor = EspressoSurface,
+            shape = RoundedCornerShape(0.dp),
+            containerColor = Color.Black,
             title = { Text(tr(lang, "START A NEW TIMELINE?", "بدء خط زمني جديد؟"), style = MaterialTheme.typography.titleMedium, color = DangerRed) },
             text = {
                 Text(
@@ -1346,11 +1362,16 @@ private fun DrawScope.drawScenicPond(
     waterHighlight: Color,
     ambientClock: Float
 ) {
-    drawOval(Color(0xFF1F2937), Offset(center.x - radiusPx * 1.15f, center.y - radiusPx * 0.72f), Size(radiusPx * 2.3f, radiusPx * 1.44f))
-    drawOval(waterDark, Offset(center.x - radiusPx, center.y - radiusPx * 0.60f), Size(radiusPx * 2.0f, radiusPx * 1.20f))
+    // Stepped pixel lake basin (Undertale Waterfall / Ruins tile aesthetic)
+    val rx = radiusPx * 1.1f
+    val ry = radiusPx * 0.65f
+    drawRect(Color(0xFF1F2937), Offset(center.x - rx * 0.85f, center.y - ry * 1.05f), Size(rx * 1.70f, ry * 2.10f))
+    drawRect(Color(0xFF1F2937), Offset(center.x - rx * 1.10f, center.y - ry * 0.68f), Size(rx * 2.20f, ry * 1.36f))
+    drawRect(waterDark, Offset(center.x - rx * 0.72f, center.y - ry * 0.86f), Size(rx * 1.44f, ry * 1.72f))
+    drawRect(waterDark, Offset(center.x - rx * 0.96f, center.y - ry * 0.52f), Size(rx * 1.92f, ry * 1.04f))
     val shimmer = sin(ambientClock * 3.5f) * 3f
-    drawRect(waterHighlight.copy(alpha = 0.72f), Offset(center.x - radiusPx * 0.5f + shimmer, center.y - radiusPx * 0.16f), Size(radiusPx * 0.65f, 2.5.dp.toPx()))
-    drawRect(Color.White.copy(alpha = 0.6f), Offset(center.x + radiusPx * 0.1f - shimmer, center.y + radiusPx * 0.14f), Size(radiusPx * 0.35f, 2.dp.toPx()))
+    drawRect(waterHighlight.copy(alpha = 0.76f), Offset(center.x - radiusPx * 0.5f + shimmer, center.y - radiusPx * 0.16f), Size(radiusPx * 0.65f, 2.5.dp.toPx()))
+    drawRect(Color.White.copy(alpha = 0.65f), Offset(center.x + radiusPx * 0.1f - shimmer, center.y + radiusPx * 0.14f), Size(radiusPx * 0.35f, 2.dp.toPx()))
 }
 
 private fun DrawScope.drawPixelLantern(
@@ -1359,7 +1380,8 @@ private fun DrawScope.drawPixelLantern(
     ambientClock: Float
 ) {
     val pulse = 0.85f + 0.15f * sin(ambientClock * 5f + center.x * 0.02f)
-    drawCircle(glowColor.copy(alpha = 0.22f * pulse), radius = 14.dp.toPx(), center = Offset(center.x, center.y - 6.dp.toPx()))
+    drawRect(glowColor.copy(alpha = 0.16f * pulse), Offset(center.x - 11.dp.toPx(), center.y - 16.dp.toPx()), Size(22.dp.toPx(), 18.dp.toPx()))
+    drawRect(glowColor.copy(alpha = 0.24f * pulse), Offset(center.x - 7.dp.toPx(), center.y - 13.dp.toPx()), Size(14.dp.toPx(), 12.dp.toPx()))
     drawRect(Color(0xFF1E293B), Offset(center.x - 1.8.dp.toPx(), center.y - 8.dp.toPx()), Size(3.6.dp.toPx(), 12.dp.toPx()))
     drawRect(glowColor, Offset(center.x - 3.dp.toPx(), center.y - 10.dp.toPx()), Size(6.dp.toPx(), 5.dp.toPx()))
     drawRect(Color.White.copy(alpha = 0.8f), Offset(center.x - 1.5.dp.toPx(), center.y - 8.5.dp.toPx()), Size(3.dp.toPx(), 2.5.dp.toPx()))
@@ -1372,7 +1394,7 @@ private fun DrawScope.drawPixelTree(
     trunkColor: Color
 ) {
     val u = 5.2.dp.toPx()
-    drawOval(Color.Black.copy(alpha = 0.36f), Offset(center.x - u * 1.9f, center.y + u * 1.0f), Size(u * 3.8f, u * 0.9f))
+    drawSteppedPixelShadow(Offset(center.x, center.y + u * 1.45f), u * 3.8f, u * 0.9f, Color.Black.copy(alpha = 0.38f))
     drawRect(trunkColor, Offset(center.x - u * 0.55f, center.y - u * 0.1f), Size(u * 1.1f, u * 1.55f))
     drawRect(Color.Black.copy(alpha = 0.25f), Offset(center.x + u * 0.15f, center.y - u * 0.1f), Size(u * 0.4f, u * 1.55f))
     drawRect(Color(0xFF140E0A), Offset(center.x - u * 2.0f, center.y - u * 1.75f), Size(u * 4.0f, u * 2.25f))

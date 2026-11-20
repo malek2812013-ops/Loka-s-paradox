@@ -53,10 +53,9 @@ import com.example.model.tr
 import com.example.ui.components.BossSpriteCanvas
 import com.example.ui.components.LokaPortraitCanvas
 import com.example.ui.components.drawPixelSaveStar
+import com.example.ui.components.drawSteppedPixelShadow
 import com.example.ui.components.drawWingPair
 import com.example.ui.theme.DangerRed
-import com.example.ui.theme.EspressoCard
-import com.example.ui.theme.EspressoSurface
 import com.example.ui.theme.GlitchCyan
 import com.example.ui.theme.GlitchMagenta
 import com.example.ui.theme.HpBarGreen
@@ -116,7 +115,7 @@ fun RouteFinaleScreen(
     Row(
         modifier = Modifier
             .fillMaxSize()
-            .background(ObsidianBg)
+            .background(Color.Black)
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -126,8 +125,8 @@ fun RouteFinaleScreen(
             modifier = Modifier
                 .weight(0.95f)
                 .fillMaxHeight()
-                .background(EspressoSurface, RoundedCornerShape(10.dp))
-                .border(2.dp, route.badgeColor, RoundedCornerShape(10.dp))
+                .background(Color.Black, RoundedCornerShape(0.dp))
+                .border(3.dp, route.badgeColor, RoundedCornerShape(0.dp))
         ) {
             RouteCutsceneCanvas(
                 route = route,
@@ -147,7 +146,8 @@ fun RouteFinaleScreen(
                 ) {
                     OutlinedButton(
                         onClick = onToggleLanguage,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SepiaDarkBorder)
+                        shape = RoundedCornerShape(0.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White)
                     ) {
                         Text(lang.buttonLabel, style = MaterialTheme.typography.labelSmall, color = ParchmentInk)
                     }
@@ -190,8 +190,8 @@ fun RouteFinaleScreen(
             modifier = Modifier
                 .weight(1.15f)
                 .fillMaxHeight()
-                .background(EspressoCard, RoundedCornerShape(8.dp))
-                .border(1.5.dp, SepiaDarkBorder, RoundedCornerShape(8.dp))
+                .background(Color.Black, RoundedCornerShape(0.dp))
+                .border(3.dp, Color.White, RoundedCornerShape(0.dp))
                 .padding(14.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.SpaceBetween
@@ -220,6 +220,7 @@ fun RouteFinaleScreen(
                             )
                             Button(
                                 onClick = onFightFutureLoka,
+                                shape = RoundedCornerShape(0.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = DangerRed, contentColor = ParchmentInk),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -252,6 +253,7 @@ fun RouteFinaleScreen(
                             )
                             Button(
                                 onClick = onChoosePeaceSacrifice,
+                                shape = RoundedCornerShape(0.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = SepiaAmber, contentColor = ObsidianBg),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -284,6 +286,7 @@ fun RouteFinaleScreen(
                             )
                             Button(
                                 onClick = onAcceptPerfectPower,
+                                shape = RoundedCornerShape(0.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = SoulSeraphCyan, contentColor = ObsidianBg),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -310,6 +313,7 @@ fun RouteFinaleScreen(
                         )
                         Button(
                             onClick = { onRestartWorldFromTapes(RouteType.PERFECT) },
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = SoulSeraphCyan, contentColor = ObsidianBg),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -319,6 +323,7 @@ fun RouteFinaleScreen(
                         }
                         Button(
                             onClick = { onRestartWorldFromTapes(RouteType.NO_MERCY) },
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = DangerRed, contentColor = ParchmentInk),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -332,7 +337,8 @@ fun RouteFinaleScreen(
 
             OutlinedButton(
                 onClick = onReturnToWorlds,
-                border = androidx.compose.foundation.BorderStroke(1.dp, SepiaDarkBorder),
+                shape = RoundedCornerShape(0.dp),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(tr(lang, "RETURN TO WORLDS", "العودة إلى العوالم"), style = MaterialTheme.typography.labelLarge, color = ParchmentInk)
@@ -386,7 +392,7 @@ private fun RouteCutsceneCanvas(
 
         when (route) {
             RouteType.NO_MERCY -> {
-                // Falling crimson ash & jagged paradox cracks
+                // Falling crimson ash & stepped pixel paradox crack
                 for (i in 0 until 14) {
                     val ax = ((i * 0.17f + phase * 0.25f) % 1f) * w
                     val ay = ((i * 0.23f + phase) % 1f) * h
@@ -396,7 +402,13 @@ private fun RouteCutsceneCanvas(
                         size = Size(5.dp.toPx(), 5.dp.toPx())
                     )
                 }
-                drawLine(DangerRed.copy(alpha = 0.30f), Offset(0f, cy - 40f), Offset(w, cy + 40f), strokeWidth = 3f)
+                for (step in 0..8) {
+                    drawRect(
+                        color = DangerRed.copy(alpha = 0.28f),
+                        topLeft = Offset(w * step / 9f, cy - 36f + step * 9f),
+                        size = Size(w / 9f + 2f, 4.dp.toPx())
+                    )
+                }
             }
 
             RouteType.MOST_EXPECTED -> {
@@ -411,8 +423,9 @@ private fun RouteCutsceneCanvas(
             }
 
             RouteType.PERFECT -> {
-                // Glowing cyan/gold wings & ascending halo rings
-                drawCircle(SoulSeraphCyan.copy(alpha = 0.14f), radius = minOf(w, h) * 0.36f, center = Offset(cx, cy))
+                // Glowing cyan/gold wings & stepped pixel aura
+                val auraW = minOf(w, h) * 0.70f
+                drawSteppedPixelShadow(Offset(cx, cy), auraW, auraW * 0.80f, SoulSeraphCyan.copy(alpha = 0.14f))
                 drawWingPair(
                     center = Offset(cx, cy),
                     spanPx = minOf(w, h) * 0.78f,
