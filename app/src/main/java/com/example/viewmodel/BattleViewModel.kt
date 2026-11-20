@@ -120,7 +120,7 @@ data class BattleUiState(
     // Inventory
     val items: List<BattleItem> = emptyList()
 ) {
-    val canSpare: Boolean get() = mercyProgress >= 100
+    val canSpare: Boolean get() = enemy.canBefriend && mercyProgress >= 100
     val effectiveDefenseBonus: Int get() = defenseBonus + activeSoul.defenseBonus
     val activeSplitBoosted: Boolean
         get() = isSplitActive && ((controlledHalfIndex == 0 && splitBoostTimer0Sec > 0f) ||
@@ -303,13 +303,21 @@ class BattleViewModel : ViewModel() {
     fun performAct(optionId: String) {
         _state.update { s ->
             val act = s.enemy.actOptions.firstOrNull { it.id == optionId } ?: return@update s
-            val newMercy = (s.mercyProgress + act.mercyGain).coerceAtMost(100)
+            val newMercy = if (s.enemy.canBefriend) {
+                (s.mercyProgress + act.mercyGain).coerceAtMost(100)
+            } else {
+                0
+            }
             RetroSoundEngine.playSoulSwitch(2)
             s.copy(
                 mercyProgress = newMercy,
                 subTab = MenuSubTab.ROOT,
-                bossExpression = if (newMercy >= 100) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
-                speakerExpression = PortraitExpression.HAPPY,
+                bossExpression = when {
+                    !s.enemy.canBefriend -> PortraitExpression.ANGRY
+                    newMercy >= 100 -> PortraitExpression.HAPPY
+                    else -> PortraitExpression.SURPRISED
+                },
+                speakerExpression = if (s.enemy.canBefriend) PortraitExpression.HAPPY else PortraitExpression.DETERMINED,
                 phase = BattlePhase.ENEMY_DIALOGUE,
                 dialogueText = act.response
             )
@@ -318,6 +326,13 @@ class BattleViewModel : ViewModel() {
 
     fun performSpare() {
         _state.update { s ->
+            if (!s.enemy.canBefriend) {
+                return@update s.copy(
+                    bossExpression = PortraitExpression.ANGRY,
+                    speakerExpression = PortraitExpression.SURPRISED,
+                    dialogueText = "${s.enemy.name} refuses friendship! Hostile monsters cannot be spared — FIGHT or FLEE!"
+                )
+            }
             if (!s.canSpare) {
                 return@update s.copy(
                     bossExpression = PortraitExpression.ANGRY,
@@ -383,15 +398,27 @@ class BattleViewModel : ViewModel() {
                     )
                 }
                 else -> {
-                    val bonusMercy = (s.mercyProgress + 25).coerceAtMost(100)
-                    s.copy(
-                        mercyProgress = bonusMercy,
-                        subTab = MenuSubTab.ROOT,
-                        bossExpression = if (bonusMercy >= 100) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
-                        speakerExpression = PortraitExpression.HAPPY,
-                        phase = BattlePhase.ENEMY_DIALOGUE,
-                        dialogueText = "${ally.name} speaks up for Loka! Enemy Mercy +25%!"
-                    )
+                    if (s.enemy.canBefriend) {
+                        val bonusMercy = (s.mercyProgress + 25).coerceAtMost(100)
+                        s.copy(
+                            mercyProgress = bonusMercy,
+                            subTab = MenuSubTab.ROOT,
+                            bossExpression = if (bonusMercy >= 100) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
+                            speakerExpression = PortraitExpression.HAPPY,
+                            phase = BattlePhase.ENEMY_DIALOGUE,
+                            dialogueText = "${ally.name} speaks up for Loka! Enemy Mercy +25%!"
+                        )
+                    } else {
+                        val healed = (s.playerHp + 4).coerceAtMost(s.maxPlayerHp)
+                        s.copy(
+                            playerHp = healed,
+                            subTab = MenuSubTab.ROOT,
+                            bossExpression = PortraitExpression.ANGRY,
+                            speakerExpression = PortraitExpression.DETERMINED,
+                            phase = BattlePhase.ENEMY_DIALOGUE,
+                            dialogueText = "${ally.name} guards Loka (+${healed - s.playerHp} HP)! ${s.enemy.name} refuses mercy!"
+                        )
+                    }
                 }
             }
         }
@@ -423,6 +450,8 @@ class BattleViewModel : ViewModel() {
                 phaseTimerSec = 0f,
                 phaseDurationSec = when (s.enemy.id) {
                     EnemyId.RUINS_DUMMY -> 4.6f
+                    EnemyId.NORMAL_SLIME, EnemyId.SAND_MOTH, EnemyId.HALO_SCRIBE -> 4.8f
+                    EnemyId.FERAL_HOUND, EnemyId.IRON_STALKER, EnemyId.ASH_IMP -> 5.4f
                     EnemyId.VEX, EnemyId.BRAMBLE -> 6.2f
                     EnemyId.VESPERA, EnemyId.ORIN -> 6.8f
                     EnemyId.SERAPHIEL, EnemyId.MALAKOR -> 7.4f
@@ -677,7 +706,7 @@ class BattleViewModel : ViewModel() {
                 (baseHp <= (s.maxPlayerHp * 0.45f).toInt() || Random.nextFloat() < 0.35f)
             val finalHp = if (canAshenJoin) (baseHp + 5).coerceAtMost(s.maxPlayerHp) else baseHp
             val finalShield = s.hasGreenShield || canAshenJoin
-            val finalMercy = if (canAshenJoin) (s.mercyProgress + 12).coerceAtMost(100) else s.mercyProgress
+            val finalMercy = if (canAshenJoin && s.enemy.canBefriend) (s.mercyProgress + 12).coerceAtMost(100) else s.mercyProgress
             if (canAshenJoin) {
                 RetroSoundEngine.playAbility()
             }
@@ -704,7 +733,9 @@ class BattleViewModel : ViewModel() {
                 splitBoostTimer1Sec = 0f,
                 isEnemyHitFlash = false,
                 dialogueText = when {
-                    canAshenJoin -> "* Ashen joined the fight to help! +5 HP, Shield raised & +12% Mercy!"
+                    canAshenJoin && s.enemy.canBefriend -> "* Ashen joined the fight to help! +5 HP, Shield raised & +12% Mercy!"
+                    canAshenJoin -> "* Ashen helps! +5 HP & Shield raised! (${s.enemy.name} won't accept Mercy—FIGHT or FLEE!)"
+                    !s.enemy.canBefriend -> "Turn $nextTurn — Hostile monster! Cannot be befriended. FIGHT or FLEE!"
                     finalMercy >= 100 -> "${s.enemy.name} is ready to be your friend! Open ACT to SPARE."
                     else -> "Turn $nextTurn — Choose FIGHT, ACT, ITEM, or call an ALLY."
                 }
@@ -743,6 +774,8 @@ class BattleViewModel : ViewModel() {
 
         val spawnInterval = when (s.enemy.id) {
             EnemyId.RUINS_DUMMY -> 0.85f
+            EnemyId.NORMAL_SLIME, EnemyId.SAND_MOTH, EnemyId.HALO_SCRIBE -> 0.72f
+            EnemyId.FERAL_HOUND, EnemyId.IRON_STALKER, EnemyId.ASH_IMP -> 0.62f
             EnemyId.VEX, EnemyId.BRAMBLE -> 0.60f
             EnemyId.VESPERA, EnemyId.ORIN -> 0.54f
             EnemyId.SERAPHIEL, EnemyId.MALAKOR -> 0.52f
@@ -1247,6 +1280,77 @@ class BattleViewModel : ViewModel() {
                 else -> {
                     val angle = Random.nextFloat() * 2f * PI.toFloat()
                     outBullets += Bullet(nextEntityId++, if (Random.nextBoolean()) 0.08f else 0.92f, 0.12f, cos(angle) * 0.46f, abs(sin(angle)) * 0.46f + 0.12f, kind = BulletKind.BOUNCER, color = SoulInfernalViolet, bouncesLeft = 2)
+                }
+            }
+
+            EnemyId.NORMAL_SLIME -> when (pattern) {
+                0, 1 -> {
+                    outBullets += Bullet(nextEntityId++, 0.16f + Random.nextFloat() * 0.68f, -0.04f, (Random.nextFloat() - 0.5f) * 0.25f, 0.34f, kind = BulletKind.BOUNCER, color = Color(0xFF4ADE80), bouncesLeft = 1)
+                }
+                else -> {
+                    outArrows += ArrowTelegraph(nextEntityId++, 0.20f, 0.22f, 0.65f, 0.65f, color = Color(0xFF86EFAC))
+                }
+            }
+
+            EnemyId.FERAL_HOUND -> when (pattern) {
+                0 -> {
+                    outJaws += MonsterJawAttack(nextEntityId++, soulX.coerceIn(0.22f, 0.78f), soulY.coerceIn(0.24f, 0.76f), -0.15f, color = Color(0xFFEF4444))
+                }
+                1 -> {
+                    outSideWarnings += SideWallShotWarning(nextEntityId++, Random.nextBoolean(), soulY.coerceIn(0.20f, 0.80f), color = Color(0xFFEF4444))
+                }
+                else -> {
+                    outLanes += LaneTelegraph(nextEntityId++, soulX.coerceIn(0.16f, 0.84f), isUpward = false, color = Color(0xFFEF4444))
+                }
+            }
+
+            EnemyId.SAND_MOTH -> when (pattern) {
+                0, 1 -> {
+                    val py = 0.25f + Random.nextFloat() * 0.50f
+                    outBullets += Bullet(nextEntityId++, -0.04f, py, 0.40f, 0.08f, color = SoulSeraphCyan)
+                    outBullets += Bullet(nextEntityId++, 1.04f, 1f - py, -0.40f, -0.08f, color = Color(0xFFFACC15))
+                }
+                else -> {
+                    outArrows += ArrowTelegraph(nextEntityId++, 0.78f, 0.18f, -0.7f, 0.7f, color = SoulSeraphCyan)
+                }
+            }
+
+            EnemyId.IRON_STALKER -> when (pattern) {
+                0 -> {
+                    outLasers += LaserBeam(nextEntityId++, Random.nextBoolean(), soulY.coerceIn(0.20f, 0.80f), color = Color(0xFFF97316))
+                }
+                1 -> {
+                    outBombs += ArenaBomb(nextEntityId++, 0.5f, 0.16f, (soulX - 0.5f) * 0.75f, (soulY - 0.16f) * 0.75f, color = Color(0xFFF97316))
+                }
+                else -> {
+                    outSideWarnings += SideWallShotWarning(nextEntityId++, false, 0.34f, color = Color(0xFFF97316))
+                    outSideWarnings += SideWallShotWarning(nextEntityId++, true, 0.66f, color = Color(0xFFF97316))
+                }
+            }
+
+            EnemyId.HALO_SCRIBE -> when (pattern) {
+                0, 1 -> {
+                    val baseAng = phaseTime * 1.5f
+                    for (i in 0..3) {
+                        val a = baseAng + i * (PI.toFloat() / 2f)
+                        outBullets += Bullet(nextEntityId++, 0.5f + cos(a) * 0.44f, 0.5f + sin(a) * 0.44f, -cos(a) * 0.30f, -sin(a) * 0.30f, color = Color(0xFFF472B6))
+                    }
+                }
+                else -> {
+                    outArrows += ArrowTelegraph(nextEntityId++, 0.22f, 0.80f, 0.65f, -0.65f, color = Color(0xFFFACC15))
+                }
+            }
+
+            EnemyId.ASH_IMP -> when (pattern) {
+                0 -> {
+                    outBombs += ArenaBomb(nextEntityId++, Random.nextFloat() * 0.5f + 0.25f, 0.18f, (soulX - 0.5f) * 0.7f, 0.35f, fuseSec = 0.95f, color = SoulParadoxCrimson)
+                }
+                1 -> {
+                    outJaws += MonsterJawAttack(nextEntityId++, soulX.coerceIn(0.22f, 0.78f), soulY.coerceIn(0.22f, 0.78f), 0.15f, color = SoulParadoxCrimson)
+                }
+                else -> {
+                    val ang = Random.nextFloat() * PI.toFloat()
+                    outBullets += Bullet(nextEntityId++, 0.5f, 0.10f, cos(ang) * 0.44f, sin(ang) * 0.44f + 0.14f, kind = BulletKind.BOUNCER, color = Color(0xFFF59E0B), bouncesLeft = 2)
                 }
             }
 

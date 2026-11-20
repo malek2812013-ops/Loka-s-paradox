@@ -34,6 +34,17 @@ data class GlitchGhost(
     val ttlSec: Float
 )
 
+data class RoamingMonster(
+    val uid: String,
+    val enemyId: EnemyId,
+    val worldId: WorldId,
+    val xNorm: Float,
+    val yNorm: Float,
+    val homeX: Float,
+    val homeY: Float,
+    val isChasing: Boolean = false
+)
+
 data class AppUiState(
     val language: AppLanguage = AppLanguage.EN,
     val currentScreen: AppScreen = AppScreen.LORE_INTRO,
@@ -60,6 +71,8 @@ data class AppUiState(
     val activeGlitchMemory: GlitchedMemory = WorldContentCatalog.glitchedMemories.first(),
     val glitchMemoryCycleSec: Float = 0f,
     val echoLokaPos: Pair<Float, Float> = 0.50f to 0.28f,
+    val roamingMonsters: List<RoamingMonster> = emptyList(),
+    val roamGraceTimerSec: Float = 2.5f,
     val worldBannerMessage: String? = null,
 
     // Progression, Friends/Allies, Lost Kids (Escorted until Normal World vs Rescued vs Killed), Quests, Armors & Inventory
@@ -114,6 +127,18 @@ data class AppUiState(
 
     val saveMysteryDiscovered: Boolean
         get() = secretTapesFound > 0 || teleportControlMastered
+
+    val totalStandardBosses: Int
+        get() = EnemyRoster.standardPlayableRoster().size
+
+    val resolvedBossCount: Int
+        get() {
+            val standardIds = EnemyRoster.standardPlayableRoster().map { it.id }.toSet()
+            return standardIds.count { it in friendAllies || it in defeatedEnemies }
+        }
+
+    val isJourneyCompleteForEcho: Boolean
+        get() = resolvedBossCount >= totalStandardBosses || teleportControlMastered || unlockedRoutes.isNotEmpty()
 
     val eligibleRoute: RouteType?
         get() {
@@ -175,7 +200,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 worldDestroyedEnding = snap.worldDestroyedEnding,
                 peaceSacrificeEnding = snap.peaceSacrificeEnding,
                 saveCounter = snap.saveCounter,
+                roamingMonsters = roamingForWorld(snap.activeWorld),
+                roamGraceTimerSec = 2.5f,
                 hasSavedFile = true
+            )
+        }
+    }
+
+    private fun roamingForWorld(worldId: WorldId): List<RoamingMonster> {
+        return EnemyRoster.normalMonstersForWorld(worldId).map { enemy ->
+            RoamingMonster(
+                uid = "${worldId.name}_${enemy.id.name}",
+                enemyId = enemy.id,
+                worldId = worldId,
+                xNorm = enemy.xNorm,
+                yNorm = enemy.yNorm,
+                homeX = enemy.xNorm,
+                homeY = enemy.yNorm
             )
         }
     }
@@ -288,6 +329,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 randomWarpCountdownSec = 45f,
                 glitchedCountdownSec = 10f,
                 glitchGhosts = emptyList(),
+                roamingMonsters = roamingForWorld(randomFirstWorld),
+                roamGraceTimerSec = 2.6f,
                 worldBannerMessage = if (state.language == AppLanguage.AR) {
                     "انتقال مفاجئ! سحبتك المفارقة عشوائياً إلى ${randomFirstWorld.title}"
                 } else {
@@ -365,6 +408,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         randomWarpCountdownSec = 45f,
                         glitchedCountdownSec = 10f,
                         glitchGhosts = emptyList(),
+                        roamingMonsters = roamingForWorld(dest),
+                        roamGraceTimerSec = 2.6f,
                         worldBannerMessage = if (state.language == AppLanguage.AR) {
                             "انتقال مفاجئ! انتقلت عشوائياً إلى ${dest.title}."
                         } else {
@@ -406,19 +451,89 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     glitchMemoryCycleSec = nextMemCycle
                 )
             } else {
-                if (state.teleportControlMastered) return@update state
+                val nextGrace = (state.roamGraceTimerSec - dt).coerceAtLeast(0f)
+                val px = state.playerMapX
+                val py = state.playerMapY
+                val currentRoamers = state.roamingMonsters.ifEmpty { roamingForWorld(state.activeWorld) }
+                var collidedEnemy: RoamingMonster? = null
+                val movedRoamers = currentRoamers.map { m ->
+                    if (m.worldId != state.activeWorld) return@map m
+                    val isAlreadyFriend = m.enemyId in state.friendAllies
+                    val dx = px - m.xNorm
+                    val dy = py - m.yNorm
+                    val dist = hypot(dx, dy)
+
+                    if (!isAlreadyFriend && nextGrace <= 0f && dist < 0.056f && collidedEnemy == null) {
+                        collidedEnemy = m
+                        m.copy(isChasing = true)
+                    } else if (!isAlreadyFriend && dist < 0.36f && dist > 0.001f) {
+                        val profile = EnemyRoster.byId(m.enemyId)
+                        val chaseSpeed = if (profile.canBefriend) 0.130f else 0.158f
+                        val nx = (m.xNorm + (dx / dist) * chaseSpeed * dt).coerceIn(0.08f, 0.92f)
+                        val ny = (m.yNorm + (dy / dist) * chaseSpeed * dt).coerceIn(0.12f, 0.88f)
+                        m.copy(xNorm = nx, yNorm = ny, isChasing = true)
+                    } else {
+                        val hx = m.homeX - m.xNorm
+                        val hy = m.homeY - m.yNorm
+                        val hd = hypot(hx, hy)
+                        if (hd > 0.015f) {
+                            val returnSpeed = 0.08f
+                            m.copy(
+                                xNorm = m.xNorm + (hx / hd) * returnSpeed * dt,
+                                yNorm = m.yNorm + (hy / hd) * returnSpeed * dt,
+                                isChasing = false
+                            )
+                        } else {
+                            m.copy(isChasing = false)
+                        }
+                    }
+                }
+
+                if (collidedEnemy != null) {
+                    val caught = collidedEnemy!!
+                    RetroSoundEngine.playGlitchNoise(55)
+                    val remaining = movedRoamers.filterNot { it.uid == caught.uid }
+                    val nextSave = if (state.saveCounter >= 8) 1 else state.saveCounter + 1
+                    return@update state.copy(
+                        roamingMonsters = remaining,
+                        roamGraceTimerSec = 2.8f,
+                        selectedEnemyId = caught.enemyId,
+                        battleSessionId = state.battleSessionId + 1L,
+                        battleFromRuins = false,
+                        saveCounter = nextSave,
+                        currentScreen = AppScreen.BATTLE
+                    )
+                }
+
+                if (state.teleportControlMastered) {
+                    return@update state.copy(
+                        roamGraceTimerSec = nextGrace,
+                        roamingMonsters = movedRoamers
+                    )
+                }
                 val nextWarp = state.randomWarpCountdownSec - dt
                 if (nextWarp <= 0f) {
-                    return@update warpToRandomWorld(state)
+                    return@update warpToRandomWorld(state.copy(roamGraceTimerSec = nextGrace, roamingMonsters = movedRoamers))
                 }
-                return@update state.copy(randomWarpCountdownSec = nextWarp)
+                return@update state.copy(
+                    randomWarpCountdownSec = nextWarp,
+                    roamGraceTimerSec = nextGrace,
+                    roamingMonsters = movedRoamers
+                )
             }
         }
     }
 
     private fun warpToRandomWorld(state: AppUiState): AppUiState {
         val candidates = WorldId.entries.filter { it != state.activeWorld }
-        val dest = candidates.random()
+        val echoPending = state.isJourneyCompleteForEcho &&
+            EnemyId.ECHO_LOKA !in state.friendAllies &&
+            EnemyId.ECHO_LOKA !in state.defeatedEnemies
+        val dest = if (echoPending && WorldId.GLITCHED_WORLD in candidates && Random.nextFloat() < 0.55f) {
+            WorldId.GLITCHED_WORLD
+        } else {
+            candidates.random()
+        }
         val firstMem = WorldContentCatalog.glitchedMemories.random()
         if (dest == WorldId.GLITCHED_WORLD) {
             RetroSoundEngine.playGlitchNoise(130)
@@ -438,11 +553,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             randomWarpCountdownSec = 45f,
             glitchedCountdownSec = 10f,
             glitchGhosts = emptyList(),
+            roamingMonsters = roamingForWorld(dest),
+            roamGraceTimerSec = 2.6f,
             activeGlitchMemory = firstMem,
             glitchMemoryCycleSec = 0f,
             echoLokaPos = echoPos,
             worldBannerMessage = if (dest == WorldId.GLITCHED_WORLD) {
-                if (state.language == AppLanguage.AR) "العالم المقلتش — 10 ثوانٍ وسط ذكريات الماضي!" else "GLITCHED VOID — 10s among fractured past memories!"
+                if (state.isJourneyCompleteForEcho) {
+                    if (state.language == AppLanguage.AR) "العالم المقلتش — اكتملت رحلتك! Echo-Loka ينتظرك كآخر عدو!" else "GLITCHED VOID — Journey complete! Echo-Loka awaits as your FINAL battle!"
+                } else {
+                    if (state.language == AppLanguage.AR) "العالم المقلتش — 10 ثوانٍ وسط ذكريات الماضي!" else "GLITCHED VOID — 10s among fractured past memories!"
+                }
             } else {
                 if (state.language == AppLanguage.AR) "انتقال زمني عشوائي إلى ${dest.title}!" else "Random Paradox Warp! Pulled into ${dest.title}."
             }
@@ -599,6 +720,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startBattle(enemyId: EnemyId, worldOverride: WorldId? = null) {
         _uiState.update { state ->
+            if (enemyId == EnemyId.ECHO_LOKA && !state.isJourneyCompleteForEcho) {
+                RetroSoundEngine.playGlitchNoise(85)
+                return@update state.copy(
+                    worldBannerMessage = if (state.language == AppLanguage.AR) {
+                        "Echo-Loka هو العدو الأخير! أنهِ رحلتك عبر العوالم أولاً (${state.resolvedBossCount}/${state.totalStandardBosses} زعماء)."
+                    } else {
+                        "Echo-Loka is your FINAL battle! Finish your journey across the realms first (${state.resolvedBossCount}/${state.totalStandardBosses} bosses)."
+                    }
+                )
+            }
             val targetWorld = worldOverride ?: state.activeWorld
             val nextSave = if (state.saveCounter >= 8) 1 else state.saveCounter + 1
             state.copy(
@@ -607,6 +738,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 battleSessionId = state.battleSessionId + 1L,
                 battleFromRuins = enemyId == EnemyId.RUINS_DUMMY,
                 saveCounter = nextSave,
+                roamGraceTimerSec = 2.8f,
                 currentScreen = AppScreen.BATTLE
             )
         }
@@ -626,6 +758,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     activeWorld = safeWorld,
                     playerMapX = 0.50f,
                     playerMapY = 0.54f,
+                    roamingMonsters = roamingForWorld(safeWorld),
+                    roamGraceTimerSec = 2.6f,
                     currentScreen = AppScreen.WORLD_EXPLORE,
                     worldBannerMessage = if (state.language == AppLanguage.AR) {
                         "انتقلت عشوائياً إلى ${safeWorld.title}."
@@ -635,7 +769,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 return@update applyNormalWorldDropOff(nextState)
             }
-            state.copy(currentScreen = AppScreen.WORLD_EXPLORE)
+            state.copy(
+                roamGraceTimerSec = 2.6f,
+                currentScreen = AppScreen.WORLD_EXPLORE
+            )
         }
     }
 

@@ -567,6 +567,106 @@ object PixelSprites {
         ".OOOOO......OOOOO.",
         ".................."
     )
+
+    // Normal Monster 1: Mossy Puff (Cute round slime with leaf sprout, friendable)
+    val normalSlimeGrid = listOf(
+        ".......OOOO.......",
+        "......OGGGGO......",
+        ".......OGGO.......",
+        ".....OOOOOOOO.....",
+        "...OOGGGGGGGGOO...",
+        "..OGGGGGGGGGGGGO..",
+        ".OGGGWWGGGGWWGGGO.",
+        ".OGGGWBGGGGWBGGGO.",
+        ".OGGGGGGGGGGGGGGO.",
+        "OGGGGGGWWWWGGGGGGO",
+        "OGGGGGGGGGGGGGGGGO",
+        "OGGGGGDDDDDDGGGGGO",
+        ".OOOOOOOOOOOOOOOO.",
+        ".................."
+    )
+
+    // Normal Monster 2: Rift Hound (Spiky hostile wolf/hound, non-friendable)
+    val feralHoundGrid = listOf(
+        ".OO............OO.",
+        ".OROO........OORO.",
+        "..ORRO.OOOO.ORRO..",
+        "..ODDDDDDDDDDDDO..",
+        ".ODDRRWDDDDWRRDO..",
+        ".ODDDDDDDDDDDDDO..",
+        "OODDDWWWWWWWWWDOO.",
+        "ODDDDDDDDDDDDDDDO.",
+        ".OODDDDDDDDDDDDO..",
+        "..ODDDDDDDDDDDDO..",
+        "..ODDD.ODDO.DDDO..",
+        "..ODD..ODDO..DDO..",
+        "..OOO..OOOO..OOO..",
+        ".................."
+    )
+
+    // Normal Monster 3: Cyan Moth (Fluffy moth with cyan wing spots, friendable)
+    val sandMothGrid = listOf(
+        "...OO........OO...",
+        "....OO..OO..OO....",
+        ".OOOOCOOOOOOCOOOO.",
+        "OCCCCCODDDDOCCCCCO",
+        "OCCYYCODWWDOCCYYCO",
+        "OCCCCCODDDDOCCCCCO",
+        ".OCCCCODDDDOCCCCO.",
+        "..OOO.ODDDDO.OOO..",
+        "......ODDDDO......",
+        ".......ODDO.......",
+        ".......OOOO.......",
+        ".................."
+    )
+
+    // Normal Monster 4: Chrono Stalker (Angular bronze/orange construct, non-friendable)
+    val ironStalkerGrid = listOf(
+        "....OOOOOOOOOO....",
+        "...ODDDDDDDDDDO...",
+        "..ODDDRRRRRRDDDO..",
+        "..ODDWWWWWWWWDDDO.",
+        "...ODDDDDDDDDDO...",
+        ".OO.OOOOOOOOOO.OO.",
+        "ORROODDDDDDDDOORRO",
+        "ORROODDDYYDDDDOORO",
+        ".OO.ODDDDDDDDO.OO.",
+        "....ODDD..DDDO....",
+        "....ODD....DDO....",
+        "...OOOO....OOOO..."
+    )
+
+    // Normal Monster 5: Choir Wisp (Haloed pink music spirit, friendable)
+    val haloScribeGrid = listOf(
+        "....YYYYYYYY......",
+        "...YOOOOOOOOY.....",
+        ".....OOOOOO.......",
+        "....OPPPPPPO......",
+        "...OPWWPPWWPO.....",
+        "...OPPPPPPPPO.....",
+        "..O.OPPPPPPO.O....",
+        ".OPPOOOOOOOOPPO...",
+        "..OO.OPPPPO.OO....",
+        ".....OPPPPO.......",
+        "......OPPO........",
+        ".......OO........."
+    )
+
+    // Normal Monster 6: Cinder Imp (Horned mischievous devil imp, non-friendable)
+    val ashImpGrid = listOf(
+        "..OO..........OO..",
+        "..OROO..OO..OORO..",
+        "...ORROODDOORRO...",
+        "...ODDDDDDDDDDO...",
+        "..ODDYYDDDDYYDDO..",
+        "..ODDDDDDDDDDDDO..",
+        "...ODDWWWWWWDDDO..",
+        "..OODDDDDDDDDDOO..",
+        ".ORRODDDDDDDDORRO.",
+        "..OO.ODDD.DDDO.OO.",
+        ".....ODD...DDO....",
+        ".....OOO...OOO...."
+    )
 }
 
 fun DrawScope.drawUndertaleBossPixelSprite(
@@ -643,6 +743,46 @@ fun DrawScope.drawUndertaleBossPixelSprite(
             'S' to (if (isHitFlash) Color.White else Color(0xFFEBC7A8)),
             'C' to (if (isHitFlash) Color.White else SoulSeraphCyan),
             'Y' to (if (isHitFlash) Color.White else SepiaGold)
+        )
+        EnemyId.NORMAL_SLIME -> PixelSprites.normalSlimeGrid to mapOf(
+            'O' to outline,
+            'G' to (if (isHitFlash) Color.White else Color(0xFF4ADE80)),
+            'D' to (if (isHitFlash) Color.White else Color(0xFF166534)),
+            'B' to Color(0xFF0A0A0D),
+            'W' to white
+        )
+        EnemyId.FERAL_HOUND -> PixelSprites.feralHoundGrid to mapOf(
+            'O' to outline,
+            'D' to (if (isHitFlash) Color.White else Color(0xFF1F1D26)),
+            'R' to (if (isHitFlash) Color.White else Color(0xFFEF4444)),
+            'W' to white
+        )
+        EnemyId.SAND_MOTH -> PixelSprites.sandMothGrid to mapOf(
+            'O' to outline,
+            'D' to (if (isHitFlash) Color.White else Color(0xFF422C1D)),
+            'C' to (if (isHitFlash) Color.White else SoulSeraphCyan),
+            'Y' to (if (isHitFlash) Color.White else MercyYellow),
+            'W' to white
+        )
+        EnemyId.IRON_STALKER -> PixelSprites.ironStalkerGrid to mapOf(
+            'O' to outline,
+            'D' to (if (isHitFlash) Color.White else Color(0xFF334155)),
+            'R' to (if (isHitFlash) Color.White else Color(0xFFF97316)),
+            'Y' to (if (isHitFlash) Color.White else MercyYellow),
+            'W' to white
+        )
+        EnemyId.HALO_SCRIBE -> PixelSprites.haloScribeGrid to mapOf(
+            'O' to outline,
+            'Y' to (if (isHitFlash) Color.White else MercyYellow),
+            'P' to (if (isHitFlash) Color.White else Color(0xFFF472B6)),
+            'W' to white
+        )
+        EnemyId.ASH_IMP -> PixelSprites.ashImpGrid to mapOf(
+            'O' to outline,
+            'D' to (if (isHitFlash) Color.White else Color(0xFF2B1B24)),
+            'R' to (if (isHitFlash) Color.White else SoulParadoxCrimson),
+            'Y' to (if (isHitFlash) Color.White else Color(0xFFF59E0B)),
+            'W' to white
         )
     }
 
@@ -1108,6 +1248,101 @@ fun DrawScope.drawOverworldLandmarkSprite(
             drawLine(Color.White, Offset(center.x - half * 0.25f, center.y - half * 0.62f), Offset(center.x - half * 0.25f, center.y - half * 1.04f), strokeWidth = 2f)
             drawRect(if (completed) Color(0xFF4ADE80) else MercyYellow, Offset(center.x - half * 0.25f, center.y - half * 1.04f), Size(half * 0.44f, half * 0.26f))
         }
+    }
+}
+
+/**
+ * Overworld Ashen Save Point: monochrome Ashen flower on a soil patch with a golden Save aura & mini star!
+ */
+fun DrawScope.drawOverworldAshenSaveSprite(
+    center: Offset,
+    sizePx: Float,
+    ambientClock: Float
+) {
+    val pulse = 1f + 0.08f * sin(ambientClock * 3.8f)
+    // Golden Save Point Ring beneath Ashen
+    drawCircle(
+        color = MercyYellow.copy(alpha = 0.20f),
+        radius = sizePx * 0.72f * pulse,
+        center = center
+    )
+    drawCircle(
+        color = MercyYellow.copy(alpha = 0.55f),
+        radius = sizePx * 0.58f * pulse,
+        center = center,
+        style = Stroke(1.8f)
+    )
+    // Dark soil mound
+    drawOval(
+        color = Color(0xFF1F1D24),
+        topLeft = Offset(center.x - sizePx * 0.42f, center.y + sizePx * 0.16f),
+        size = Size(sizePx * 0.84f, sizePx * 0.28f)
+    )
+    // Monochrome Ashen Flower pixel sprite
+    val palette = mapOf(
+        'O' to Color(0xFF09090B),
+        'B' to Color(0xFF09090B),
+        'D' to Color(0xFF3F3F46),
+        'G' to Color(0xFF71717A),
+        'P' to Color(0xFFD4D4D8),
+        'W' to Color(0xFFF4F4F5)
+    )
+    drawPixelMatrix(
+        rows = PixelSprites.ashenFlowerNormal,
+        palette = palette,
+        center = Offset(center.x, center.y - sizePx * 0.04f),
+        targetSizePx = sizePx * 0.82f
+    )
+    // Tiny Save Star floating beside Ashen
+    drawPixelSaveStar(
+        center = Offset(center.x + sizePx * 0.46f, center.y - sizePx * 0.36f + sin(ambientClock * 4.5f) * 2.5f),
+        sizePx = sizePx * 0.17f,
+        color = MercyYellow
+    )
+}
+
+/**
+ * Overworld Roaming Monster Sprite with alert badge (!) when actively chasing Loka.
+ */
+fun DrawScope.drawOverworldChasingMonster(
+    enemyId: EnemyId,
+    center: Offset,
+    sizePx: Float,
+    accentColor: Color,
+    canBefriend: Boolean,
+    isAlreadyFriend: Boolean,
+    isChasing: Boolean,
+    ambientClock: Float
+) {
+    val ringColor = when {
+        isAlreadyFriend -> Color(0xFF4ADE80)
+        canBefriend -> accentColor
+        else -> Color(0xFFEF4444)
+    }
+    drawCircle(
+        color = ringColor.copy(alpha = if (isChasing) 0.34f else 0.18f),
+        radius = sizePx * 0.62f,
+        center = center
+    )
+    drawOval(
+        color = Color.Black.copy(alpha = 0.42f),
+        topLeft = Offset(center.x - sizePx * 0.42f, center.y + sizePx * 0.28f),
+        size = Size(sizePx * 0.84f, sizePx * 0.24f)
+    )
+    drawUndertaleBossPixelSprite(
+        enemyId = enemyId,
+        center = center,
+        sizePx = sizePx,
+        isHitFlash = false,
+        isSpareReady = isAlreadyFriend
+    )
+    if (isChasing && !isAlreadyFriend) {
+        val bounce = sin(ambientClock * 12f) * 2.5f
+        val bx = center.x
+        val by = center.y - sizePx * 0.68f + bounce
+        drawRect(Color.Black, Offset(bx - 4f, by - 11f), Size(8f, 15f))
+        drawRect(Color(0xFFEF4444), Offset(bx - 2.5f, by - 9.5f), Size(5f, 8f))
+        drawRect(Color(0xFFEF4444), Offset(bx - 2.5f, by + 0.5f), Size(5f, 3.5f))
     }
 }
 

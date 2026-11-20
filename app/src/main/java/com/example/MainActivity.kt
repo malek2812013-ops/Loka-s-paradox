@@ -44,9 +44,9 @@ class MainActivity : ComponentActivity() {
                         }
                         AppScreen.BATTLE -> when (state.selectedEnemyId) {
                             EnemyId.RUINS_DUMMY -> BgmTrack.BATTLE_DUMMY
-                            EnemyId.VEX, EnemyId.BRAMBLE -> BgmTrack.BATTLE
-                            EnemyId.VESPERA, EnemyId.ORIN -> BgmTrack.BATTLE_OUTLANDS
-                            EnemyId.SERAPHIEL, EnemyId.MALAKOR -> BgmTrack.BATTLE_SPLIT
+                            EnemyId.VEX, EnemyId.BRAMBLE, EnemyId.NORMAL_SLIME, EnemyId.FERAL_HOUND -> BgmTrack.BATTLE
+                            EnemyId.VESPERA, EnemyId.ORIN, EnemyId.SAND_MOTH, EnemyId.IRON_STALKER -> BgmTrack.BATTLE_OUTLANDS
+                            EnemyId.SERAPHIEL, EnemyId.MALAKOR, EnemyId.HALO_SCRIBE, EnemyId.ASH_IMP -> BgmTrack.BATTLE_SPLIT
                             EnemyId.ECHO_LOKA -> BgmTrack.BATTLE_GLITCH
                             EnemyId.FUTURE_LOKA -> BgmTrack.BATTLE_FUTURE
                         }
@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
                         onEngageBoss = { enemyId -> gameViewModel.startBattle(enemyId) },
                         onEquipArmor = gameViewModel::equipArmor,
                         onEquipWeapon = gameViewModel::equipWeapon,
-                        onSaveGame = { gameViewModel.saveProgressExplicitly(fromAshen = false) },
+                        onSaveGame = { gameViewModel.saveProgressExplicitly(fromAshen = true) },
                         onResetSave = gameViewModel::resetAllProgress,
                         onOpenRouteFinale = gameViewModel::openRouteFinale,
                         onWatchStoryIntro = gameViewModel::openLoreIntro,

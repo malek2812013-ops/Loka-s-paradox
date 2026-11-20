@@ -78,11 +78,12 @@ import com.example.model.tr
 import com.example.ui.components.ControllerPadOverlay
 import com.example.ui.components.LokaPortraitCanvas
 import com.example.ui.components.drawLokaOverworldSprite
+import com.example.ui.components.drawOverworldAshenSaveSprite
+import com.example.ui.components.drawOverworldChasingMonster
 import com.example.ui.components.drawOverworldKidSprite
 import com.example.ui.components.drawOverworldLandmarkSprite
 import com.example.ui.components.drawOverworldNpcSprite
 import com.example.ui.components.drawPixelChest
-import com.example.ui.components.drawSaveStar
 import com.example.ui.components.drawUndertaleBossPixelSprite
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.EspressoSurface
@@ -197,8 +198,9 @@ fun WorldExploreScreen(
         ?.takeIf { hypot(it.xNorm - px, it.yNorm - py) < 0.14f }
     val nearNpc = npcs.minByOrNull { hypot(it.xNorm - px, it.yNorm - py) }
         ?.takeIf { hypot(it.xNorm - px, it.yNorm - py) < 0.13f }
-    val saveStarPos = 0.50f to 0.31f
-    val nearSaveStar = world.hasLandmarks && hypot(saveStarPos.first - px, saveStarPos.second - py) < 0.12f
+    val ashenSavePos = 0.50f to 0.31f
+    val nearAshenSave = world.hasLandmarks && hypot(ashenSavePos.first - px, ashenSavePos.second - py) < 0.12f
+    val worldRoamers = state.roamingMonsters.filter { it.worldId == world }
     val nearBoss: EnemyProfile? = if (world == WorldId.GLITCHED_WORLD) {
         val (ex, ey) = state.echoLokaPos
         if (hypot(ex - px, ey - py) < 0.15f) EnemyRoster.byId(EnemyId.ECHO_LOKA) else null
@@ -261,11 +263,13 @@ fun WorldExploreScreen(
                         drawCircle(color = Color.Black, radius = 5.dp.toPx(), center = rc)
                     }
 
-                    // Golden Undertale Save Star in every standard realm!
-                    val saveC = Offset(saveStarPos.first * size.width, saveStarPos.second * size.height)
-                    val starPulse = 10.dp.toPx() + sin(ambientClock * 3.5f) * 2.dp.toPx()
-                    drawCircle(color = MercyYellow.copy(alpha = 0.24f), radius = starPulse + 6.dp.toPx(), center = saveC)
-                    drawSaveStar(center = saveC, radius = starPulse, color = MercyYellow)
+                    // Ashen is our Overworld Save Point in every standard realm!
+                    val saveC = Offset(ashenSavePos.first * size.width, ashenSavePos.second * size.height)
+                    drawOverworldAshenSaveSprite(
+                        center = saveC,
+                        sizePx = 30.dp.toPx(),
+                        ambientClock = ambientClock
+                    )
 
                     landmarks.forEach { lm ->
                         val completed = lm.id in state.completedLandmarkIds
@@ -333,8 +337,25 @@ fun WorldExploreScreen(
                             isSpareReady = isFriend
                         )
                     }
+
+                    // Overworld Chasing Normal Monsters (Touch = Instant Battle!)
+                    worldRoamers.forEach { roamer ->
+                        val profile = EnemyRoster.byId(roamer.enemyId)
+                        val bobY = sin(ambientClock * if (roamer.isChasing) 9f else 3f) * 1.8.dp.toPx()
+                        val mc = Offset(roamer.xNorm * size.width, roamer.yNorm * size.height + bobY)
+                        drawOverworldChasingMonster(
+                            enemyId = roamer.enemyId,
+                            center = mc,
+                            sizePx = 28.dp.toPx(),
+                            accentColor = profile.accentColor,
+                            canBefriend = profile.canBefriend,
+                            isAlreadyFriend = roamer.enemyId in state.friendAllies,
+                            isChasing = roamer.isChasing,
+                            ambientClock = ambientClock
+                        )
+                    }
                 } else {
-                    // Glitched Void: disappearing ghosts + Echo-Loka pixel silhouette
+                    // Glitched Void: disappearing ghosts + Echo-Loka (locked until journey ends!)
                     state.glitchGhosts.forEach { ghost ->
                         val gc = Offset(ghost.xNorm * size.width, ghost.yNorm * size.height)
                         val alpha = (ghost.ttlSec / 1.5f).coerceIn(0.15f, 0.85f)
@@ -344,13 +365,26 @@ fun WorldExploreScreen(
 
                     val (ex, ey) = state.echoLokaPos
                     val ec = Offset(ex * size.width, ey * size.height)
-                    drawCircle(color = GlitchMagenta.copy(alpha = 0.28f), radius = 21.dp.toPx(), center = ec)
+                    val echoUnlocked = state.isJourneyCompleteForEcho
+                    drawCircle(
+                        color = (if (echoUnlocked) GlitchMagenta else DangerRed).copy(alpha = 0.28f),
+                        radius = 22.dp.toPx(),
+                        center = ec
+                    )
+                    if (!echoUnlocked) {
+                        drawCircle(
+                            color = DangerRed.copy(alpha = 0.72f),
+                            radius = 24.dp.toPx(),
+                            center = ec,
+                            style = Stroke(2.2f)
+                        )
+                    }
                     drawUndertaleBossPixelSprite(
                         enemyId = EnemyId.ECHO_LOKA,
                         center = ec,
                         sizePx = 36.dp.toPx(),
                         isHitFlash = false,
-                        isSpareReady = false
+                        isSpareReady = echoUnlocked && EnemyId.ECHO_LOKA in state.friendAllies
                     )
                 }
 
@@ -404,8 +438,8 @@ fun WorldExploreScreen(
                     Text(
                         text = tr(
                             lang,
-                            "Drag to walk · ★ Save Point · Houses/Labs · Bosses · Rift Warp",
-                            "اسحب للمشي · ★ نقطة الحفظ · المباني · الزعماء · الدوامة"
+                            "Drag to walk · Ashen ★ Save · Touching Chasing Monsters = Battle · Bosses · Rift",
+                            "اسحب للمشي · آشن ★ حفظ · لمس الوحوش المطارِدة = معركة · الزعماء · الدوامة"
                         ),
                         style = MaterialTheme.typography.labelSmall,
                         color = ParchmentInk
@@ -452,7 +486,7 @@ fun WorldExploreScreen(
                         expression = when {
                             world == WorldId.GLITCHED_WORLD -> PortraitExpression.SURPRISED
                             state.isFutureTransformed -> PortraitExpression.DETERMINED
-                            nearSaveStar -> PortraitExpression.HAPPY
+                            nearAshenSave -> PortraitExpression.HAPPY
                             else -> PortraitExpression.NEUTRAL
                         },
                         modifier = Modifier
@@ -564,17 +598,44 @@ fun WorldExploreScreen(
                     }
 
                     nearBoss != null -> {
-                        Text(nearBoss.name, style = MaterialTheme.typography.titleMedium, color = nearBoss.accentColor)
-                        Text(nearBoss.raceTitle, style = MaterialTheme.typography.labelSmall, color = MutedSepiaInk)
+                        val isEchoLocked = nearBoss.id == EnemyId.ECHO_LOKA && !state.isJourneyCompleteForEcho
+                        Text(nearBoss.name, style = MaterialTheme.typography.titleMedium, color = if (isEchoLocked) DangerRed else nearBoss.accentColor)
+                        Text(
+                            text = if (isEchoLocked) {
+                                tr(
+                                    lang,
+                                    "LOCKED FINAL ENEMY (${state.resolvedBossCount}/${state.totalStandardBosses} bosses) — Finish your journey first!",
+                                    "عدو أخير مقفل (${state.resolvedBossCount}/${state.totalStandardBosses} زعماء) — أنهِ رحلتك أولاً!"
+                                )
+                            } else {
+                                nearBoss.raceTitle
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isEchoLocked) DangerRed else MutedSepiaInk
+                        )
                         Button(
                             onClick = { onEngageBoss(nearBoss.id) },
-                            colors = ButtonDefaults.buttonColors(containerColor = nearBoss.accentColor, contentColor = ObsidianBg),
+                            enabled = !isEchoLocked,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isEchoLocked) Color(0xFF27272A) else nearBoss.accentColor,
+                                contentColor = ObsidianBg,
+                                disabledContainerColor = Color(0xFF1F1F26),
+                                disabledContentColor = Color(0xFF9CA3AF)
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(46.dp)
                                 .testTag("explore_engage_boss_button")
                         ) {
-                            Text(if (nearBoss.id in state.friendAllies) tr(lang, "SPAR / VISIT", "تدريب / زيارة") else tr(lang, "ENCOUNTER", "مواجهة"), style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                text = when {
+                                    isEchoLocked -> tr(lang, "LOCKED UNTIL JOURNEY ENDS", "مقفل حتى تنتهي رحلتك")
+                                    nearBoss.id == EnemyId.ECHO_LOKA -> tr(lang, "FINAL BATTLE: ECHO-LOKA", "المعركة الأخيرة: ECHO-LOKA")
+                                    nearBoss.id in state.friendAllies -> tr(lang, "SPAR / VISIT", "تدريب / زيارة")
+                                    else -> tr(lang, "ENCOUNTER", "مواجهة")
+                                },
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
 
@@ -607,13 +668,13 @@ fun WorldExploreScreen(
                         }
                     }
 
-                    nearSaveStar -> {
-                        Text(tr(lang, "PARADOX SAVE STAR ★", "نجمة الحفظ ★"), style = MaterialTheme.typography.titleMedium, color = MercyYellow)
+                    nearAshenSave -> {
+                        Text(tr(lang, "ASHEN · SAVE POINT ★", "آشن · نقطة الحفظ ★"), style = MaterialTheme.typography.titleMedium, color = MercyYellow)
                         Text(
                             text = tr(
                                 lang,
-                                "* Knowing every timeline still remembers you... fills you with DETERMINATION.",
-                                "* معرفة أن المفارقة لا تزال تذكرك... تملؤك بالعزيمة."
+                                "* Ashen: \"Hey Loka! Stand by me anytime—I'll save your timeline!\"",
+                                "* آشن: «أهلاً لوكا! اقترب مني في أي وقت وسأحفظ لك تقدمك!»"
                             ),
                             style = MaterialTheme.typography.labelSmall,
                             color = ParchmentInk
@@ -626,7 +687,7 @@ fun WorldExploreScreen(
                                 .height(46.dp)
                                 .testTag("explore_save_star_button")
                         ) {
-                            Text(tr(lang, "SAVE PROGRESS ★", "احفظ التقدم ★"), style = MaterialTheme.typography.labelLarge)
+                            Text(tr(lang, "SAVE WITH ASHEN ★", "احفظ مع آشن ★"), style = MaterialTheme.typography.labelLarge)
                         }
                     }
 
@@ -635,15 +696,23 @@ fun WorldExploreScreen(
                             text = if (world.hasLandmarks) {
                                 tr(
                                     lang,
-                                    "Friends: ${state.friendAllies.size} · Escorting: ${state.escortingKidIds.size} · Safe: ${state.rescuedToNormalKidIds.size}\nWalk near ★ Save Star, Kids, Houses, Labs, or Bosses.",
-                                    "الأصدقاء: ${state.friendAllies.size} · معك الآن: ${state.escortingKidIds.size} · بأمان: ${state.rescuedToNormalKidIds.size}\nاقترب من ★ الحفظ أو الأطفال أو المباني أو الزعماء."
+                                    "Bosses: ${state.resolvedBossCount}/${state.totalStandardBosses} · Friends: ${state.friendAllies.size} · Escorting: ${state.escortingKidIds.size}\nWalk near Ashen ★ to Save, dodge chasing Monsters, or meet Bosses.",
+                                    "الزعماء: ${state.resolvedBossCount}/${state.totalStandardBosses} · الأصدقاء: ${state.friendAllies.size} · المرافقون: ${state.escortingKidIds.size}\nاقترب من آشن ★ للحفظ، واحذر الوحوش التي تطاردك!"
                                 )
                             } else {
-                                tr(
-                                    lang,
-                                    "Whispers & past memories echo here. Sick White Soul active for 10s...",
-                                    "تسمع همسات وذكريات من ماضي لوكا... الروح البيضاء المريضة نشطة لـ 10 ثوانٍ."
-                                )
+                                if (state.isJourneyCompleteForEcho) {
+                                    tr(
+                                        lang,
+                                        "Journey finished! Echo-Loka awaits in the void as your FINAL battle.",
+                                        "انتهت رحلتك! ينتظرك Echo-Loka هنا كآخر عدو تواجهه."
+                                    )
+                                } else {
+                                    tr(
+                                        lang,
+                                        "Past memories echo here. Echo-Loka stays locked (${state.resolvedBossCount}/${state.totalStandardBosses} bosses) until your journey ends.",
+                                        "ذكريات الماضي تتردد هنا. Echo-Loka مقفل (${state.resolvedBossCount}/${state.totalStandardBosses} زعماء) حتى تنهي رحلتك!"
+                                    )
+                                }
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MutedSepiaInk

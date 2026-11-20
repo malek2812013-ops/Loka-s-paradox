@@ -437,7 +437,14 @@ enum class EnemyId {
     ORIN,
     SERAPHIEL,
     MALAKOR,
-    ECHO_LOKA, // ONLY spawns inside the Glitched World!
+    // Overworld roaming normal monsters (some friendable, some hostile & non-friendable)
+    NORMAL_SLIME,
+    FERAL_HOUND,
+    SAND_MOTH,
+    IRON_STALKER,
+    HALO_SCRIBE,
+    ASH_IMP,
+    ECHO_LOKA, // ONLY spawns inside the Glitched World & unlocked after journey ends!
     FUTURE_LOKA // Final confrontation in Route finales
 }
 
@@ -465,7 +472,9 @@ data class EnemyProfile(
     val attackQuips: List<String>,
     val spareLine: String,
     val defeatLine: String,
-    val actOptions: List<EnemyActOption>
+    val actOptions: List<EnemyActOption>,
+    val isNormalMonster: Boolean = false,
+    val canBefriend: Boolean = true
 )
 
 object EnemyRoster {
@@ -658,11 +667,173 @@ object EnemyRoster {
             )
         ),
         EnemyProfile(
+            id = EnemyId.NORMAL_SLIME,
+            worldId = WorldId.NORMAL_WORLD,
+            name = "Mossy Puff",
+            raceTitle = "Normal Monster · Friendable",
+            difficultyLabel = "NORMAL MONSTER",
+            maxHp = 48,
+            attackPower = 2,
+            accentColor = Color(0xFF86EFAC),
+            xNorm = 0.18f,
+            yNorm = 0.42f,
+            allyBonusTitle = "Mossy Dew",
+            allyBonusDesc = "Cheery park slime who can become your friend!",
+            introLine = "A bouncy Mossy Puff chases up to you—wait, it just wants to play!",
+            attackQuips = listOf(
+                "*bloop!* \"I only bumped you by accident!\"",
+                "*jiggle!* \"Catch these springy dewdrops!\""
+            ),
+            spareLine = "Mossy Puff bounces happily and joins your friends!",
+            defeatLine = "Mossy Puff dissolves into a puddle of grass dew.",
+            actOptions = listOf(
+                EnemyActOption("check", "Check", "MOSSY PUFF — 48 HP. Curious park monster. Can be befriended!", 25),
+                EnemyActOption("pet", "Pat Head", "You gently pat its leafy cap. Mossy Puff purrs!", 80)
+            ),
+            isNormalMonster = true,
+            canBefriend = true
+        ),
+        EnemyProfile(
+            id = EnemyId.FERAL_HOUND,
+            worldId = WorldId.NORMAL_WORLD,
+            name = "Rift Hound",
+            raceTitle = "Hostile Monster · No Mercy",
+            difficultyLabel = "HOSTILE MONSTER",
+            maxHp = 58,
+            attackPower = 3,
+            accentColor = Color(0xFFEF4444),
+            xNorm = 0.84f,
+            yNorm = 0.62f,
+            allyBonusTitle = "Untamed",
+            allyBonusDesc = "Cannot be befriended.",
+            introLine = "A feral Rift Hound lunges from the shadows, fangs bared! It refuses to listen!",
+            attackQuips = listOf(
+                "*GRRR!* \"Words won't tame the paradox!\"",
+                "*SNAP!* Sharp shadow fangs tear across the box!"
+            ),
+            spareLine = "It never backs down.",
+            defeatLine = "The Rift Hound yelps and scatters back into the bushes.",
+            actOptions = listOf(
+                EnemyActOption("check", "Check", "RIFT HOUND — 58 HP. Too feral to befriend! FIGHT or FLEE!", 0),
+                EnemyActOption("glare", "Stand Ground", "The Rift Hound snarls fiercely and refuses mercy!", 0)
+            ),
+            isNormalMonster = true,
+            canBefriend = false
+        ),
+        EnemyProfile(
+            id = EnemyId.SAND_MOTH,
+            worldId = WorldId.TRI_RACE_REALM,
+            name = "Cyan Moth",
+            raceTitle = "Normal Monster · Friendable",
+            difficultyLabel = "NORMAL MONSTER",
+            maxHp = 56,
+            attackPower = 3,
+            accentColor = SoulSeraphCyan,
+            xNorm = 0.16f,
+            yNorm = 0.52f,
+            allyBonusTitle = "Luminous Dust",
+            allyBonusDesc = "Gentle cyan-tree moth that loves shiny necklaces.",
+            introLine = "A glowing Cyan Moth swoops toward Loka's golden heart necklace!",
+            attackQuips = listOf(
+                "*flutter!* \"Your gold charm sparkles like dawn!\"",
+                "*buzz!* Glowing cyan dust drifts across the arena!"
+            ),
+            spareLine = "Cyan Moth perches gently on your shoulder as a new friend!",
+            defeatLine = "Cyan scales drift harmlessly into the beige breeze.",
+            actOptions = listOf(
+                EnemyActOption("check", "Check", "CYAN MOTH — 56 HP. Drawn to warmth & light. Can be befriended!", 25),
+                EnemyActOption("shine", "Show Gold Heart", "You hold up your golden necklace. The moth hums with joy!", 80)
+            ),
+            isNormalMonster = true,
+            canBefriend = true
+        ),
+        EnemyProfile(
+            id = EnemyId.IRON_STALKER,
+            worldId = WorldId.TRI_RACE_REALM,
+            name = "Chrono Stalker",
+            raceTitle = "Hostile Construct · No Mercy",
+            difficultyLabel = "HOSTILE MONSTER",
+            maxHp = 70,
+            attackPower = 4,
+            accentColor = Color(0xFFF97316),
+            xNorm = 0.84f,
+            yNorm = 0.38f,
+            allyBonusTitle = "Rogue Automaton",
+            allyBonusDesc = "Cannot be befriended.",
+            introLine = "A rusted Chrono Stalker locks onto your Soul signature! Diplomacy module offline!",
+            attackQuips = listOf(
+                "\"TARGET LOCKED. NEGOTIATION PROTOCOL: NONE.\"",
+                "\"ELIMINATING PARADOX ANOMALY.\""
+            ),
+            spareLine = "Its core has no mercy circuit.",
+            defeatLine = "Sparks erupt as the Chrono Stalker powers down in the sand.",
+            actOptions = listOf(
+                EnemyActOption("check", "Check", "CHRONO STALKER — 70 HP. Rogue hunter machine. Cannot be befriended—FIGHT or FLEE!", 0),
+                EnemyActOption("signal", "Wave Hand", "No response. Its red optics lock straight onto you!", 0)
+            ),
+            isNormalMonster = true,
+            canBefriend = false
+        ),
+        EnemyProfile(
+            id = EnemyId.HALO_SCRIBE,
+            worldId = WorldId.SPLIT_REALM,
+            name = "Choir Wisp",
+            raceTitle = "Normal Monster · Friendable",
+            difficultyLabel = "NORMAL MONSTER",
+            maxHp = 60,
+            attackPower = 3,
+            accentColor = Color(0xFFF472B6),
+            xNorm = 0.16f,
+            yNorm = 0.56f,
+            allyBonusTitle = "Choir Bell",
+            allyBonusDesc = "Playful pink-grove spirit that loves music.",
+            introLine = "A tiny Choir Wisp races across the pink grass, humming a nervous tune!",
+            attackQuips = listOf(
+                "♪ \"Sing along with the bells, traveler!\" ♪",
+                "♪ \"Careful, the notes bounce fast!\" ♪"
+            ),
+            spareLine = "Choir Wisp chimes happily and becomes your friend!",
+            defeatLine = "Its tiny halo bell fades into shimmering pink mist.",
+            actOptions = listOf(
+                EnemyActOption("check", "Check", "CHOIR WISP — 60 HP. Musical grove spirit. Can be befriended!", 25),
+                EnemyActOption("hum", "Hum Melody", "You hum a soft rhythm. The Choir Wisp twirls with delight!", 80)
+            ),
+            isNormalMonster = true,
+            canBefriend = true
+        ),
+        EnemyProfile(
+            id = EnemyId.ASH_IMP,
+            worldId = WorldId.SPLIT_REALM,
+            name = "Cinder Imp",
+            raceTitle = "Hostile Devil-Kin · No Mercy",
+            difficultyLabel = "HOSTILE MONSTER",
+            maxHp = 74,
+            attackPower = 4,
+            accentColor = SoulParadoxCrimson,
+            xNorm = 0.84f,
+            yNorm = 0.36f,
+            allyBonusTitle = "Pure Mischief",
+            allyBonusDesc = "Cannot be befriended.",
+            introLine = "A cackling Cinder Imp bolts across the grey ash! It only wants a brawl!",
+            attackQuips = listOf(
+                "\"Hehehe! Don't talk to me—DODGE OR FIGHT!\"",
+                "\"Boring words won't stop my fireballs!\""
+            ),
+            spareLine = "The imp laughs in your face.",
+            defeatLine = "The Cinder Imp puffs into soot and dashes back behind a red tree.",
+            actOptions = listOf(
+                EnemyActOption("check", "Check", "CINDER IMP — 74 HP. Loves chaos. Cannot be befriended—FIGHT or FLEE!", 0),
+                EnemyActOption("reason", "Ask For Truce", "The Cinder Imp sticks out its tongue and tosses sparks!", 0)
+            ),
+            isNormalMonster = true,
+            canBefriend = false
+        ),
+        EnemyProfile(
             id = EnemyId.ECHO_LOKA,
             worldId = WorldId.GLITCHED_WORLD,
             name = "Echo-Loka",
-            raceTitle = "Glitched Reflection · Paradox Anomaly",
-            difficultyLabel = "GLITCHED VOID",
+            raceTitle = "Final Anomaly · Glitched Void",
+            difficultyLabel = "FINAL ENEMY",
             maxHp = 12, // Sick White Soul deals 1 DMG per hit—so 12 HP or Spare!
             attackPower = 3, // Deals 2x = 6 DMG against Sick White Soul!
             accentColor = GlitchCyan,
@@ -670,19 +841,21 @@ object EnemyRoster {
             yNorm = 0.35f,
             allyBonusTitle = "Echo's Stabilized Shard",
             allyBonusDesc = "+3 Attack Damage & immune to paradox stutter.",
-            introLine = "A static silhouette wearing your grey shirt and golden necklace whispers... \"...why am I here...?\"",
+            introLine = "Your final reflection steps forward in the void... \"You finished the whole journey... now face yourself, Loka.\"",
             attackQuips = listOf(
                 "\"YOUR WHITE SOUL IS SICK HERE... ONLY 1 DAMAGE...\"",
-                "\"DOUBLE PAIN... TEN SECONDS LEFT...\"",
+                "\"DOUBLE PAIN... FINAL TEST OF YOUR HEART...\"",
                 "\"I AM THE ECHO THAT NEVER MADE IT BACK.\""
             ),
             spareLine = "Echo-Loka's static softens into warm gold. \"...thank you for remembering me, Loka.\"",
             defeatLine = "Echo-Loka shatters into eight silent white pixels.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "ECHO-LOKA — 12 HP. Only exists in the Glitched World. Sick White Soul deals 1 DMG & takes 2x DMG!", 20),
+                EnemyActOption("check", "Check", "ECHO-LOKA — 12 HP. Final enemy in the Glitched World. Sick White Soul deals 1 DMG & takes 2x DMG!", 20),
                 EnemyActOption("embrace", "Hold Golden Heart", "You touch your golden heart necklace. The static calms!", 45),
                 EnemyActOption("remember", "Promise Return", "You promise you won't leave any lost kids behind.", 45)
-            )
+            ),
+            isNormalMonster = false,
+            canBefriend = true
         ),
         EnemyProfile(
             id = EnemyId.FUTURE_LOKA,
@@ -708,16 +881,21 @@ object EnemyRoster {
             actOptions = listOf(
                 EnemyActOption("check", "Check", "FUTURE-LOKA — 160 HP. Your future self carrying the weight of every lost timeline.", 15),
                 EnemyActOption("listen", "Hear Their Plea", "You pause to hear their warning about destroying the world.", 35)
-            )
+            ),
+            isNormalMonster = false,
+            canBefriend = true
         )
     )
 
     fun byId(id: EnemyId): EnemyProfile = all.first { it.id == id }
     fun forWorld(worldId: WorldId): List<EnemyProfile> = all.filter {
-        it.worldId == worldId && it.id != EnemyId.FUTURE_LOKA && it.id != EnemyId.RUINS_DUMMY
+        it.worldId == worldId && !it.isNormalMonster && it.id != EnemyId.FUTURE_LOKA && it.id != EnemyId.RUINS_DUMMY
+    }
+    fun normalMonstersForWorld(worldId: WorldId): List<EnemyProfile> = all.filter {
+        it.worldId == worldId && it.isNormalMonster
     }
     fun standardPlayableRoster(): List<EnemyProfile> = all.filter {
-        it.id != EnemyId.ECHO_LOKA && it.id != EnemyId.FUTURE_LOKA && it.id != EnemyId.RUINS_DUMMY
+        !it.isNormalMonster && it.id != EnemyId.ECHO_LOKA && it.id != EnemyId.FUTURE_LOKA && it.id != EnemyId.RUINS_DUMMY
     }
 }
 

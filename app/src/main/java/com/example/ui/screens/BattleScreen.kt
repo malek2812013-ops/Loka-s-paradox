@@ -240,24 +240,32 @@ fun BattleScreen(
                             .background(HpBarGreen)
                     )
                 }
-                Text(
-                    text = tr(language, "MERCY ${state.mercyProgress}%", "الرحمة ${state.mercyProgress}%"),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MercyYellow
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(7.dp)
-                        .background(Color(0xFF222228))
-                        .border(1.dp, MercyYellow.copy(alpha = 0.65f), RoundedCornerShape(0.dp))
-                ) {
-                    val mercyRatio = (state.mercyProgress / 100f).coerceIn(0f, 1f)
+                if (state.enemy.canBefriend) {
+                    Text(
+                        text = tr(language, "MERCY ${state.mercyProgress}%", "الرحمة ${state.mercyProgress}%"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MercyYellow
+                    )
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(mercyRatio)
-                            .background(MercyYellow)
+                            .fillMaxWidth()
+                            .height(7.dp)
+                            .background(Color(0xFF222228))
+                            .border(1.dp, MercyYellow.copy(alpha = 0.65f), RoundedCornerShape(0.dp))
+                    ) {
+                        val mercyRatio = (state.mercyProgress / 100f).coerceIn(0f, 1f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(mercyRatio)
+                                .background(MercyYellow)
+                        )
+                    }
+                } else {
+                    Text(
+                        text = tr(language, "HOSTILE · NO FRIENDSHIP (FIGHT OR FLEE)", "عدائي · لا يقبل الصداقة (قاتل أو اهرب)"),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = DangerRed
                     )
                 }
             }
@@ -477,6 +485,7 @@ fun BattleScreen(
                         onStartFight = battleViewModel::startFightMinigame,
                         onPerformAct = battleViewModel::performAct,
                         onPerformSpare = battleViewModel::performSpare,
+                        onFleeBattle = onExitBattle,
                         onUseItem = battleViewModel::useItem,
                         onCallAlly = battleViewModel::callFriendAid,
                         onCallKidAlly = battleViewModel::callLostKidAid
@@ -494,6 +503,12 @@ fun BattleScreen(
                         // Classic Undertale White Speech Bubble + Boss Portrait + Typewriter Voice Blips
                         val enemyVoicePitch = when (state.enemy.id) {
                             EnemyId.RUINS_DUMMY -> 280f
+                            EnemyId.NORMAL_SLIME -> 360f
+                            EnemyId.FERAL_HOUND -> 150f
+                            EnemyId.SAND_MOTH -> 440f
+                            EnemyId.IRON_STALKER -> 140f
+                            EnemyId.HALO_SCRIBE -> 480f
+                            EnemyId.ASH_IMP -> 320f
                             EnemyId.VEX -> 240f
                             EnemyId.BRAMBLE -> 185f
                             EnemyId.VESPERA -> 410f
@@ -680,6 +695,7 @@ private fun PlayerMenuInsideBox(
     onStartFight: () -> Unit,
     onPerformAct: (String) -> Unit,
     onPerformSpare: () -> Unit,
+    onFleeBattle: () -> Unit,
     onUseItem: (String) -> Unit,
     onCallAlly: (EnemyId) -> Unit,
     onCallKidAlly: (String) -> Unit
@@ -778,30 +794,63 @@ private fun PlayerMenuInsideBox(
                                 border = BorderStroke(1.5.dp, Color.White),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("* ${act.title} (+${act.mercyGain}% ${tr(language, "Mercy", "رحمة")})", style = MaterialTheme.typography.labelMedium, color = Color.White)
+                                val actLabel = if (state.enemy.canBefriend && act.mercyGain > 0) {
+                                    "* ${act.title} (+${act.mercyGain}% ${tr(language, "Mercy", "رحمة")})"
+                                } else {
+                                    "* ${act.title}"
+                                }
+                                Text(actLabel, style = MaterialTheme.typography.labelMedium, color = Color.White)
                             }
                         }
                         if (state.enemy.id != EnemyId.FUTURE_LOKA) {
-                            Button(
-                                onClick = onPerformSpare,
-                                shape = RoundedCornerShape(0.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (state.canSpare) MercyYellow else Color(0xFF18181D),
-                                    contentColor = if (state.canSpare) Color.Black else Color(0xFF9CA3AF)
-                                ),
-                                border = BorderStroke(2.dp, if (state.canSpare) Color.White else UndertaleOrange),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("battle_spare_button")
-                            ) {
+                            if (state.enemy.canBefriend) {
+                                Button(
+                                    onClick = onPerformSpare,
+                                    shape = RoundedCornerShape(0.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (state.canSpare) MercyYellow else Color(0xFF18181D),
+                                        contentColor = if (state.canSpare) Color.Black else Color(0xFF9CA3AF)
+                                    ),
+                                    border = BorderStroke(2.dp, if (state.canSpare) Color.White else UndertaleOrange),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("battle_spare_button")
+                                ) {
+                                    Text(
+                                        text = if (state.canSpare) {
+                                            tr(language, "* SPARE & BEFRIEND!", "* اعفُ وصادِقه!")
+                                        } else {
+                                            tr(language, "* SPARE (${state.mercyProgress}%/100%)", "* عفو (${state.mercyProgress}%/100%)")
+                                        },
+                                        style = MaterialTheme.typography.labelLarge
+                                    )
+                                }
+                            } else {
                                 Text(
-                                    text = if (state.canSpare) {
-                                        tr(language, "* SPARE & BEFRIEND!", "* اعفُ وصادِقه!")
-                                    } else {
-                                        tr(language, "* SPARE (${state.mercyProgress}%/100%)", "* عفو (${state.mercyProgress}%/100%)")
-                                    },
-                                    style = MaterialTheme.typography.labelLarge
+                                    text = tr(
+                                        language,
+                                        "* Hostile monster — cannot be befriended! Defeat it (FIGHT) or FLEE.",
+                                        "* وحش عدائي — لا يمكن مصادقته! قاتله (FIGHT) أو اهرب (FLEE)."
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = DangerRed
                                 )
+                            }
+                            if (state.enemy.isNormalMonster) {
+                                OutlinedButton(
+                                    onClick = onFleeBattle,
+                                    shape = RoundedCornerShape(0.dp),
+                                    border = BorderStroke(1.5.dp, UndertaleOrange),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("battle_flee_button")
+                                ) {
+                                    Text(
+                                        text = tr(language, "* FLEE BATTLE", "* هروب من المعركة"),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = UndertaleOrange
+                                    )
+                                }
                             }
                         }
                     }

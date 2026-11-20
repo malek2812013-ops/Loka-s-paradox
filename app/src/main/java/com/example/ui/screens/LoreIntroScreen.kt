@@ -70,6 +70,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -88,7 +89,6 @@ import com.example.ui.theme.MercyYellow
 import com.example.ui.theme.ObsidianBg
 import com.example.ui.theme.ParchmentInk
 import com.example.ui.theme.SepiaAmber
-import com.example.ui.theme.SpaceMonoFamily
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.cos
@@ -299,12 +299,12 @@ fun LoreIntroScreen(
                 Column {
                     Text(
                         text = chapterTitle,
-                        style = TextStyle(fontFamily = SpaceMonoFamily, fontSize = 12.sp, letterSpacing = 1.sp),
+                        style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, letterSpacing = 1.sp),
                         color = if (slide.isGlitchFinale) crimsonInk else amberInk
                     )
                     Text(
                         text = tr(language, "TAP ANYWHERE TO CONTINUE", "اضغط في أي مكان للمتابعة"),
-                        style = TextStyle(fontFamily = SpaceMonoFamily, fontSize = 10.sp, letterSpacing = 1.5.sp),
+                        style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 10.sp, letterSpacing = 1.5.sp),
                         color = mutedAmber.copy(alpha = 0.78f)
                     )
                 }
@@ -505,7 +505,7 @@ fun LoreIntroScreen(
                 Text(
                     text = annotated,
                     style = TextStyle(
-                        fontFamily = SpaceMonoFamily,
+                        fontFamily = FontFamily.Monospace,
                         fontSize = 15.sp,
                         lineHeight = 23.sp,
                         letterSpacing = 0.3.sp
@@ -556,7 +556,7 @@ fun LoreIntroScreen(
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = null, tint = amberInk, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(4.dp))
-                                Text(tr(language, "Replay", "إعادة"), style = TextStyle(fontFamily = SpaceMonoFamily, fontSize = 12.sp), color = amberInk)
+                                Text(tr(language, "Replay", "إعادة"), style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp), color = amberInk)
                             }
                         }
                         Button(
@@ -578,7 +578,7 @@ fun LoreIntroScreen(
                                 } else {
                                     tr(language, "NEXT", "التالي")
                                 },
-                                style = TextStyle(fontFamily = SpaceMonoFamily, fontSize = 13.sp)
+                                style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp)
                             )
                         }
                     }
@@ -662,13 +662,13 @@ private fun GlitchCutoffCanvas(
                 } else {
                     tr(language, "( DATA EXPUNGED )", "( بيانات محذوفة )")
                 },
-                style = TextStyle(fontFamily = SpaceMonoFamily, fontSize = 20.sp, letterSpacing = 2.sp),
+                style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 20.sp, letterSpacing = 2.sp),
                 color = if (glitchTick % 2 == 0) crimsonInk else amberInk,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = tr(language, "LOKA'S TIMELINE RECORD WAS ERASED", "بقية سجل مفارقة لوكا تم إخفاؤه"),
-                style = TextStyle(fontFamily = SpaceMonoFamily, fontSize = 12.sp, letterSpacing = 1.sp),
+                style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, letterSpacing = 1.sp),
                 color = ParchmentInk.copy(alpha = 0.85f),
                 textAlign = TextAlign.Center
             )
