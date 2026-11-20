@@ -236,7 +236,7 @@ fun WorldExploreScreen(
                 }
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                drawWorldTerrain(world)
+                drawWorldTerrain(world, ambientClock)
 
                 // Ambient floating particles per realm
                 val particleColor = when (world) {
@@ -364,7 +364,7 @@ fun WorldExploreScreen(
 
                 drawLokaOverworldSprite(
                     center = Offset(px * size.width, py * size.height),
-                    unit = 10.dp.toPx(),
+                    unit = 11.dp.toPx(),
                     isGlitched = world == WorldId.GLITCHED_WORLD
                 )
             }
@@ -996,7 +996,7 @@ fun WorldExploreScreen(
     }
 }
 
-private fun DrawScope.drawWorldTerrain(world: WorldId) {
+private fun DrawScope.drawWorldTerrain(world: WorldId, ambientClock: Float) {
     val cols = 14
     val rows = 8
     val tileW = size.width / cols
@@ -1004,48 +1004,61 @@ private fun DrawScope.drawWorldTerrain(world: WorldId) {
 
     when (world) {
         WorldId.NORMAL_WORLD -> {
-            // Undertale-style checker grass pixel tiles + paved sidewalk crossroads + pixel flower tufts
+            // Undertale-style checker grass pixel tiles + paved sidewalk crossroads + pixel flower & grass tufts
             for (r in 0 until rows) {
                 for (c in 0 until cols) {
                     val color = if ((r + c) % 2 == 0) Color(0xFF3E6B38) else Color(0xFF365E30)
-                    drawRect(color, Offset(c * tileW, r * tileH), Size(tileW + 0.5f, tileH + 0.5f))
+                    val tx = c * tileW
+                    val ty = r * tileH
+                    drawRect(color, Offset(tx, ty), Size(tileW + 0.5f, tileH + 0.5f))
                     if ((r * 7 + c * 3) % 11 == 0) {
-                        drawRect(Color(0xFFFACC15), Offset(c * tileW + tileW * 0.4f, r * tileH + tileH * 0.4f), Size(4.dp.toPx(), 4.dp.toPx()))
+                        drawRect(Color(0xFF16A34A), Offset(tx + tileW * 0.35f, ty + tileH * 0.45f), Size(4.dp.toPx(), 3.dp.toPx()))
+                        drawRect(Color(0xFFFACC15), Offset(tx + tileW * 0.42f, ty + tileH * 0.35f), Size(4.dp.toPx(), 4.dp.toPx()))
+                    } else if ((r * 3 + c * 5) % 9 == 0) {
+                        drawRect(Color(0xFF4ADE80).copy(alpha = 0.35f), Offset(tx + tileW * 0.25f, ty + tileH * 0.6f), Size(5.dp.toPx(), 2.5.dp.toPx()))
                     }
                 }
             }
-            // Stepped grey pixel roads
-            drawRect(color = Color(0xFF5D626B), topLeft = Offset(0f, size.height * 0.44f), size = Size(size.width, size.height * 0.12f))
-            drawRect(color = Color(0xFF5D626B), topLeft = Offset(size.width * 0.44f, 0f), size = Size(size.width * 0.12f, size.height))
+            // Stepped stone roads + cobblestone seams
+            drawRect(color = Color(0xFF525862), topLeft = Offset(0f, size.height * 0.44f), size = Size(size.width, size.height * 0.12f))
+            drawRect(color = Color(0xFF525862), topLeft = Offset(size.width * 0.44f, 0f), size = Size(size.width * 0.12f, size.height))
             drawRect(color = Color(0xFF8C929C), topLeft = Offset(0f, size.height * 0.44f), size = Size(size.width, 3.dp.toPx()))
             drawRect(color = Color(0xFF8C929C), topLeft = Offset(0f, size.height * 0.56f), size = Size(size.width, 3.dp.toPx()))
+            drawRect(color = Color(0xFF8C929C), topLeft = Offset(size.width * 0.44f, 0f), size = Size(3.dp.toPx(), size.height))
+            drawRect(color = Color(0xFF8C929C), topLeft = Offset(size.width * 0.56f, 0f), size = Size(3.dp.toPx(), size.height))
+            for (i in 0..10) {
+                drawRect(Color(0xFF6E7582), Offset(size.width * (i * 0.095f + 0.02f), size.height * 0.495f), Size(10.dp.toPx(), 3.dp.toPx()))
+            }
 
             val trees = listOf(0.10f to 0.40f, 0.35f to 0.14f, 0.64f to 0.16f, 0.88f to 0.40f, 0.36f to 0.86f, 0.64f to 0.86f)
             trees.forEach { (tx, ty) ->
-                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF284F24), Color(0xFF3A7334), Color(0xFF5A3D28))
+                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF23491F), Color(0xFF3E7B37), Color(0xFF5A3D28))
             }
         }
 
         WorldId.TRI_RACE_REALM -> {
-            // Warm beige pixel dunes + pebble speckles + vivid cyan pixel trees
+            // Warm sandstone dunes + pebble clusters + vivid cyan crystalline trees
             for (r in 0 until rows) {
                 for (c in 0 until cols) {
                     val color = if ((r + c) % 2 == 0) Color(0xFFD9C39D) else Color(0xFFCBB186)
-                    drawRect(color, Offset(c * tileW, r * tileH), Size(tileW + 0.5f, tileH + 0.5f))
+                    val tx = c * tileW
+                    val ty = r * tileH
+                    drawRect(color, Offset(tx, ty), Size(tileW + 0.5f, tileH + 0.5f))
                     if ((r * 5 + c * 9) % 7 == 0) {
-                        drawRect(Color(0xFF9C7B50), Offset(c * tileW + tileW * 0.35f, r * tileH + tileH * 0.5f), Size(5.dp.toPx(), 4.dp.toPx()))
+                        drawRect(Color(0xFF9C7B50), Offset(tx + tileW * 0.35f, ty + tileH * 0.5f), Size(5.dp.toPx(), 4.dp.toPx()))
+                        drawRect(Color(0xFFE7D6B5), Offset(tx + tileW * 0.42f, ty + tileH * 0.44f), Size(3.dp.toPx(), 2.dp.toPx()))
                     }
                 }
             }
             val cyanTrees = listOf(0.12f to 0.38f, 0.38f to 0.15f, 0.60f to 0.15f, 0.88f to 0.44f, 0.42f to 0.86f, 0.62f to 0.88f)
             cyanTrees.forEach { (tx, ty) ->
-                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF0891B2), Color(0xFF22D3EE), Color(0xFF6B4423))
+                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF0E7490), Color(0xFF22D3EE), Color(0xFF6B4423))
             }
         }
 
         WorldId.SPLIT_REALM -> {
-            // Left Half: Angels' purple-pink pixel tiles & green pixel trees
-            // Right Half: Devils' brown-grey pixel wastes & red pixel trees
+            // Left Half: Angels' purple-pink stone tiles & emerald pixel trees
+            // Right Half: Devils' obsidian-basalt wastes & crimson pixel trees
             for (r in 0 until rows) {
                 for (c in 0 until cols) {
                     val isAngelSide = c < cols / 2
@@ -1054,23 +1067,34 @@ private fun DrawScope.drawWorldTerrain(world: WorldId) {
                     } else {
                         if ((r + c) % 2 == 0) Color(0xFF5D402C) else Color(0xFF51555E)
                     }
-                    drawRect(color, Offset(c * tileW, r * tileH), Size(tileW + 0.5f, tileH + 0.5f))
+                    val tx = c * tileW
+                    val ty = r * tileH
+                    drawRect(color, Offset(tx, ty), Size(tileW + 0.5f, tileH + 0.5f))
+                    if ((r + c) % 5 == 0) {
+                        drawRect(
+                            color = (if (isAngelSide) Color(0xFFF9A8D4) else Color(0xFFEF4444)).copy(alpha = 0.22f),
+                            topLeft = Offset(tx + tileW * 0.3f, ty + tileH * 0.4f),
+                            size = Size(5.dp.toPx(), 3.dp.toPx())
+                        )
+                    }
                 }
             }
-            // Glowing stepped border divide
-            drawLine(Color.White, Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), strokeWidth = 4f)
+            // Pulsing Paradox rift barrier down the middle
+            val borderPulse = 0.45f + 0.35f * sin(ambientClock * 3.5f)
+            drawLine(GlitchCyan.copy(alpha = borderPulse * 0.45f), Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), strokeWidth = 10f)
+            drawLine(Color.White, Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), strokeWidth = 3.5f)
             listOf(0.10f to 0.42f, 0.36f to 0.18f, 0.38f to 0.84f).forEach { (tx, ty) ->
                 drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF15803D), Color(0xFF4ADE80), Color(0xFF4A2E1B))
             }
             listOf(0.64f to 0.16f, 0.90f to 0.44f, 0.62f to 0.86f).forEach { (tx, ty) ->
-                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFFB91C1C), Color(0xFFEF4444), Color(0xFF2B2523))
+                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF991B1B), Color(0xFFEF4444), Color(0xFF2B2523))
             }
         }
 
         WorldId.GLITCHED_WORLD -> {
             drawRect(color = Color.Black)
-            val r = Random((System.currentTimeMillis() / 120L).toInt())
-            repeat(12) {
+            val r = Random((ambientClock * 8f).toInt())
+            repeat(14) {
                 val y = r.nextFloat() * size.height
                 drawRect(
                     color = if (it % 2 == 0) GlitchCyan.copy(alpha = 0.22f) else GlitchMagenta.copy(alpha = 0.18f),
@@ -1089,12 +1113,17 @@ private fun DrawScope.drawPixelTree(
     trunkColor: Color
 ) {
     val u = 6.dp.toPx()
-    // Stepped pixel shadow & trunk
-    drawRect(Color.Black.copy(alpha = 0.3f), Offset(center.x - u * 1.4f, center.y + u * 1.1f), Size(u * 2.8f, u * 0.8f))
-    drawRect(trunkColor, Offset(center.x - u * 0.55f, center.y - u * 0.1f), Size(u * 1.1f, u * 1.6f))
-    // Crisp stepped pixel foliage blocks
-    drawRect(canopyDark, Offset(center.x - u * 1.8f, center.y - u * 1.6f), Size(u * 3.6f, u * 2.1f))
-    drawRect(canopyDark, Offset(center.x - u * 1.2f, center.y - u * 2.3f), Size(u * 2.4f, u * 0.9f))
-    drawRect(canopyLight, Offset(center.x - u * 1.1f, center.y - u * 1.8f), Size(u * 2.0f, u * 1.1f))
-    drawRect(Color(0xFF140E0A), Offset(center.x - u * 1.8f, center.y - u * 1.6f), Size(u * 3.6f, u * 2.1f), style = Stroke(2f))
+    // Ground shadow
+    drawOval(Color.Black.copy(alpha = 0.36f), Offset(center.x - u * 1.9f, center.y + u * 1.0f), Size(u * 3.8f, u * 0.9f))
+    // Shaded bark trunk
+    drawRect(trunkColor, Offset(center.x - u * 0.55f, center.y - u * 0.1f), Size(u * 1.1f, u * 1.55f))
+    drawRect(Color.Black.copy(alpha = 0.25f), Offset(center.x + u * 0.15f, center.y - u * 0.1f), Size(u * 0.4f, u * 1.55f))
+    // Multi-tiered crisp Undertale-style pixel foliage
+    drawRect(Color(0xFF140E0A), Offset(center.x - u * 2.0f, center.y - u * 1.75f), Size(u * 4.0f, u * 2.25f))
+    drawRect(Color(0xFF140E0A), Offset(center.x - u * 1.4f, center.y - u * 2.45f), Size(u * 2.8f, u * 1.0f))
+    drawRect(canopyDark, Offset(center.x - u * 1.85f, center.y - u * 1.6f), Size(u * 3.7f, u * 1.95f))
+    drawRect(canopyDark, Offset(center.x - u * 1.25f, center.y - u * 2.3f), Size(u * 2.5f, u * 0.9f))
+    // Leaf highlight clusters
+    drawRect(canopyLight, Offset(center.x - u * 1.25f, center.y - u * 1.95f), Size(u * 2.1f, u * 1.15f))
+    drawRect(canopyLight, Offset(center.x - u * 0.80f, center.y - u * 2.15f), Size(u * 1.4f, u * 0.45f))
 }

@@ -24,10 +24,10 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Crisp Undertale-style Pixel Portrait for Loka:
- * - Shaggy Clover-style chestnut hair, NO hat
+ * Crisp Undertale-style Frisk-proportioned Pixel Portrait for Loka:
+ * - Rounded chibi bob chestnut hair with highlights (NO hat)
  * - Eyes grey shaded with cyan (#6B7D85 + #38BDF8)
- * - Grey T-shirt, beige pants, and golden heart necklace
+ * - Grey T-shirt with collar/sleeve shading, beige pants trim, and golden heart necklace
  * - Supports dynamic facial expressions (HAPPY, SURPRISED, ANGRY, DETERMINED)
  */
 @Composable
@@ -57,7 +57,7 @@ fun LokaPortraitCanvas(
         val h = size.height
         val cx = w / 2f
         val cy = h / 2f + bob
-        val spriteSize = minOf(w, h) * 0.86f
+        val spriteSize = minOf(w, h) * 0.88f
 
         if (isFutureTransformed || expression == PortraitExpression.DETERMINED) {
             drawCircle(
@@ -85,14 +85,19 @@ fun LokaPortraitCanvas(
 
         val palette = mapOf(
             'O' to Color(0xFF140E0A),
-            'H' to Color(0xFF8C2D19),
-            'h' to Color(0xFFC9442B),
+            'H' to Color(0xFF7C2614),
+            'h' to Color(0xFFB8452A),
             'S' to Color(0xFFEBC7A8),
+            's' to Color(0xFFD2A37E),
             'G' to Color(0xFF6B7D85),
             'C' to (if (isSickGlitched) Color.White else if (expression == PortraitExpression.DETERMINED) Color(0xFF7DD3FC) else Color(0xFF38BDF8)),
+            'l' to Color(0xFF9CA3AF),
             'T' to Color(0xFF747982),
+            't' to Color(0xFF52565E),
             'Y' to SepiaGold,
-            'P' to Color(0xFFD6C29F)
+            'y' to Color(0xFFB45309),
+            'P' to Color(0xFFD6C29F),
+            'p' to Color(0xFFB09B76)
         )
 
         drawPixelMatrix(
@@ -103,27 +108,25 @@ fun LokaPortraitCanvas(
         )
 
         // Dynamic Undertale-style expression overlays
-        val u = spriteSize / 18f
+        val u = spriteSize / 20f
         when (expression) {
             PortraitExpression.HAPPY -> {
-                // Warm small smile & cheerful sparkle
-                drawRect(Color(0xFF140E0A), Offset(cx - u * 0.8f, cy + u * 1.4f), SizeCompat(u * 2.2f, u * 0.7f))
-                drawPixelSaveStar(Offset(cx + u * 4.8f, cy - u * 4.5f), u * 1.0f, SepiaGold)
+                drawRect(Color(0xFF140E0A), Offset(cx - u * 1.1f, cy + u * 1.1f), SizeCompat(u * 2.2f, u * 0.65f))
+                drawPixelSaveStar(Offset(cx + u * 5.2f, cy - u * 4.8f), u * 1.0f, SepiaGold)
             }
             PortraitExpression.SURPRISED -> {
-                // Wide shocked eye highlight & open O mouth
-                drawRect(Color.White, Offset(cx + u * 2.1f, cy - u * 1.3f), SizeCompat(u * 1.3f, u * 1.5f))
-                drawRect(Color(0xFF140E0A), Offset(cx + u * 0.2f, cy + u * 1.5f), SizeCompat(u * 1.3f, u * 1.3f))
+                drawRect(Color.White, Offset(cx - u * 3.1f, cy - u * 1.6f), SizeCompat(u * 1.1f, u * 1.3f))
+                drawRect(Color.White, Offset(cx + u * 2.0f, cy - u * 1.6f), SizeCompat(u * 1.1f, u * 1.3f))
+                drawRect(Color(0xFF140E0A), Offset(cx - u * 0.6f, cy + u * 1.1f), SizeCompat(u * 1.2f, u * 1.2f))
             }
             PortraitExpression.ANGRY -> {
-                // Furrowed diagonal brow & intense glare
-                drawLine(Color(0xFF140E0A), Offset(cx + u * 1.1f, cy - u * 2.0f), Offset(cx + u * 3.8f, cy - u * 1.1f), strokeWidth = u * 0.9f)
-                drawRect(Color(0xFFEF4444), Offset(cx + u * 2.4f, cy - u * 0.7f), SizeCompat(u * 0.9f, u * 0.9f))
+                drawLine(Color(0xFF140E0A), Offset(cx - u * 3.4f, cy - u * 2.2f), Offset(cx - u * 1.0f, cy - u * 1.5f), strokeWidth = u * 0.85f)
+                drawLine(Color(0xFF140E0A), Offset(cx + u * 3.4f, cy - u * 2.2f), Offset(cx + u * 1.0f, cy - u * 1.5f), strokeWidth = u * 0.85f)
+                drawRect(Color(0xFFEF4444), Offset(cx + u * 2.1f, cy - u * 0.8f), SizeCompat(u * 0.85f, u * 0.85f))
             }
             PortraitExpression.DETERMINED -> {
-                // Glowing cyan determination eye flare
-                drawCircle(Color(0xFF38BDF8).copy(alpha = 0.55f), radius = u * 2.0f, center = Offset(cx + u * 2.7f, cy - u * 0.5f))
-                drawPixelSaveStar(Offset(cx + u * 2.7f, cy - u * 0.5f), u * 1.2f, Color(0xFF38BDF8))
+                drawCircle(Color(0xFF38BDF8).copy(alpha = 0.55f), radius = u * 1.8f, center = Offset(cx + u * 2.5f, cy - u * 0.6f))
+                drawPixelSaveStar(Offset(cx + u * 2.5f, cy - u * 0.6f), u * 1.1f, Color(0xFF38BDF8))
             }
             PortraitExpression.NEUTRAL -> Unit
         }
@@ -131,7 +134,34 @@ fun LokaPortraitCanvas(
 }
 
 /**
- * Crisp top-down Undertale-style Overworld Pixel Sprite for Loka.
+ * Full-body Frisk-proportioned standing Loka Canvas used on cutscene stages (e.g. meeting smaller Ashen).
+ */
+@Composable
+fun LokaFullBodySpriteCanvas(
+    modifier: Modifier = Modifier,
+    isGlitched: Boolean = false,
+    expression: PortraitExpression = PortraitExpression.NEUTRAL
+) {
+    val transition = rememberInfiniteTransition(label = "lokaStageIdle")
+    val bob by transition.animateFloat(
+        initialValue = -1.2f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(tween(1150, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bob"
+    )
+    Canvas(modifier = modifier) {
+        val cx = size.width * 0.5f
+        val cy = size.height * 0.52f + bob
+        val unit = minOf(size.width, size.height) * 0.31f
+        drawLokaOverworldSprite(center = Offset(cx, cy), unit = unit, isGlitched = isGlitched)
+        if (expression == PortraitExpression.DETERMINED) {
+            drawPixelSaveStar(Offset(cx + unit * 1.15f, cy - unit * 0.9f), unit * 0.22f, Color(0xFF38BDF8))
+        }
+    }
+}
+
+/**
+ * Crisp top-down Undertale-style Overworld Pixel Sprite for Frisk-bodied Loka.
  */
 fun DrawScope.drawLokaOverworldSprite(
     center: Offset,
@@ -140,21 +170,26 @@ fun DrawScope.drawLokaOverworldSprite(
 ) {
     // Pixel floor shadow
     drawOval(
-        color = Color.Black.copy(alpha = 0.42f),
-        topLeft = Offset(center.x - unit * 0.95f, center.y + unit * 0.85f),
-        size = SizeCompat(unit * 1.9f, unit * 0.65f)
+        color = Color.Black.copy(alpha = 0.45f),
+        topLeft = Offset(center.x - unit * 1.02f, center.y + unit * 1.08f),
+        size = SizeCompat(unit * 2.04f, unit * 0.62f)
     )
 
     val palette = mapOf(
         'O' to Color(0xFF120C08),
-        'H' to Color(0xFF8C2D19),
-        'h' to Color(0xFFC9442B),
+        'H' to Color(0xFF7C2614),
+        'h' to Color(0xFFB8452A),
         'S' to Color(0xFFEBC7A8),
+        's' to Color(0xFF2B1C14),
         'G' to Color(0xFF6B7D85),
         'C' to (if (isGlitched) Color.White else Color(0xFF38BDF8)),
+        'l' to Color(0xFF9CA3AF),
         'T' to Color(0xFF747982),
+        't' to Color(0xFF52565E),
         'Y' to SepiaGold,
+        'y' to Color(0xFFB45309),
         'P' to Color(0xFFD6C29F),
+        'p' to Color(0xFFB09B76),
         'B' to Color(0xFF3A271B)
     )
 
@@ -162,7 +197,7 @@ fun DrawScope.drawLokaOverworldSprite(
         rows = PixelSprites.lokaOverworldGrid,
         palette = palette,
         center = center,
-        targetSizePx = unit * 2.75f
+        targetSizePx = unit * 2.95f
     )
 }
 
@@ -323,12 +358,13 @@ fun AshenFlowerCanvas(
         val h = size.height
         val cx = w * 0.5f + sway
         val cy = h * 0.5f
-        val spriteSize = minOf(w, h) * 0.88f
+        val spriteSize = minOf(w, h) * 0.90f
 
+        // Ground soil shadow beneath Ashen's roots
         drawOval(
-            color = Color(0xFF1F1F23),
-            topLeft = Offset(w * 0.22f, h * 0.78f),
-            size = SizeCompat(w * 0.56f, h * 0.14f)
+            color = Color(0xFF1A1A20),
+            topLeft = Offset(w * 0.22f, h * 0.77f),
+            size = SizeCompat(w * 0.56f, h * 0.16f)
         )
 
         val palette = mapOf(
@@ -336,7 +372,8 @@ fun AshenFlowerCanvas(
             'B' to Color(0xFF09090B),
             'D' to Color(0xFF3F3F46),
             'G' to Color(0xFF71717A),
-            'P' to Color(0xFFD4D4D8)
+            'P' to Color(0xFFD4D4D8),
+            'W' to Color(0xFFF4F4F5)
         )
 
         val useCreepy = isCreepySmirk || expression == PortraitExpression.ANGRY || expression == PortraitExpression.DETERMINED
@@ -347,14 +384,14 @@ fun AshenFlowerCanvas(
             targetSizePx = spriteSize
         )
 
-        val u = spriteSize / 16f
+        val u = spriteSize / 18f
         when (expression) {
             PortraitExpression.HAPPY -> {
-                drawRect(Color(0xFF09090B), Offset(cx - u * 1.2f, cy - u * 0.4f), SizeCompat(u * 2.4f, u * 0.6f))
+                drawRect(Color(0xFF09090B), Offset(cx - u * 1.4f, cy - u * 0.6f), SizeCompat(u * 2.8f, u * 0.65f))
             }
             PortraitExpression.SURPRISED -> {
-                drawCircle(Color.White, radius = u * 0.75f, center = Offset(cx - u * 1.4f, cy - u * 1.8f))
-                drawCircle(Color.White, radius = u * 0.75f, center = Offset(cx + u * 1.4f, cy - u * 1.8f))
+                drawCircle(Color.White, radius = u * 0.8f, center = Offset(cx - u * 1.6f, cy - u * 2.0f))
+                drawCircle(Color.White, radius = u * 0.8f, center = Offset(cx + u * 1.6f, cy - u * 2.0f))
             }
             else -> Unit
         }

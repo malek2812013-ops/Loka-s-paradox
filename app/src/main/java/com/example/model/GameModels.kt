@@ -376,7 +376,7 @@ data class LoreSlide(
     val id: Int,
     val chapterTag: String,
     val chapterTagAr: String = chapterTag,
-    @DrawableRes val imageRes: Int?,
+    @param:DrawableRes val imageRes: Int?,
     val narration: String,
     val narrationAr: String = narration,
     val isGlitchFinale: Boolean = false

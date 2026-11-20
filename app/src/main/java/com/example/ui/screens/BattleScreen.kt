@@ -32,7 +32,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -103,6 +102,7 @@ private val UndertaleHpRed = Color(0xFFC80000)
 @Composable
 fun BattleScreen(
     language: AppLanguage,
+    battleSessionId: Long = 1L,
     enemyId: EnemyId,
     worldId: WorldId,
     equippedArmor: ArmorEquipment,
@@ -119,8 +119,9 @@ fun BattleScreen(
 ) {
     BackHandler { onExitBattle() }
 
-    LaunchedEffect(enemyId, worldId, helpedKidIds, equippedWeapon.id, equippedArmor.id) {
+    LaunchedEffect(battleSessionId, enemyId, worldId, helpedKidIds, equippedWeapon.id, equippedArmor.id) {
         battleViewModel.initEncounter(
+            encounterId = battleSessionId,
             enemyId = enemyId,
             worldId = worldId,
             armor = equippedArmor,
@@ -148,8 +149,8 @@ fun BattleScreen(
         }
     }
 
-    LaunchedEffect(state.phase) {
-        if (state.phase == BattlePhase.VICTORY) {
+    LaunchedEffect(state.encounterId, state.phase) {
+        if (state.encounterId == battleSessionId && state.phase == BattlePhase.VICTORY) {
             val remainingMap = state.items.associate { it.id to it.count }
             onBattleFinished(state.enemy.id, state.battleWonSpared, remainingMap)
         }
@@ -217,34 +218,48 @@ fun BattleScreen(
                 }
             }
 
-            // Classic Undertale Monster Bars (Green over Dark Red for Enemy HP, Yellow for Mercy)
+            // Classic Undertale Monster Bars (Sharp Green over Dark Red for Enemy HP, Yellow for Mercy)
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = tr(language, "ENEMY HP ${state.enemyHp}/${state.enemy.maxHp}", "دم العدو ${state.enemyHp}/${state.enemy.maxHp}"),
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White
                 )
-                LinearProgressIndicator(
-                    progress = { (state.enemyHp.toFloat() / state.enemy.maxHp).coerceIn(0f, 1f) },
-                    color = HpBarGreen,
-                    trackColor = UndertaleHpRed,
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(7.dp)
-                )
+                        .height(9.dp)
+                        .background(UndertaleHpRed)
+                        .border(1.dp, Color.White, RoundedCornerShape(0.dp))
+                ) {
+                    val hpRatio = (state.enemyHp.toFloat() / state.enemy.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(hpRatio)
+                            .background(HpBarGreen)
+                    )
+                }
                 Text(
                     text = tr(language, "MERCY ${state.mercyProgress}%", "الرحمة ${state.mercyProgress}%"),
                     style = MaterialTheme.typography.labelSmall,
                     color = MercyYellow
                 )
-                LinearProgressIndicator(
-                    progress = { (state.mercyProgress / 100f).coerceIn(0f, 1f) },
-                    color = MercyYellow,
-                    trackColor = Color(0xFF222228),
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(6.dp)
-                )
+                        .height(7.dp)
+                        .background(Color(0xFF222228))
+                        .border(1.dp, MercyYellow.copy(alpha = 0.65f), RoundedCornerShape(0.dp))
+                ) {
+                    val mercyRatio = (state.mercyProgress / 100f).coerceIn(0f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(mercyRatio)
+                            .background(MercyYellow)
+                    )
+                }
             }
 
             // Undertale Encounter Grid Background + Pixel Boss Sprite
@@ -519,9 +534,11 @@ fun BattleScreen(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
+                                        .fillMaxHeight()
                                         .background(Color.White, RoundedCornerShape(6.dp))
                                         .border(2.5.dp, Color(0xFF222228), RoundedCornerShape(6.dp))
                                         .padding(12.dp)
+                                        .verticalScroll(rememberScrollState())
                                 ) {
                                     TypewriterBattleText(
                                         fullText = state.dialogueText,
@@ -583,6 +600,7 @@ fun BattleScreen(
                                     Button(
                                         onClick = {
                                             battleViewModel.initEncounter(
+                                                encounterId = battleSessionId,
                                                 enemyId = enemyId,
                                                 worldId = worldId,
                                                 armor = equippedArmor,
@@ -988,13 +1006,26 @@ private fun FightMinigameInsideBox(
             val w = size.width
             val midY = h * 0.5f
 
+            val x0 = w * 0.04f
+            val x1 = w * 0.50f
+            val x2 = w * 0.96f
+            val topCtrlY = -h * 0.10f
+            val botCtrlY = h * 1.10f
             val topArc = Path().apply {
-                moveTo(w * 0.04f, midY)
-                quadraticTo(w * 0.50f, -h * 0.10f, w * 0.96f, midY)
+                moveTo(x0, midY)
+                cubicTo(
+                    x0 + (x1 - x0) * (2f / 3f), midY + (topCtrlY - midY) * (2f / 3f),
+                    x2 + (x1 - x2) * (2f / 3f), midY + (topCtrlY - midY) * (2f / 3f),
+                    x2, midY
+                )
             }
             val bottomArc = Path().apply {
-                moveTo(w * 0.04f, midY)
-                quadraticTo(w * 0.50f, h * 1.10f, w * 0.96f, midY)
+                moveTo(x0, midY)
+                cubicTo(
+                    x0 + (x1 - x0) * (2f / 3f), midY + (botCtrlY - midY) * (2f / 3f),
+                    x2 + (x1 - x2) * (2f / 3f), midY + (botCtrlY - midY) * (2f / 3f),
+                    x2, midY
+                )
             }
             val eyeOutlineColor = when (weapon.style) {
                 WeaponStyle.WRENCH_SPARK -> weapon.accentColor

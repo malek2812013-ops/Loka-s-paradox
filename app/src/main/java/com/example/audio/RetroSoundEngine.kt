@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlin.random.Random
+import java.util.concurrent.atomic.AtomicInteger
 
 enum class BgmTrack {
     NONE,
@@ -40,7 +41,9 @@ enum class BgmTrack {
  */
 object RetroSoundEngine {
     private const val SAMPLE_RATE = 22050
+    private const val MAX_CONCURRENT_SFX = 4
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val activeSfxTracks = AtomicInteger(0)
 
     @Volatile
     var isMuted: Boolean = false
@@ -119,6 +122,10 @@ object RetroSoundEngine {
                 .setBufferSizeInBytes(minBuf * 2)
                 .build()
 
+            if (streamTrack.state != AudioTrack.STATE_INITIALIZED) {
+                streamTrack.release()
+                return
+            }
             streamTrack.play()
 
             val melody = notesForTrack(trackType)
@@ -435,14 +442,20 @@ object RetroSoundEngine {
     }
 
     private fun writeAudio(samples: ShortArray) {
+        if (activeSfxTracks.incrementAndGet() > MAX_CONCURRENT_SFX) {
+            activeSfxTracks.decrementAndGet()
+            return
+        }
+        var track: AudioTrack? = null
         try {
             val minBuffer = AudioTrack.getMinBufferSize(
                 SAMPLE_RATE,
                 AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT
             )
+            if (minBuffer <= 0) return
             val bufferBytes = maxOf(minBuffer, samples.size * 2)
-            val track = AudioTrack.Builder()
+            track = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_GAME)
@@ -460,13 +473,19 @@ object RetroSoundEngine {
                 .setBufferSizeInBytes(bufferBytes)
                 .build()
 
+            if (track.state != AudioTrack.STATE_INITIALIZED) return
             track.write(samples, 0, samples.size)
             track.play()
             Thread.sleep((samples.size * 1000L / SAMPLE_RATE) + 30L)
             track.stop()
-            track.release()
         } catch (_: Throwable) {
             // Audio unavailable on headless environment or busy device; ignore safely.
+        } finally {
+            try {
+                track?.release()
+            } catch (_: Throwable) {
+            }
+            activeSfxTracks.decrementAndGet()
         }
     }
 }

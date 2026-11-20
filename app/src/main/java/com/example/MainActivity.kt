@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
 
                     AppScreen.BATTLE -> BattleScreen(
                         language = state.language,
+                        battleSessionId = state.battleSessionId,
                         enemyId = state.selectedEnemyId,
                         worldId = state.activeWorld,
                         equippedArmor = state.equippedArmor,

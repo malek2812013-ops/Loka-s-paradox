@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,7 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -35,12 +38,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import com.example.audio.RetroSoundEngine
 import com.example.model.AppLanguage
 import com.example.model.PortraitExpression
 import com.example.model.tr
 import com.example.ui.components.AshenFlowerCanvas
-import com.example.ui.components.LokaPortraitCanvas
+import com.example.ui.components.LokaFullBodySpriteCanvas
 import com.example.ui.theme.ParchmentInk
 import kotlinx.coroutines.delay
 
@@ -53,6 +59,10 @@ fun AshenMeetingScreen(
 ) {
     var step by remember { mutableIntStateOf(0) }
     var savedByAshen by remember { mutableIntStateOf(0) }
+
+    BackHandler(enabled = step > 0) {
+        step--
+    }
 
     val linesEn = listOf(
         "* ???: \"Heh... well look who finally walked out of the Ruins.\"",
@@ -170,24 +180,62 @@ fun AshenMeetingScreen(
                 }
             }
 
-            // Center Stage: Pixel Loka facing Monochrome Pixel Ashen Flower under spotlight
+            // Center Stage: Standing Frisk-bodied Loka facing much smaller Monochrome Ashen in spotlight
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .weight(1f)
+                    .padding(bottom = 8.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Bottom
             ) {
-                LokaPortraitCanvas(
-                    saveCount = 0,
-                    expression = lokaExpression,
-                    modifier = Modifier.size(134.dp)
-                )
-                AshenFlowerCanvas(
-                    isCreepySmirk = step >= 3,
-                    expression = ashenExpression,
-                    modifier = Modifier.size(164.dp)
-                )
+                Box(
+                    modifier = Modifier.size(164.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawOval(
+                            brush = Brush.radialGradient(
+                                colors = listOf(Color(0x33D6C29F), Color.Transparent)
+                            ),
+                            topLeft = Offset(size.width * 0.14f, size.height * 0.78f),
+                            size = Size(size.width * 0.72f, size.height * 0.18f)
+                        )
+                    }
+                    LokaFullBodySpriteCanvas(
+                        expression = lokaExpression,
+                        modifier = Modifier
+                            .size(144.dp)
+                            .padding(bottom = 12.dp)
+                    )
+                }
+                Box(
+                    modifier = Modifier.size(140.dp),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        // Classic Undertale spotlight puddle & dark dirt mound beneath tiny Ashen
+                        drawOval(
+                            brush = Brush.radialGradient(
+                                colors = listOf(Color(0x44A1A1AA), Color(0x1852525B), Color.Transparent)
+                            ),
+                            topLeft = Offset(size.width * 0.08f, size.height * 0.70f),
+                            size = Size(size.width * 0.84f, size.height * 0.24f)
+                        )
+                        drawOval(
+                            color = Color(0xFF27272E),
+                            topLeft = Offset(size.width * 0.28f, size.height * 0.77f),
+                            size = Size(size.width * 0.44f, size.height * 0.11f)
+                        )
+                    }
+                    AshenFlowerCanvas(
+                        isCreepySmirk = step >= 3,
+                        expression = ashenExpression,
+                        modifier = Modifier
+                            .size(70.dp)
+                            .padding(bottom = 14.dp)
+                    )
+                }
             }
 
             // Classic Sharp White-Bordered Undertale Dialogue Box with Speaker Portrait
@@ -218,7 +266,9 @@ fun AshenMeetingScreen(
                     text = currentLine.take(visibleChars),
                     style = MaterialTheme.typography.bodyLarge,
                     color = Color.White,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
                 )
                 Button(
                     onClick = advance,

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,7 +22,9 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
@@ -93,14 +96,26 @@ fun RuinsTutorialScreen(
     var dummyExplained by remember { mutableStateOf(false) }
     var padDirX by remember { mutableFloatStateOf(0f) }
     var padDirY by remember { mutableFloatStateOf(0f) }
+    var ambientClock by remember { mutableFloatStateOf(0f) }
+
+    BackHandler(enabled = exitMonologueStep > 0 || introDialogueStep > 0) {
+        if (exitMonologueStep > 0) {
+            exitMonologueStep--
+        } else if (introDialogueStep > 0) {
+            introDialogueStep--
+        }
+    }
 
     LaunchedEffect(state.controlScheme, exitMonologueStep) {
         var lastNanos = 0L
         while (true) {
             withFrameNanos { nanos ->
-                if (lastNanos != 0L && exitMonologueStep == 0 && (padDirX != 0f || padDirY != 0f)) {
+                if (lastNanos != 0L) {
                     val dt = ((nanos - lastNanos) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
-                    onMovePlayer(padDirX * 0.42f * dt, padDirY * 0.42f * dt)
+                    ambientClock = (ambientClock + dt) % 600f
+                    if (exitMonologueStep == 0 && (padDirX != 0f || padDirY != 0f)) {
+                        onMovePlayer(padDirX * 0.42f * dt, padDirY * 0.42f * dt)
+                    }
                 }
                 lastNanos = nanos
             }
@@ -186,11 +201,12 @@ fun RuinsTutorialScreen(
                     dummyPos = dummyPos,
                     gatePos = gatePos,
                     switchActive = state.ruinsSwitchActivated,
-                    dummyPracticed = state.ruinsDummyPracticed
+                    dummyPracticed = state.ruinsDummyPracticed,
+                    ambientClock = ambientClock
                 )
                 drawLokaOverworldSprite(
                     center = Offset(px * size.width, py * size.height),
-                    unit = 11.dp.toPx(),
+                    unit = 11.5.dp.toPx(),
                     isGlitched = false
                 )
             }
@@ -351,6 +367,7 @@ fun RuinsTutorialScreen(
                         indication = null
                     ) { visibleChars = formattedActiveText.length }
                     .padding(10.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = formattedActiveText.take(visibleChars),
@@ -483,20 +500,22 @@ private fun DrawScope.drawRuinsChamber(
     dummyPos: Pair<Float, Float>,
     gatePos: Pair<Float, Float>,
     switchActive: Boolean,
-    dummyPracticed: Boolean
+    dummyPracticed: Boolean,
+    ambientClock: Float
 ) {
     // Deep Undertale Ruins dark-purple outer border backdrop
-    drawRect(color = Color(0xFF230C2E))
+    drawRect(color = Color(0xFF1D0926))
 
-    // Brick Top Wall (authentic Undertale Ruins purple brick mortar pattern)
+    // Brick Top Wall (authentic Undertale Ruins purple brick mortar + top highlight bevel)
     val wallH = size.height * 0.25f
     drawRect(color = Color(0xFF542266), topLeft = Offset.Zero, size = Size(size.width, wallH))
     val brickH = wallH / 3f
     val brickW = size.width / 8f
-    val mortar = Color(0xFF331140)
+    val mortar = Color(0xFF2D0E3A)
     for (row in 0..2) {
         val y = row * brickH
         drawLine(mortar, Offset(0f, y), Offset(size.width, y), strokeWidth = 3f)
+        drawLine(Color(0xFF6B2E82), Offset(0f, y + 2f), Offset(size.width, y + 2f), strokeWidth = 1.5f)
         val xShift = if (row % 2 == 1) brickW * 0.5f else 0f
         for (col in 0..8) {
             val x = col * brickW + xShift
@@ -505,16 +524,41 @@ private fun DrawScope.drawRuinsChamber(
             }
         }
     }
-    drawLine(Color(0xFF8C49A8), Offset(0f, wallH), Offset(size.width, wallH), strokeWidth = 4f)
+    drawRect(Color(0xFF230B2E), Offset(0f, wallH - 5.dp.toPx()), Size(size.width, 5.dp.toPx()))
+    drawLine(Color(0xFF8C49A8), Offset(0f, wallH), Offset(size.width, wallH), strokeWidth = 3f)
 
     // Vine-draped stone columns along the Ruins wall
     listOf(0.18f, 0.46f, 0.74f).forEach { px ->
         val x = px * size.width
-        drawRect(color = Color(0xFF431A54), topLeft = Offset(x - 16.dp.toPx(), 0f), size = Size(32.dp.toPx(), wallH))
+        drawRect(color = Color(0xFF3E164E), topLeft = Offset(x - 16.dp.toPx(), 0f), size = Size(32.dp.toPx(), wallH))
+        drawRect(color = Color(0xFF5D2673), topLeft = Offset(x - 14.dp.toPx(), 0f), size = Size(10.dp.toPx(), wallH))
         drawRect(color = Color(0xFF7B3B96), topLeft = Offset(x - 16.dp.toPx(), 0f), size = Size(32.dp.toPx(), wallH), style = Stroke(2f))
-        // Pixel hanging vines
-        drawRect(color = Color(0xFF16A34A), topLeft = Offset(x - 8.dp.toPx(), 4.dp.toPx()), size = Size(5.dp.toPx(), wallH * 0.55f))
+        // Pixel hanging vines & small moss cap
+        drawRect(color = Color(0xFF15803D), topLeft = Offset(x - 8.dp.toPx(), 4.dp.toPx()), size = Size(5.dp.toPx(), wallH * 0.55f))
         drawRect(color = Color(0xFF22C55E), topLeft = Offset(x + 4.dp.toPx(), 8.dp.toPx()), size = Size(5.dp.toPx(), wallH * 0.72f))
+        drawRect(color = Color(0xFF4ADE80), topLeft = Offset(x + 6.dp.toPx(), 10.dp.toPx()), size = Size(2.dp.toPx(), wallH * 0.35f))
+    }
+
+    // Flickering Undertale Wall Torches between columns
+    listOf(0.32f, 0.60f).forEachIndexed { idx, tx ->
+        val fx = tx * size.width
+        val fy = wallH * 0.52f
+        val flicker = kotlin.math.sin(ambientClock * 9f + idx * 2.1f) * 2.dp.toPx()
+        // Warm glow halo
+        drawCircle(
+            brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                colors = listOf(Color(0x55F59E0B), Color(0x18F97316), Color.Transparent),
+                center = Offset(fx, fy),
+                radius = 44.dp.toPx() + flicker
+            ),
+            radius = 44.dp.toPx() + flicker,
+            center = Offset(fx, fy)
+        )
+        // Iron sconce + multi-layer pixel flame
+        drawRect(Color(0xFF475569), Offset(fx - 3.dp.toPx(), fy), Size(6.dp.toPx(), 12.dp.toPx()))
+        drawRect(Color(0xFFEA580C), Offset(fx - 5.dp.toPx(), fy - 9.dp.toPx() - flicker * 0.4f), Size(10.dp.toPx(), 9.dp.toPx()))
+        drawRect(Color(0xFFFACC15), Offset(fx - 3.dp.toPx(), fy - 7.dp.toPx() - flicker * 0.3f), Size(6.dp.toPx(), 6.dp.toPx()))
+        drawRect(Color(0xFFFFFBEB), Offset(fx - 1.5.dp.toPx(), fy - 4.dp.toPx()), Size(3.dp.toPx(), 3.dp.toPx()))
     }
 
     // Lavender checkered Ruins stone tile floor
@@ -532,76 +576,76 @@ private fun DrawScope.drawRuinsChamber(
                 (r + c) % 2 == 0 -> Color(0xFF7C4391)
                 else -> Color(0xFF6E3882)
             }
+            val tileTop = floorTop + r * tileH
             drawRect(
                 color = baseColor,
-                topLeft = Offset(c * tileW, floorTop + r * tileH),
+                topLeft = Offset(c * tileW, tileTop),
                 size = Size(tileW + 0.5f, tileH + 0.5f)
             )
+            if (!isEdge) {
+                drawLine(
+                    color = Color(0xFF9155A8).copy(alpha = 0.25f),
+                    start = Offset(c * tileW + 2f, tileTop + 2f),
+                    end = Offset((c + 1) * tileW - 2f, tileTop + 2f),
+                    strokeWidth = 1.2f
+                )
+            }
             drawRect(
                 color = Color(0xFF4B215C).copy(alpha = 0.45f),
-                topLeft = Offset(c * tileW, floorTop + r * tileH),
+                topLeft = Offset(c * tileW, tileTop),
                 size = Size(tileW, tileH),
                 style = Stroke(1.2f)
             )
         }
     }
 
-    // Central crimson-plum Ruins walkway carpet + scattered Undertale red autumn leaves
-    drawRect(
-        color = Color(0xFF4F225E),
-        topLeft = Offset(size.width * 0.08f, size.height * 0.41f),
-        size = Size(size.width * 0.80f, size.height * 0.24f)
-    )
-    drawRect(
-        color = Color(0xFFA264BA),
-        topLeft = Offset(size.width * 0.08f, size.height * 0.41f),
-        size = Size(size.width * 0.80f, size.height * 0.24f),
-        style = Stroke(2.5f)
-    )
+    // Central crimson-plum Ruins walkway carpet + inner trim & tassels
+    val rugLeft = size.width * 0.08f
+    val rugTop = size.height * 0.41f
+    val rugW = size.width * 0.80f
+    val rugH = size.height * 0.24f
+    drawRect(color = Color(0xFF4A1F5A), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH))
+    drawRect(color = Color(0xFF642B78), topLeft = Offset(rugLeft + 5.dp.toPx(), rugTop + 5.dp.toPx()), size = Size(rugW - 10.dp.toPx(), rugH - 10.dp.toPx()))
+    drawRect(color = Color(0xFFA264BA), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH), style = Stroke(2.5f))
 
     // Iconic red autumn Ruins leaf pile (classic Toriel's Ruins aesthetic)
     val leafSpots = listOf(0.20f to 0.74f, 0.24f to 0.78f, 0.22f to 0.81f, 0.49f to 0.34f, 0.53f to 0.36f, 0.72f to 0.76f)
     leafSpots.forEach { (lx, ly) ->
-        drawRect(
-            color = Color(0xFFDC2626),
-            topLeft = Offset(lx * size.width, ly * size.height),
-            size = Size(6.dp.toPx(), 5.dp.toPx())
-        )
-        drawRect(
-            color = Color(0xFFF97316),
-            topLeft = Offset(lx * size.width + 4.dp.toPx(), ly * size.height + 2.dp.toPx()),
-            size = Size(4.dp.toPx(), 4.dp.toPx())
-        )
+        drawRect(Color(0xFF991B1B), Offset(lx * size.width - 1f, ly * size.height + 2f), Size(7.dp.toPx(), 5.dp.toPx()))
+        drawRect(Color(0xFFDC2626), Offset(lx * size.width, ly * size.height), Size(6.dp.toPx(), 5.dp.toPx()))
+        drawRect(Color(0xFFF97316), Offset(lx * size.width + 4.dp.toPx(), ly * size.height + 2.dp.toPx()), Size(4.dp.toPx(), 4.dp.toPx()))
     }
 
     // Golden Ruins Floor Switch (Pixel Pad)
     val sc = Offset(switchPos.first * size.width, switchPos.second * size.height)
-    drawCircle(color = (if (switchActive) HpBarGreen else MercyYellow).copy(alpha = 0.22f), radius = 24.dp.toPx(), center = sc)
-    drawRect(
-        color = Color(0xFF2B1838),
-        topLeft = Offset(sc.x - 14.dp.toPx(), sc.y - 14.dp.toPx()),
-        size = Size(28.dp.toPx(), 28.dp.toPx())
-    )
+    drawCircle(color = (if (switchActive) HpBarGreen else MercyYellow).copy(alpha = 0.22f), radius = 26.dp.toPx(), center = sc)
+    drawRect(color = Color(0xFF2B1838), topLeft = Offset(sc.x - 14.dp.toPx(), sc.y - 14.dp.toPx()), size = Size(28.dp.toPx(), 28.dp.toPx()))
+    drawRect(color = if (switchActive) HpBarGreen else SepiaGold, topLeft = Offset(sc.x - 14.dp.toPx(), sc.y - 14.dp.toPx()), size = Size(28.dp.toPx(), 28.dp.toPx()), style = Stroke(2f))
     drawSaveStar(center = sc, radius = 11.dp.toPx(), color = if (switchActive) HpBarGreen else MercyYellow)
 
-    // Crisp Pixel Cotton Dummy on wooden stand with Image 8 Sack (كيس) & Crate (صندوق)
+    // Crisp Pixel Cotton Dummy on wooden stand with shaded Sack & Crate props
     val dc = Offset(dummyPos.first * size.width, dummyPos.second * size.height)
     drawDummyRoomProps(dummyCenter = dc, unitPx = 11.dp.toPx())
     drawCircle(color = (if (dummyPracticed) HpBarGreen else Color(0xFFC084FC)).copy(alpha = 0.22f), radius = 24.dp.toPx(), center = dc)
     drawUndertaleBossPixelSprite(
         enemyId = com.example.model.EnemyId.RUINS_DUMMY,
         center = dc,
-        sizePx = 36.dp.toPx(),
+        sizePx = 38.dp.toPx(),
         isHitFlash = false,
         isSpareReady = dummyPracticed
     )
 
-    // Arched Pixel Stone Ruins Exit Gate
+    // Arched Pixel Stone Ruins Exit Gate with keystone arch & shadow depth
     val gc = Offset(gatePos.first * size.width, gatePos.second * size.height)
     drawRect(
-        color = if (switchActive) Color.Black else Color(0xFF3E294D),
-        topLeft = Offset(gc.x - 20.dp.toPx(), gc.y - 32.dp.toPx()),
-        size = Size(40.dp.toPx(), 62.dp.toPx())
+        color = Color(0xFF3E164E),
+        topLeft = Offset(gc.x - 24.dp.toPx(), gc.y - 36.dp.toPx()),
+        size = Size(48.dp.toPx(), 68.dp.toPx())
+    )
+    drawRect(
+        color = if (switchActive) Color(0xFF07050A) else Color(0xFF3E294D),
+        topLeft = Offset(gc.x - 19.dp.toPx(), gc.y - 31.dp.toPx()),
+        size = Size(38.dp.toPx(), 60.dp.toPx())
     )
     drawRect(
         color = if (switchActive) SepiaGold else Color(0xFF9E6AC2),
@@ -609,8 +653,13 @@ private fun DrawScope.drawRuinsChamber(
         size = Size(40.dp.toPx(), 62.dp.toPx()),
         style = Stroke(3.5f)
     )
+    // Keystone crown above gate
+    drawRect(
+        color = if (switchActive) SepiaGold else Color(0xFFA855F7),
+        topLeft = Offset(gc.x - 8.dp.toPx(), gc.y - 38.dp.toPx()),
+        size = Size(16.dp.toPx(), 8.dp.toPx())
+    )
     if (!switchActive) {
-        // Locked iron bars until Golden Switch is pressed
         for (bx in listOf(-10f, 0f, 10f)) {
             drawLine(
                 Color(0xFFA78BFA),
@@ -619,5 +668,7 @@ private fun DrawScope.drawRuinsChamber(
                 strokeWidth = 3f
             )
         }
+    } else {
+        drawSaveStar(center = Offset(gc.x, gc.y - 2.dp.toPx()), radius = 8.dp.toPx(), color = SepiaGold)
     }
 }

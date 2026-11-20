@@ -64,6 +64,7 @@ data class AppUiState(
 
     // Progression, Friends/Allies, Lost Kids (Escorted until Normal World vs Rescued vs Killed), Quests, Armors & Inventory
     val selectedEnemyId: EnemyId = EnemyId.VEX,
+    val battleSessionId: Long = 0L,
     val battleFromRuins: Boolean = false,
     val defeatedEnemies: Set<EnemyId> = emptySet(),
     val friendAllies: Set<EnemyId> = emptySet(),
@@ -254,6 +255,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { state ->
             state.copy(
                 selectedEnemyId = EnemyId.RUINS_DUMMY,
+                battleSessionId = state.battleSessionId + 1L,
                 battleFromRuins = true,
                 activeWorld = WorldId.NORMAL_WORLD,
                 currentScreen = AppScreen.BATTLE
@@ -602,6 +604,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             state.copy(
                 activeWorld = targetWorld,
                 selectedEnemyId = enemyId,
+                battleSessionId = state.battleSessionId + 1L,
                 battleFromRuins = enemyId == EnemyId.RUINS_DUMMY,
                 saveCounter = nextSave,
                 currentScreen = AppScreen.BATTLE

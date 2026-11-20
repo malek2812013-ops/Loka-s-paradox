@@ -184,35 +184,53 @@ fun DrawScope.drawPixelChest(
     isOpen: Boolean,
     accentColor: Color = Color(0xFFFACC15)
 ) {
+    val woodShadow = Color(0xFF3E2312)
     val woodDark = Color(0xFF5C3A21)
-    val woodLight = Color(0xFF8C5A32)
-    val rim = Color.White
-    val shade = Color(0xFF1E1B24)
-    val gold = if (isOpen) accentColor.copy(alpha = 0.7f) else accentColor
+    val woodMid = Color(0xFF7C4D29)
+    val woodLight = Color(0xFFA06A3E)
+    val rim = Color(0xFFE5DFD5)
+    val ironTrim = Color(0xFF94A3B8)
+    val shade = Color(0xFF14111A)
+    val gold = if (isOpen) accentColor.copy(alpha = 0.72f) else accentColor
 
-    val widthFactor = if (style == ChestStyle.WIDE_PADLOCK) 1.38f else if (style == ChestStyle.SMALL_DOT) 1.05f else 0.94f
+    val widthFactor = if (style == ChestStyle.WIDE_PADLOCK) 1.38f else if (style == ChestStyle.SMALL_DOT) 1.06f else 0.96f
     val w = sizePx * widthFactor
-    val h = sizePx * 0.92f
+    val h = sizePx * 0.94f
     val left = center.x - w * 0.5f
     val top = center.y - h * 0.5f
 
+    // Ground drop shadow
+    drawOval(
+        color = Color.Black.copy(alpha = 0.36f),
+        topLeft = Offset(left - 2f, top + h * 0.84f),
+        size = Size(w + 4f, h * 0.24f)
+    )
+
     if (isOpen) {
-        // Raised top lid
+        // Raised top lid with planks
         drawRect(woodLight, Offset(left, top - h * 0.14f), Size(w, h * 0.34f))
+        drawRect(woodMid, Offset(left, top + h * 0.06f), Size(w, h * 0.14f))
         drawRect(rim, Offset(left, top - h * 0.14f), Size(w, h * 0.34f), style = Stroke(2f))
-        // Shaded dark interior band across the chest (matching Image 1 bottom row)
+        // Shaded dark interior band + golden treasure glint
         drawRect(shade, Offset(left + 2f, top + h * 0.20f), Size(w - 4f, h * 0.28f))
         for (i in 0..4) {
             val sx = left + (w * (i + 0.5f) / 5f)
-            drawLine(gold.copy(alpha = 0.65f), Offset(sx - 3f, top + h * 0.44f), Offset(sx + 3f, top + h * 0.24f), strokeWidth = 2f)
+            drawLine(gold.copy(alpha = 0.75f), Offset(sx - 3f, top + h * 0.44f), Offset(sx + 3f, top + h * 0.24f), strokeWidth = 2f)
         }
-        // Lower chest base
+        // Lower chest base + corner brackets
         drawRect(woodDark, Offset(left, top + h * 0.48f), Size(w, h * 0.52f))
+        drawRect(woodShadow, Offset(left, top + h * 0.84f), Size(w, h * 0.16f))
+        drawRect(ironTrim, Offset(left, top + h * 0.48f), Size(w * 0.14f, h * 0.52f))
+        drawRect(ironTrim, Offset(left + w * 0.86f, top + h * 0.48f), Size(w * 0.14f, h * 0.52f))
         drawRect(rim, Offset(left, top + h * 0.48f), Size(w, h * 0.52f), style = Stroke(2f))
     } else {
-        // Closed chest body & lid seam
+        // Closed chest body & wood plank shading
         drawRect(woodDark, Offset(left, top), Size(w, h))
-        drawRect(woodLight, Offset(left, top), Size(w, h * 0.36f))
+        drawRect(woodLight, Offset(left, top), Size(w, h * 0.34f))
+        drawRect(woodShadow, Offset(left, top + h * 0.82f), Size(w, h * 0.18f))
+        // Vertical iron bands & corner rivets
+        drawRect(ironTrim.copy(alpha = 0.85f), Offset(left + w * 0.10f, top), Size(w * 0.11f, h))
+        drawRect(ironTrim.copy(alpha = 0.85f), Offset(left + w * 0.79f, top), Size(w * 0.11f, h))
         drawRect(rim, Offset(left, top), Size(w, h), style = Stroke(2.2f))
         drawLine(rim, Offset(left, top + h * 0.36f), Offset(left + w, top + h * 0.36f), strokeWidth = 2f)
 
@@ -265,84 +283,98 @@ fun DrawScope.drawPixelSaveStar(
 
 object PixelSprites {
 
-    // Loka Portrait (18x18): Matches uploaded spiky shaggy hair silhouette (NO hat), sweeping bangs over right side,
-    // cyan-grey eye peeking beneath bangs, grey T-shirt, golden heart necklace, and beige pants!
+    // Loka Portrait (20x20): Classic Undertale Frisk-style rounded chibi face & bob hair framing (NO hat),
+    // chestnut highlights, grey-cyan eyes, grey T-shirt with collar & fold shading, golden heart necklace, beige pants
     val lokaPortraitGrid = listOf(
-        "......OOOO........",
-        ".....OHhHHO.......",
-        "....OHHHhHHHO.....",
-        "...OHHHHHHhHHHO...",
-        "..OHHhHHHHHhHHHO..",
-        "..OHHHHHHHHHHHHO..",
-        ".OHHHhHHhHHHHHHHO.",
-        ".OHHSSHHhHSSSSSHO.",
-        "..OHSSShHHSSGCSHO.",
-        "..OOHSSSSSSSGCSHO.",
-        "...OOHSSSSSSSSSO..",
-        ".....OSSSSSSSSO...",
-        "...OOOTTTTTTTTO...",
-        "..OTTTTGGYYGGTTTO.",
-        "..OTTTTGGYYGGTTTO.",
-        "..OTTTTTTTTTTTTTO.",
-        "....OPPPP..PPPPO..",
-        "....OOOOO..OOOOO.."
+        ".....OOOOOOOOOO.....",
+        "....OHHHhHhHHHHO....",
+        "...OHHhHHHHHHHhHO...",
+        "..OHHHHHHhHHHHHHHO..",
+        "..OHHHHHHHHHHHHHHO..",
+        ".OHHHhHHHhHHHHhHHHO.",
+        ".OHHHSsSHHHHSsSHHHO.",
+        ".OHHSSSSSSSSSSSSSHO.",
+        ".OHHSGCHSSSSSGCHSHO.",
+        "..OHSGCHSSSSSGCHSHO.",
+        "..OOHSSSSssSSSSSHOO.",
+        "...OOHSSSSSSSSSSOO..",
+        "....OOTllllllllTOO..",
+        "..OOOTTTTTyYTTTTTOO.",
+        ".OttTTTTTyYYyTTTTttO",
+        ".OTTTTTTTtYYtTTTTTTO",
+        "..OSttttttttttttTSO.",
+        "...OOTTTTTTTTTTTTOO.",
+        "....OPPPPp..pPPPPO..",
+        "....OOOOOO..OOOOOO.."
     )
 
-    // Loka Overworld (12x14): Top-down crisp sprite with spiky shaggy tuft (no hat), grey tee, golden necklace, beige pants
+    // Loka Overworld (16x20): Iconic Undertale Frisk chibi body silhouette & proportions!
+    // Rounded bob hair framing face (NO hat), calm Frisk expression, grey T-shirt with stubby sleeves,
+    // golden heart necklace centered on chest, straight beige pants, and crisp pixel boots.
     val lokaOverworldGrid = listOf(
-        "....OOOO....",
-        "...OHhHHO...",
-        "..OHHHHHHO..",
-        ".OHHhHHhHHO.",
-        ".OHSShSSGHO.",
-        "..OSSSSSSO..",
-        "..OTTTTTTO..",
-        ".OSTTYYTTSO.",
-        ".OSTTTTTTSO.",
-        "..OTTTTTTO..",
-        "..OPPP.PPPO.",
-        "..OPPP.PPPO.",
-        "..OBB...BBO.",
-        "............"
+        "....OOOOOOOO....",
+        "...OHHHhHhHHO...",
+        "..OHHhHHHHHhHO..",
+        "..OHHHHHHHHHHO..",
+        ".OHHHhHHHHhHHHO.",
+        ".OHHHSSHHSSHHHO.",
+        ".OHHSSSSSSSSSHO.",
+        ".OHHSsSSSSSsSHO.",
+        "..OHSSSSSSSSSHO.",
+        "...OOSSSSSSSOO..",
+        "..OOOTllYYllTOO.",
+        ".OSttTTYYYYTTttO",
+        ".OStTTTTyYTTTTtO",
+        "..OOtTTTTTTTTtOO",
+        "....OTtttttttTO.",
+        "....OPPPppPPPO..",
+        "....OPPP..PPPO..",
+        "....OPpP..PpPO..",
+        "....OBBB..BBBO..",
+        "....OOOO..OOOO.."
     )
 
-    // Black-and-Grey Flowey-like Flower (Ashen, 16x16) matching Image 8 (شكل الوردة: petals, dot/line eyes, curved stem & bowl base)
+    // Black-and-Grey Flowey-like Flower (Ashen, 18x18) with shaded petals, leaf stem & soil tuft
     val ashenFlowerNormal = listOf(
-        "....OOO..OOO....",
-        "...OGGGOOGGGO...",
-        "..OOGGDDDDGGOO..",
-        ".OGGDDPPPPDDGGO.",
-        ".OGGDPPPPPPDGGO.",
-        "..OGDPBPPBPDGO..",
-        ".OGGDPBPPBPDGGO.",
-        ".OGGDPPPPPPDGGO.",
-        "..OGGDDDDDDGGO..",
-        "....OOODDDOOO...",
-        ".......ODDO.....",
-        "......ODDO......",
-        ".......ODDO.....",
-        "...OO..ODDO..OO.",
-        "..OGGGGGGGGGGGGO",
-        "...OOOOOOOOOOOO."
+        ".....OOO..OOO.....",
+        "....OWPPOOWPPO....",
+        "...OWPGGDDGGPWO...",
+        "..OWPDDDDDDDDPWO..",
+        ".OWPDPPPPPPPPDPWO.",
+        ".OWPDPPPWPPPPDPWO.",
+        "..OGDPPBPPBPPDGO..",
+        ".OWPDPPBPPBPPDPWO.",
+        ".OWPDPPPPPPPPDPWO.",
+        "..OGGDDDDDDDDGGO..",
+        "....OOODDDDOOO....",
+        ".......ODDO.......",
+        "......ODDDDO......",
+        "...OO..ODDO..OO...",
+        "..OGGO.ODDO.OGGO..",
+        "..ODGGDDDDDDGGDO..",
+        "...OOODDDDDDOOO...",
+        ".....OOOOOOOOO...."
     )
 
     val ashenFlowerCreepy = listOf(
-        "....OOO..OOO....",
-        "...ODDDODDDDO...",
-        "..OODDDDDDDDOO..",
-        ".ODDDPPPPPPDDDO.",
-        ".ODDPBPPPPBPDDO.",
-        "..ODPBPPPPBPDO..",
-        ".ODDPPPPPPPPDDO.",
-        ".ODDPBBBBBBPDDO.",
-        "..ODDPBPPBPDDDO.",
-        "...ODDDDDDDDO...",
-        "....OOODDDOOO...",
-        "......ODDO......",
-        ".......ODDO.....",
-        "...OO..ODDO..OO.",
-        "..ODDDDDDDDDDDDO",
-        "...OOOOOOOOOOOO."
+        ".....OOO..OOO.....",
+        "....ODPPOODPPO....",
+        "...ODDDDDDDDDDO...",
+        "..ODDDPPPPPPDDDO..",
+        ".ODDDPBBBBBBPDDDO.",
+        ".ODDPBPPPPPPBPDDO.",
+        "..OGDPBPPPPBPDGO..",
+        ".ODDPPPPPPPPPPDDO.",
+        ".ODDPBBBBBBBBPDDO.",
+        "..OGDDPBPPBPDDGO..",
+        "....OOODDDDOOO....",
+        ".......ODDO.......",
+        "......ODDDDO......",
+        "...OO..ODDO..OO...",
+        "..OGGO.ODDO.OGGO..",
+        "..ODDDDDDDDDDDDO..",
+        "...OOODDDDDDOOO...",
+        ".....OOOOOOOOO...."
     )
 
     // Boss 18x18 Undertale-style high-contrast pixel battle sprites
@@ -684,12 +716,22 @@ fun DrawScope.drawDummyRoomProps(
     dummyCenter: Offset,
     unitPx: Float
 ) {
-    // Left Sack ("كيس")
-    val sackCenter = Offset(dummyCenter.x - unitPx * 3.1f, dummyCenter.y + unitPx * 0.5f)
+    // Left Shaded Grain Sack ("كيس") with tied knot & shadow
+    val sackCenter = Offset(dummyCenter.x - unitPx * 3.1f, dummyCenter.y + unitPx * 0.55f)
+    drawOval(
+        color = Color.Black.copy(alpha = 0.35f),
+        topLeft = Offset(sackCenter.x - unitPx * 1.18f, sackCenter.y + unitPx * 0.42f),
+        size = Size(unitPx * 2.36f, unitPx * 0.65f)
+    )
     drawOval(
         color = Color(0xFFB59A73),
         topLeft = Offset(sackCenter.x - unitPx * 1.1f, sackCenter.y - unitPx * 0.85f),
         size = Size(unitPx * 2.2f, unitPx * 1.75f)
+    )
+    drawOval(
+        color = Color(0xFFD6BE96),
+        topLeft = Offset(sackCenter.x - unitPx * 0.72f, sackCenter.y - unitPx * 0.58f),
+        size = Size(unitPx * 1.0f, unitPx * 0.72f)
     )
     drawOval(
         color = Color(0xFF2B1838),
@@ -702,13 +744,25 @@ fun DrawScope.drawDummyRoomProps(
         topLeft = Offset(sackCenter.x - unitPx * 0.35f, sackCenter.y - unitPx * 1.15f),
         size = Size(unitPx * 0.7f, unitPx * 0.4f)
     )
+    drawRect(
+        color = Color(0xFFD6C29F),
+        topLeft = Offset(sackCenter.x - unitPx * 0.42f, sackCenter.y - unitPx * 0.85f),
+        size = Size(unitPx * 0.84f, unitPx * 0.14f)
+    )
 
-    // Right Crate ("صندوق")
+    // Right Wood-Framed Crate ("صندوق") with diagonal brace & highlights
     val crateLeft = dummyCenter.x + unitPx * 2.1f
-    val crateTop = dummyCenter.y - unitPx * 0.35f
+    val crateTop = dummyCenter.y - unitPx * 0.30f
     val crateSize = unitPx * 1.85f
+    drawOval(
+        color = Color.Black.copy(alpha = 0.32f),
+        topLeft = Offset(crateLeft - 2f, crateTop + crateSize * 0.84f),
+        size = Size(crateSize + 4f, unitPx * 0.48f)
+    )
     drawRect(Color(0xFF785135), Offset(crateLeft, crateTop), Size(crateSize, crateSize))
-    drawRect(Color.White, Offset(crateLeft, crateTop), Size(crateSize, crateSize), style = Stroke(2f))
+    drawRect(Color(0xFF9C6B43), Offset(crateLeft, crateTop), Size(crateSize, crateSize * 0.24f))
+    drawLine(Color(0xFF5A3921), Offset(crateLeft, crateTop), Offset(crateLeft + crateSize, crateTop + crateSize), strokeWidth = 3f)
+    drawRect(Color(0xFFE9D5FF), Offset(crateLeft, crateTop), Size(crateSize, crateSize), style = Stroke(2f))
     drawLine(Color(0xFF3E2717), Offset(crateLeft + crateSize * 0.35f, crateTop), Offset(crateLeft + crateSize * 0.35f, crateTop + crateSize), strokeWidth = 2f)
     drawLine(Color(0xFF3E2717), Offset(crateLeft + crateSize * 0.68f, crateTop), Offset(crateLeft + crateSize * 0.68f, crateTop + crateSize), strokeWidth = 2f)
 }
@@ -835,9 +889,9 @@ fun DrawScope.drawOverworldNpcSprite(
     unitPx: Float
 ) {
     drawOval(
-        color = Color.Black.copy(alpha = 0.40f),
-        topLeft = Offset(center.x - unitPx * 0.85f, center.y + unitPx * 0.72f),
-        size = Size(unitPx * 1.7f, unitPx * 0.55f)
+        color = Color.Black.copy(alpha = 0.44f),
+        topLeft = Offset(center.x - unitPx * 0.95f, center.y + unitPx * 0.74f),
+        size = Size(unitPx * 1.9f, unitPx * 0.58f)
     )
     val isAngel = npc.race.contains("Angel", ignoreCase = true)
     val isDevil = npc.race.contains("Devil", ignoreCase = true)
@@ -855,36 +909,36 @@ fun DrawScope.drawOverworldNpcSprite(
     val grid = when {
         isAngel -> listOf(
             "..YYYYYY..",
-            ".OOOOOOOO.",
+            ".OOWWWWOO.",
             ".OSSSSSSO.",
             ".OSBSSBSO.",
             "..OSSSSO..",
+            ".OWAAAAWO.",
+            "OWAAAAAAWO",
             ".OAAAAAAO.",
-            "OAAAAAAAAO",
-            ".OAAAAAAO.",
-            "..OO..OO..",
+            "..OC..CO..",
             "..OO..OO.."
         )
         isDevil -> listOf(
             ".O......O.",
-            ".OO....OO.",
+            ".OW....WO.",
             ".OAAAAAAO.",
             ".OAWAWAWO.",
             "..OAAAAO..",
             ".OCCCCCC0.",
-            "OCCAAAAACO",
+            "OCCAWWAA0O",
             ".OCCCCCC0.",
             "..OO..OO..",
             "..OO..OO.."
         )
         isMonster -> listOf(
             "..OOOOOO..",
-            ".OAAAAAAO.",
+            ".OWAAAAWO.",
             "OAAWAAWAAO",
             "OAAAAAAAAO",
             ".OAOAAOAO.",
             ".OCCCCCC0.",
-            "OCCCCCCCCO",
+            "OCCAAAACCO",
             ".OCCCCCC0.",
             "..OO..OO..",
             "..OO..OO.."
@@ -895,7 +949,7 @@ fun DrawScope.drawOverworldNpcSprite(
             ".OHSSSSHO.",
             ".OSBSSBSO.",
             "..OSSSSO..",
-            ".OAAAAAAO.",
+            ".OWAAAAWO.",
             "OSAAAAAASO",
             ".OPPPPPPO.",
             "..OO..OO..",
@@ -914,11 +968,11 @@ fun DrawScope.drawOverworldNpcSprite(
         'C' to npc.accentColor.copy(alpha = 0.72f),
         'P' to Color(0xFF334155)
     )
-    drawPixelMatrix(grid, palette, center, unitPx * 2.4f)
+    drawPixelMatrix(grid, palette, center, unitPx * 2.5f)
 }
 
 /**
- * Overworld Pixel Art Lost Paradox Kid Sprite.
+ * Overworld Pixel Art Lost Paradox Kid Sprite with Frisk-inspired proportions & pulsing beacon aura.
  */
 fun DrawScope.drawOverworldKidSprite(
     kid: LostKid,
@@ -926,34 +980,43 @@ fun DrawScope.drawOverworldKidSprite(
     unitPx: Float,
     isRescued: Boolean
 ) {
+    val auraColor = if (isRescued) Color(0xFF4ADE80) else MercyYellow
     drawCircle(
-        color = (if (isRescued) Color(0xFF4ADE80) else MercyYellow).copy(alpha = 0.24f),
-        radius = unitPx * 1.55f,
+        color = auraColor.copy(alpha = 0.16f),
+        radius = unitPx * 1.75f,
         center = center
     )
+    drawOval(
+        color = Color.Black.copy(alpha = 0.42f),
+        topLeft = Offset(center.x - unitPx * 0.75f, center.y + unitPx * 0.65f),
+        size = Size(unitPx * 1.5f, unitPx * 0.45f)
+    )
     val grid = listOf(
-        "..OOOO..",
-        ".OHHHHO.",
-        ".OSSSSO.",
-        ".OSBSS0.",
-        "..OSSO..",
-        ".OAAAAO.",
-        ".OAAAAO.",
-        "..O..O.."
+        "..OOOOOO..",
+        ".OHHhHHHO.",
+        ".OHSSSSHO.",
+        ".OSBSSBSO.",
+        "..OSSSSO..",
+        ".OAAAAAAO.",
+        ".OAAWWAAO.",
+        "..OPPPPO..",
+        "..OO..OO.."
     )
     val palette = mapOf(
-        'O' to Color.White,
-        '0' to Color(0xFF0A0A0D),
+        'O' to Color(0xFF120C08),
         'H' to Color(0xFF78350F),
+        'h' to Color(0xFFB45309),
         'S' to Color(0xFFEBC7A8),
         'B' to Color(0xFF1E293B),
-        'A' to kid.accentColor
+        'W' to Color.White,
+        'A' to kid.accentColor,
+        'P' to Color(0xFF334155)
     )
-    drawPixelMatrix(grid, palette, center, unitPx * 1.95f)
+    drawPixelMatrix(grid, palette, center, unitPx * 2.15f)
 }
 
 /**
- * Overworld Pixel Art Buildings & Landmarks (Houses/Mansions, Labs, Caves, and Hills).
+ * Overworld Pixel Art Buildings & Landmarks (Houses/Mansions, Labs, Caves, and Hills) with shading & depth.
  */
 fun DrawScope.drawOverworldLandmarkSprite(
     kind: LandmarkKind,
@@ -966,44 +1029,65 @@ fun DrawScope.drawOverworldLandmarkSprite(
     val rim = if (completed) Color(0xFF4ADE80) else if (isSecret) GlitchCyan else Color.White
     val half = sizePx * 0.5f
 
+    // Grounded drop shadow under every landmark
+    drawOval(
+        color = Color.Black.copy(alpha = 0.42f),
+        topLeft = Offset(center.x - half * 1.05f, center.y + half * 0.56f),
+        size = Size(half * 2.1f, half * 0.48f)
+    )
+
     when (kind) {
         LandmarkKind.MANSION -> {
-            // Undertale-style Pitched-Roof House / Mansion
+            // Chimney
+            drawRect(Color(0xFF4B3832), Offset(center.x + half * 0.42f, center.y - half * 0.92f), Size(half * 0.24f, half * 0.48f))
+            drawRect(rim, Offset(center.x + half * 0.42f, center.y - half * 0.92f), Size(half * 0.24f, half * 0.48f), style = Stroke(1.6f))
+            // Undertale-style Pitched-Roof House / Mansion with layered roof trim
             val roof = Path().apply {
-                moveTo(center.x, center.y - half * 0.95f)
-                lineTo(center.x + half * 1.05f, center.y - half * 0.15f)
-                lineTo(center.x - half * 1.05f, center.y - half * 0.15f)
+                moveTo(center.x, center.y - half * 0.98f)
+                lineTo(center.x + half * 1.08f, center.y - half * 0.14f)
+                lineTo(center.x - half * 1.08f, center.y - half * 0.14f)
                 close()
             }
-            drawPath(roof, accent.copy(alpha = 0.85f))
+            drawPath(roof, accent.copy(alpha = 0.88f))
             drawPath(roof, rim, style = Stroke(2.2f))
-            // Walls + windows + door
+            // Walls + foundation trim + mulled glowing windows + door
             drawRect(Color(0xFF27222E), Offset(center.x - half * 0.82f, center.y - half * 0.15f), Size(half * 1.64f, half * 0.98f))
+            drawRect(Color(0xFF1B1722), Offset(center.x - half * 0.82f, center.y + half * 0.64f), Size(half * 1.64f, half * 0.19f))
             drawRect(rim, Offset(center.x - half * 0.82f, center.y - half * 0.15f), Size(half * 1.64f, half * 0.98f), style = Stroke(2f))
-            drawRect(MercyYellow.copy(alpha = 0.85f), Offset(center.x - half * 0.56f, center.y + half * 0.05f), Size(half * 0.30f, half * 0.30f))
-            drawRect(MercyYellow.copy(alpha = 0.85f), Offset(center.x + half * 0.26f, center.y + half * 0.05f), Size(half * 0.30f, half * 0.30f))
+            for (wx in listOf(-0.56f, 0.26f)) {
+                drawRect(MercyYellow.copy(alpha = 0.9f), Offset(center.x + half * wx, center.y + half * 0.04f), Size(half * 0.30f, half * 0.30f))
+                drawLine(Color(0xFF27222E), Offset(center.x + half * (wx + 0.15f), center.y + half * 0.04f), Offset(center.x + half * (wx + 0.15f), center.y + half * 0.34f), strokeWidth = 1.5f)
+            }
             drawRect(Color(0xFF6B4423), Offset(center.x - half * 0.18f, center.y + half * 0.22f), Size(half * 0.36f, half * 0.60f))
+            drawCircle(MercyYellow, radius = 1.8f, center = Offset(center.x + half * 0.09f, center.y + half * 0.52f))
         }
 
         LandmarkKind.LAB -> {
-            // Tech Chrono Lab Dome with Antenna & Glowing Visor
-            drawLine(rim, Offset(center.x, center.y - half * 1.05f), Offset(center.x, center.y - half * 0.60f), strokeWidth = 2.4f)
-            drawCircle(if (isSecret) GlitchCyan else accent, radius = half * 0.16f, center = Offset(center.x, center.y - half * 1.08f))
+            // Tech Chrono Lab Dome with Antenna, Bevel & Glowing Visor
+            drawLine(rim, Offset(center.x, center.y - half * 1.08f), Offset(center.x, center.y - half * 0.60f), strokeWidth = 2.4f)
+            drawCircle((if (isSecret) GlitchCyan else accent).copy(alpha = 0.28f), radius = half * 0.30f, center = Offset(center.x, center.y - half * 1.08f))
+            drawCircle(if (isSecret) GlitchCyan else accent, radius = half * 0.14f, center = Offset(center.x, center.y - half * 1.08f))
             drawRect(Color(0xFF1F2937), Offset(center.x - half * 0.92f, center.y - half * 0.60f), Size(half * 1.84f, half * 1.38f))
+            drawRect(Color(0xFF334155), Offset(center.x - half * 0.92f, center.y - half * 0.60f), Size(half * 1.84f, half * 0.22f))
             drawRect(rim, Offset(center.x - half * 0.92f, center.y - half * 0.60f), Size(half * 1.84f, half * 1.38f), style = Stroke(2.2f))
-            drawRect(if (isSecret) GlitchCyan.copy(alpha = 0.85f) else Color(0xFF38BDF8), Offset(center.x - half * 0.62f, center.y - half * 0.30f), Size(half * 1.24f, half * 0.36f))
+            val visorColor = if (isSecret) GlitchCyan else Color(0xFF38BDF8)
+            drawRect(visorColor.copy(alpha = 0.85f), Offset(center.x - half * 0.62f, center.y - half * 0.28f), Size(half * 1.24f, half * 0.36f))
+            drawLine(Color.White.copy(alpha = 0.65f), Offset(center.x - half * 0.52f, center.y - half * 0.18f), Offset(center.x + half * 0.10f, center.y - half * 0.18f), strokeWidth = 2f)
             drawRect(Color(0xFF0F172A), Offset(center.x - half * 0.22f, center.y + half * 0.24f), Size(half * 0.44f, half * 0.54f))
+            drawLine(visorColor.copy(alpha = 0.55f), Offset(center.x, center.y + half * 0.24f), Offset(center.x, center.y + half * 0.78f), strokeWidth = 1.5f)
         }
 
         LandmarkKind.CAVE -> {
-            // Stepped Pixel Cave Mound + Dark Tunnel Entrance
-            drawOval(Color(0xFF574434), Offset(center.x - half * 0.98f, center.y - half * 0.65f), Size(half * 1.96f, half * 1.45f))
+            // Stepped Pixel Cave Mound + Highlight Ridge + Dark Tunnel Entrance
+            drawOval(Color(0xFF473729), Offset(center.x - half * 0.98f, center.y - half * 0.65f), Size(half * 1.96f, half * 1.45f))
+            drawOval(Color(0xFF6B533E), Offset(center.x - half * 0.76f, center.y - half * 0.56f), Size(half * 1.32f, half * 0.54f))
             drawOval(rim, Offset(center.x - half * 0.98f, center.y - half * 0.65f), Size(half * 1.96f, half * 1.45f), style = Stroke(2.2f))
-            drawOval(Color(0xFF09080C), Offset(center.x - half * 0.42f, center.y - half * 0.08f), Size(half * 0.84f, half * 0.86f))
+            drawOval(Color(0xFF1F1612), Offset(center.x - half * 0.50f, center.y - half * 0.14f), Size(half * 1.00f, half * 0.92f))
+            drawOval(Color(0xFF060509), Offset(center.x - half * 0.38f, center.y - half * 0.04f), Size(half * 0.76f, half * 0.80f))
         }
 
         LandmarkKind.HILLS -> {
-            // Twin Stepped Pixel Hills + Shrine Flag
+            // Twin Stepped Pixel Hills + Snow/Light Peak + Shrine Flag
             val hill1 = Path().apply {
                 moveTo(center.x - half * 1.05f, center.y + half * 0.72f)
                 lineTo(center.x - half * 0.25f, center.y - half * 0.62f)
@@ -1016,13 +1100,13 @@ fun DrawScope.drawOverworldLandmarkSprite(
                 lineTo(center.x + half * 1.05f, center.y + half * 0.72f)
                 close()
             }
-            drawPath(hill1, accent.copy(alpha = 0.72f))
+            drawPath(hill1, accent.copy(alpha = 0.78f))
             drawPath(hill1, rim, style = Stroke(2f))
-            drawPath(hill2, accent.copy(alpha = 0.52f))
+            drawPath(hill2, accent.copy(alpha = 0.56f))
             drawPath(hill2, rim, style = Stroke(1.8f))
-            // Little quest flag on peak
-            drawLine(Color.White, Offset(center.x - half * 0.25f, center.y - half * 0.62f), Offset(center.x - half * 0.25f, center.y - half * 1.02f), strokeWidth = 2f)
-            drawRect(if (completed) Color(0xFF4ADE80) else MercyYellow, Offset(center.x - half * 0.25f, center.y - half * 1.02f), Size(half * 0.42f, half * 0.24f))
+            // Flag on peak
+            drawLine(Color.White, Offset(center.x - half * 0.25f, center.y - half * 0.62f), Offset(center.x - half * 0.25f, center.y - half * 1.04f), strokeWidth = 2f)
+            drawRect(if (completed) Color(0xFF4ADE80) else MercyYellow, Offset(center.x - half * 0.25f, center.y - half * 1.04f), Size(half * 0.44f, half * 0.26f))
         }
     }
 }

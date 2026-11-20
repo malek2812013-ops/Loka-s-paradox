@@ -1,0 +1,6 @@
+{
+  "name": "Loka Paradox",
+  "description": "Undertale and Deltarune inspired retro pixel RPG featuring Loka's journey across timelines, bullet-hell battles, branching mercy/fight routes, and custom chiptune audio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

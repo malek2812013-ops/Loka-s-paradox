@@ -44,6 +44,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 data class BattleUiState(
+    val encounterId: Long = 0L,
     val worldId: WorldId = WorldId.NORMAL_WORLD,
     val enemy: EnemyProfile = EnemyRoster.byId(EnemyId.VEX),
     val enemyHp: Int = 85,
@@ -138,6 +139,7 @@ class BattleViewModel : ViewModel() {
     private var hitFlashTimer = 0f
 
     fun initEncounter(
+        encounterId: Long = 1L,
         enemyId: EnemyId,
         worldId: WorldId,
         armor: ArmorEquipment,
@@ -186,6 +188,7 @@ class BattleViewModel : ViewModel() {
         } else ""
 
         _state.value = BattleUiState(
+            encounterId = encounterId,
             worldId = worldId,
             enemy = profile,
             enemyHp = profile.maxHp,
