@@ -70,6 +70,8 @@ class MainActivity : ComponentActivity() {
                     AppScreen.RUINS_TUTORIAL -> RuinsTutorialScreen(
                         state = state,
                         onMovePlayer = gameViewModel::moveRuinsPlayer,
+                        onInspectLore = gameViewModel::inspectRuinsLore,
+                        onClaimCandy = gameViewModel::claimRuinsCandy,
                         onActivateSwitch = gameViewModel::activateRuinsSwitch,
                         onPracticeDummy = gameViewModel::startRuinsDummyBattle,
                         onToggleControls = gameViewModel::toggleControlScheme,
@@ -98,6 +100,7 @@ class MainActivity : ComponentActivity() {
                         onEquipArmor = gameViewModel::equipArmor,
                         onEquipWeapon = gameViewModel::equipWeapon,
                         onSaveGame = { gameViewModel.saveProgressExplicitly(fromAshen = true) },
+                        onManualRiftJump = gameViewModel::triggerManualRiftJump,
                         onResetSave = gameViewModel::resetAllProgress,
                         onOpenRouteFinale = gameViewModel::openRouteFinale,
                         onWatchStoryIntro = gameViewModel::openLoreIntro,

@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/ic_launcher_art_loka"
+        android:drawable="@drawable/ic_launcher_loka_necklace_1795178150536"
         android:gravity="center" />
 </layer-list>

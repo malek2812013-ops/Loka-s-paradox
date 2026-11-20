@@ -36,8 +36,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -47,8 +55,14 @@ import com.example.model.PortraitExpression
 import com.example.model.tr
 import com.example.ui.components.AshenFlowerCanvas
 import com.example.ui.components.LokaFullBodySpriteCanvas
+import com.example.ui.components.UltraPixelArtEngine
+import com.example.ui.components.drawPixelSaveStar
 import com.example.ui.theme.ParchmentInk
 import kotlinx.coroutines.delay
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 @Composable
 fun AshenMeetingScreen(
@@ -117,14 +131,18 @@ fun AshenMeetingScreen(
         else -> PortraitExpression.DETERMINED
     }
 
+    val spotlightTransition = rememberInfiniteTransition(label = "ashenSpotlight")
+    val ambientClock by spotlightTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 62.8f,
+        animationSpec = infiniteRepeatable(tween(24000, easing = LinearEasing)),
+        label = "ambientClock"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(Color(0xFF1F1F26), Color.Black)
-                )
-            )
+            .background(Color(0xFF0A0712))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -133,6 +151,30 @@ fun AshenMeetingScreen(
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
+        // 256x144 (36,864 pixels!) Ultra-HD Pixel-Art Ruins Spotlight Stage + Animated Sparkles
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val stageBitmap = UltraPixelArtEngine.getAshenStageBitmap()
+            drawImage(
+                image = stageBitmap,
+                dstOffset = IntOffset.Zero,
+                dstSize = IntSize(size.width.roundToInt().coerceAtLeast(1), size.height.roundToInt().coerceAtLeast(1)),
+                filterQuality = FilterQuality.None
+            )
+            val beamCx = size.width * 0.63f
+            val beamH = size.height * 0.69f
+            for (i in 0..6) {
+                val sx = beamCx + sin(i * 2.1f + ambientClock * 0.65f) * size.width * 0.16f
+                val sy = beamH * (0.14f + i * 0.12f) + cos(ambientClock * 1.5f + i) * 5f
+                val twinkle = 0.45f + 0.55f * abs(sin(ambientClock * 2.2f + i * 1.3f))
+                drawPixelSaveStar(
+                    center = Offset(sx, sy),
+                    sizePx = 5.5.dp.toPx() * twinkle,
+                    color = Color(0xFFFDE68A).copy(alpha = 0.9f * twinkle),
+                    coreColor = Color.White.copy(alpha = twinkle)
+                )
+            }
+        }
+
         Column(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
@@ -196,7 +238,7 @@ fun AshenMeetingScreen(
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         drawOval(
                             brush = Brush.radialGradient(
-                                colors = listOf(Color(0x33D6C29F), Color.Transparent)
+                                colors = listOf(Color(0x44D6C29F), Color.Transparent)
                             ),
                             topLeft = Offset(size.width * 0.14f, size.height * 0.78f),
                             size = Size(size.width * 0.72f, size.height * 0.18f)
@@ -205,7 +247,7 @@ fun AshenMeetingScreen(
                     LokaFullBodySpriteCanvas(
                         expression = lokaExpression,
                         modifier = Modifier
-                            .size(144.dp)
+                            .size(146.dp)
                             .padding(bottom = 12.dp)
                     )
                 }
@@ -214,10 +256,9 @@ fun AshenMeetingScreen(
                     contentAlignment = Alignment.BottomCenter
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        // Classic Undertale spotlight puddle & dark dirt mound beneath tiny Ashen
                         drawOval(
                             brush = Brush.radialGradient(
-                                colors = listOf(Color(0x44A1A1AA), Color(0x1852525B), Color.Transparent)
+                                colors = listOf(Color(0x55E4E4E7), Color(0x2252525B), Color.Transparent)
                             ),
                             topLeft = Offset(size.width * 0.08f, size.height * 0.70f),
                             size = Size(size.width * 0.84f, size.height * 0.24f)
@@ -232,7 +273,7 @@ fun AshenMeetingScreen(
                         isCreepySmirk = step >= 3,
                         expression = ashenExpression,
                         modifier = Modifier
-                            .size(70.dp)
+                            .size(72.dp)
                             .padding(bottom = 14.dp)
                     )
                 }

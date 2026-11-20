@@ -54,8 +54,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -74,17 +78,26 @@ import com.example.model.WorldContentCatalog
 import com.example.model.WorldId
 import com.example.model.WorldLandmark
 import com.example.model.WorldNpc
+import com.example.model.WorldZone
+import com.example.model.WorldZoneMap
+import com.example.model.ZoneDoorInfo
+import com.example.model.ZoneEdge
 import com.example.model.tr
 import com.example.ui.components.ControllerPadOverlay
 import com.example.ui.components.LokaPortraitCanvas
 import com.example.ui.components.drawLokaOverworldSprite
+import com.example.ui.components.drawOverworldAshenBurrow
 import com.example.ui.components.drawOverworldAshenSaveSprite
 import com.example.ui.components.drawOverworldChasingMonster
 import com.example.ui.components.drawOverworldKidSprite
 import com.example.ui.components.drawOverworldLandmarkSprite
+import com.example.ui.components.UltraPixelArtEngine
 import com.example.ui.components.drawOverworldNpcSprite
+import com.example.ui.components.drawPixelBrickSaveMonument
 import com.example.ui.components.drawPixelChest
+import com.example.ui.components.drawPixelSaveStar
 import com.example.ui.components.drawUndertaleBossPixelSprite
+import com.example.ui.components.drawZoneDoorway
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.EspressoSurface
 import com.example.ui.theme.GlitchCyan
@@ -118,6 +131,7 @@ fun WorldExploreScreen(
     onEquipArmor: (String) -> Unit,
     onEquipWeapon: (String) -> Unit,
     onSaveGame: () -> Unit,
+    onManualRiftJump: () -> Unit,
     onResetSave: () -> Unit,
     onOpenRouteFinale: (RouteType) -> Unit,
     onWatchStoryIntro: () -> Unit,
@@ -162,33 +176,36 @@ fun WorldExploreScreen(
 
     val lang = state.language
     val world = state.activeWorld
-    val landmarks = remember(world) { WorldContentCatalog.landmarks.filter { it.worldId == world } }
-    val npcs = remember(world) { WorldContentCatalog.npcs.filter { it.worldId == world } }
-    val worldChests = remember(world) { WorldContentCatalog.chests.filter { it.worldId == world } }
+    val zone = state.activeZone
+    val activeDoors = remember(world, zone) { WorldZoneMap.doorsInZone(world, zone) }
+    val landmarks = remember(world, zone) { WorldContentCatalog.landmarks.filter { it.worldId == world && it.zone == zone } }
+    val npcs = remember(world, zone) { WorldContentCatalog.npcs.filter { it.worldId == world && it.zone == zone } }
+    val worldChests = remember(world, zone) { WorldContentCatalog.chests.filter { it.worldId == world && it.zone == zone } }
     // Unresolved kids remain at their stranded spots in other worlds until helped or killed
-    val unresolvedKids = remember(world, state.escortingKidIds, state.rescuedToNormalKidIds, state.killedKidIds) {
+    val unresolvedKids = remember(world, zone, state.escortingKidIds, state.rescuedToNormalKidIds, state.killedKidIds) {
         WorldContentCatalog.lostKids.filter {
             it.worldId == world &&
+                it.zone == zone &&
                 it.id !in state.escortingKidIds &&
                 it.id !in state.rescuedToNormalKidIds &&
                 it.id !in state.killedKidIds
         }
     }
-    // Kids already brought safely to Normal World stay safely at the Normal World crossroad
-    val safeNormalKids = remember(world, state.rescuedToNormalKidIds) {
-        if (world == WorldId.NORMAL_WORLD) {
+    // Kids already brought safely to Normal World stay safely at the Normal World Central Plaza
+    val safeNormalKids = remember(world, zone, state.rescuedToNormalKidIds) {
+        if (world == WorldId.NORMAL_WORLD && zone == WorldZone.CENTER) {
             WorldContentCatalog.lostKids.filter { it.id in state.rescuedToNormalKidIds }
         } else emptyList()
     }
-    val bosses = remember(world) { EnemyRoster.forWorld(world) }
+    val bosses = remember(world, zone) { EnemyRoster.forWorld(world).filter { it.zone == zone } }
 
     val px = state.playerMapX
     val py = state.playerMapY
     val nearUnresolvedKid = unresolvedKids.minByOrNull { hypot(it.xNorm - px, it.yNorm - py) }
         ?.takeIf { hypot(it.xNorm - px, it.yNorm - py) < 0.13f }
     val nearSafeKidIdx = safeNormalKids.indices.firstOrNull { idx ->
-        val sx = 0.36f + idx * 0.08f
-        val sy = 0.56f
+        val sx = 0.30f + idx * 0.09f
+        val sy = 0.70f
         hypot(sx - px, sy - py) < 0.12f
     }
     val nearKid = nearUnresolvedKid ?: nearSafeKidIdx?.let { safeNormalKids[it] }
@@ -198,9 +215,12 @@ fun WorldExploreScreen(
         ?.takeIf { hypot(it.xNorm - px, it.yNorm - py) < 0.14f }
     val nearNpc = npcs.minByOrNull { hypot(it.xNorm - px, it.yNorm - py) }
         ?.takeIf { hypot(it.xNorm - px, it.yNorm - py) < 0.13f }
-    val ashenSavePos = 0.50f to 0.31f
-    val nearAshenSave = world.hasLandmarks && hypot(ashenSavePos.first - px, ashenSavePos.second - py) < 0.12f
-    val worldRoamers = state.roamingMonsters.filter { it.worldId == world }
+    val ashenSavePos = 0.50f to 0.34f
+    val nearAshenSave = world.hasLandmarks && zone == WorldZone.CENTER &&
+        hypot(ashenSavePos.first - px, ashenSavePos.second - py) < 0.12f
+    val nearRift = world.hasLandmarks && zone == WorldZone.CENTER && !state.teleportControlMastered &&
+        hypot(state.paradoxRiftPos.first - px, state.paradoxRiftPos.second - py) < 0.12f
+    val worldRoamers = state.roamingMonsters.filter { it.worldId == world && it.zone == zone }
     val nearBoss: EnemyProfile? = if (world == WorldId.GLITCHED_WORLD) {
         val (ex, ey) = state.echoLokaPos
         if (hypot(ex - px, ey - py) < 0.15f) EnemyRoster.byId(EnemyId.ECHO_LOKA) else null
@@ -219,7 +239,7 @@ fun WorldExploreScreen(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // LEFT: Interactive Undertale-style 2D Pixel World Map Canvas
+        // LEFT: Interactive Undertale-style 2D Micro-Pixel World Map Canvas
         Box(
             modifier = Modifier
                 .weight(1.75f)
@@ -238,38 +258,70 @@ fun WorldExploreScreen(
                 }
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                drawWorldTerrain(world, ambientClock)
+                drawWorldTerrain(world, zone, activeDoors, ambientClock)
 
                 // Ambient floating particles per realm
                 val particleColor = when (world) {
-                    WorldId.NORMAL_WORLD -> MercyYellow.copy(alpha = 0.35f)
-                    WorldId.TRI_RACE_REALM -> GlitchCyan.copy(alpha = 0.35f)
-                    WorldId.SPLIT_REALM -> Color(0xFFF472B6).copy(alpha = 0.35f)
-                    WorldId.GLITCHED_WORLD -> Color.White.copy(alpha = 0.40f)
+                    WorldId.NORMAL_WORLD -> MercyYellow.copy(alpha = 0.40f)
+                    WorldId.TRI_RACE_REALM -> GlitchCyan.copy(alpha = 0.38f)
+                    WorldId.SPLIT_REALM -> Color(0xFFF472B6).copy(alpha = 0.40f)
+                    WorldId.GLITCHED_WORLD -> Color.White.copy(alpha = 0.42f)
                 }
-                for (i in 0 until 12) {
-                    val fx = ((i * 0.19f + ambientClock * (0.015f + (i % 3) * 0.006f)) % 1f) * size.width
-                    val fy = ((i * 0.27f + sin(ambientClock * 1.4f + i) * 0.04f + 1f) % 1f) * size.height
-                    drawRect(particleColor, Offset(fx, fy), Size(3.5.dp.toPx(), 3.5.dp.toPx()))
+                for (i in 0 until 16) {
+                    val fx = ((i * 0.17f + ambientClock * (0.015f + (i % 3) * 0.006f)) % 1f) * size.width
+                    val fy = ((i * 0.23f + sin(ambientClock * 1.4f + i) * 0.04f + 1f) % 1f) * size.height
+                    drawRect(particleColor, Offset(fx, fy), Size(3.dp.toPx(), 3.dp.toPx()))
                 }
 
                 if (world.hasLandmarks) {
-                    if (!state.teleportControlMastered) {
-                        val (rx, ry) = state.paradoxRiftPos
-                        val rc = Offset(rx * size.width, ry * size.height)
-                        val pulseR = 14.dp.toPx() + sin(ambientClock * 4f) * 3.dp.toPx()
-                        drawCircle(color = GlitchMagenta.copy(alpha = 0.25f), radius = pulseR + 4.dp.toPx(), center = rc)
-                        drawCircle(color = GlitchCyan, radius = 10.dp.toPx(), center = rc, style = Stroke(2.2f))
-                        drawCircle(color = Color.Black, radius = 5.dp.toPx(), center = rc)
+                    // Render all active doorways in the current zone
+                    activeDoors.forEach { door ->
+                        drawZoneDoorway(
+                            door = door,
+                            world = world,
+                            center = Offset(door.doorX * size.width, door.doorY * size.height),
+                            ambientClock = ambientClock
+                        )
                     }
 
-                    // Ashen is our Overworld Save Point in every standard realm!
-                    val saveC = Offset(ashenSavePos.first * size.width, ashenSavePos.second * size.height)
-                    drawOverworldAshenSaveSprite(
-                        center = saveC,
-                        sizePx = 30.dp.toPx(),
-                        ambientClock = ambientClock
-                    )
+                    if (zone == WorldZone.CENTER) {
+                        if (!state.teleportControlMastered) {
+                            val (rx, ry) = state.paradoxRiftPos
+                            val rc = Offset(rx * size.width, ry * size.height)
+                            val pulseR = 14.dp.toPx() + sin(ambientClock * 4f) * 3.dp.toPx()
+                            drawCircle(color = GlitchMagenta.copy(alpha = 0.28f), radius = pulseR + 5.dp.toPx(), center = rc)
+                            drawCircle(color = GlitchCyan, radius = 11.dp.toPx(), center = rc, style = Stroke(2.4f))
+                            drawCircle(color = Color.Black, radius = 5.5.dp.toPx(), center = rc)
+                        }
+
+                        // Ashen Save Point in Central Plaza framed by brick-and-moss sanctuary plinth & pixel stars
+                        val saveC = Offset(ashenSavePos.first * size.width, ashenSavePos.second * size.height)
+                        drawPixelBrickSaveMonument(
+                            center = Offset(saveC.x - 24.dp.toPx(), saveC.y + 4.dp.toPx()),
+                            sizePx = 24.dp.toPx(),
+                            ambientClock = ambientClock,
+                            emblemColor = if (state.ashenHiddenTimerSec > 0f) Color(0xFF9CA3AF) else MercyYellow
+                        )
+                        if (state.ashenHiddenTimerSec > 0f) {
+                            drawOverworldAshenBurrow(
+                                center = saveC,
+                                sizePx = 30.dp.toPx(),
+                                secondsRemaining = state.ashenHiddenTimerSec,
+                                ambientClock = ambientClock
+                            )
+                        } else {
+                            drawOverworldAshenSaveSprite(
+                                center = saveC,
+                                sizePx = 32.dp.toPx(),
+                                ambientClock = ambientClock
+                            )
+                            drawPixelSaveStar(
+                                center = Offset(saveC.x + 20.dp.toPx(), saveC.y - 12.dp.toPx()),
+                                sizePx = 5.5.dp.toPx(),
+                                color = MercyYellow
+                            )
+                        }
+                    }
 
                     landmarks.forEach { lm ->
                         val completed = lm.id in state.completedLandmarkIds
@@ -315,7 +367,7 @@ fun WorldExploreScreen(
 
                     // Kids already safely brought to Normal World
                     safeNormalKids.forEachIndexed { idx, kid ->
-                        val c = Offset((0.36f + idx * 0.08f) * size.width, 0.56f * size.height)
+                        val c = Offset((0.30f + idx * 0.09f) * size.width, 0.70f * size.height)
                         drawOverworldKidSprite(kid = kid, center = c, unitPx = 9.5.dp.toPx(), isRescued = true)
                     }
 
@@ -428,22 +480,71 @@ fun WorldExploreScreen(
                     )
                 }
             } else {
-                Box(
+                Row(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(8.dp)
-                        .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(6.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        text = if (lang == AppLanguage.AR) zone.titleAr else zone.titleEn,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MercyYellow
+                    )
                     Text(
                         text = tr(
                             lang,
-                            "Drag to walk · Ashen ★ Save · Touching Chasing Monsters = Battle · Bosses · Rift",
-                            "اسحب للمشي · آشن ★ حفظ · لمس الوحوش المطارِدة = معركة · الزعماء · الدوامة"
+                            "· Walk edges (↑↓←→) or Door V",
+                            "· امشِ للحواف (↑↓←→) أو الباب ٥"
                         ),
                         style = MaterialTheme.typography.labelSmall,
                         color = ParchmentInk
                     )
+                }
+
+                // Clear Door Badges aligned along active edges & Door V
+                activeDoors.forEach { door ->
+                    val badgeAlignment = when (door.edge) {
+                        ZoneEdge.TOP -> Alignment.TopCenter
+                        ZoneEdge.BOTTOM -> Alignment.BottomCenter
+                        ZoneEdge.LEFT -> Alignment.CenterStart
+                        ZoneEdge.RIGHT -> Alignment.CenterEnd
+                        null -> Alignment.TopEnd
+                    }
+                    val arrowPrefix = when (door.edge) {
+                        ZoneEdge.TOP -> "↑ "
+                        ZoneEdge.BOTTOM -> "↓ "
+                        ZoneEdge.LEFT -> "← "
+                        ZoneEdge.RIGHT -> "→ "
+                        null -> "✦ "
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(badgeAlignment)
+                            .padding(
+                                top = if (door.edge == null) 28.dp else 4.dp,
+                                bottom = 4.dp,
+                                start = 4.dp,
+                                end = if (door.edge == null) 14.dp else 4.dp
+                            )
+                            .background(Color(0xC809090D), RoundedCornerShape(4.dp))
+                            .border(
+                                1.dp,
+                                if (door.edge == null) GlitchCyan else SepiaAmber.copy(alpha = 0.8f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "$arrowPrefix${if (lang == AppLanguage.AR) door.labelAr else door.labelEn}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (door.edge == null) GlitchCyan else SepiaGold
+                        )
+                    }
                 }
             }
 
@@ -520,8 +621,8 @@ fun WorldExploreScreen(
                         )
                         else -> tr(
                             lang,
-                            "RANDOM PARADOX WARP: ${"%.0f".format(state.randomWarpCountdownSec)}s",
-                            "انتقال عشوائي خلال: ${"%.0f".format(state.randomWarpCountdownSec)}ث"
+                            "PARADOX CLOCK: ${formatMmSs(state.randomWarpCountdownSec)} (or 8 Saves)",
+                            "مؤقت المفارقة: ${formatMmSs(state.randomWarpCountdownSec)} (أو 8 حفظات)"
                         )
                     }
                     Text(
@@ -669,25 +770,62 @@ fun WorldExploreScreen(
                     }
 
                     nearAshenSave -> {
-                        Text(tr(lang, "ASHEN · SAVE POINT ★", "آشن · نقطة الحفظ ★"), style = MaterialTheme.typography.titleMedium, color = MercyYellow)
+                        val hiddenRem = state.ashenHiddenTimerSec
+                        if (hiddenRem > 0f) {
+                            Text(tr(lang, "ASHEN · UNDERGROUND", "آشن · تحت الأرض"), style = MaterialTheme.typography.titleMedium, color = MutedSepiaInk)
+                            Text(
+                                text = tr(
+                                    lang,
+                                    "* Ashen slipped underground after saving! Re-emerging in ${formatMmSs(hiddenRem)}...",
+                                    "* نزل آشن تحت الأرض بعد الحفظ! سيظهر مجدداً خلال ${formatMmSs(hiddenRem)}..."
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = ParchmentInk
+                            )
+                        } else {
+                            Text(tr(lang, "ASHEN · SAVE POINT ★", "آشن · نقطة الحفظ ★"), style = MaterialTheme.typography.titleMedium, color = MercyYellow)
+                            Text(
+                                text = tr(
+                                    lang,
+                                    "* Ashen: \"Hey Loka! Save #${state.saveCounter + 1}? I'll burrow down for ~1m 15s right after!\"",
+                                    "* آشن: «أهلاً لوكا! تريد الحفظ (#${state.saveCounter + 1})؟ سأنزل تحت الأرض دقيقة وربع بعدها!»"
+                                ),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = ParchmentInk
+                            )
+                            Button(
+                                onClick = onSaveGame,
+                                colors = ButtonDefaults.buttonColors(containerColor = MercyYellow, contentColor = ObsidianBg),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp)
+                                    .testTag("explore_save_star_button")
+                            ) {
+                                Text(tr(lang, "SAVE WITH ASHEN ★", "احفظ مع آشن ★"), style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
+
+                    nearRift -> {
+                        Text(tr(lang, "PARADOX RIFT SHRINE", "بوابة صدع المفارقة"), style = MaterialTheme.typography.titleMedium, color = GlitchCyan)
                         Text(
                             text = tr(
                                 lang,
-                                "* Ashen: \"Hey Loka! Stand by me anytime—I'll save your timeline!\"",
-                                "* آشن: «أهلاً لوكا! اقترب مني في أي وقت وسأحفظ لك تقدمك!»"
+                                "Step in manually if you want to jump early to another random world.",
+                                "ادخل البوابة يدوياً إذا أردت الانتقال مبكراً إلى عالم عشوائي آخر."
                             ),
                             style = MaterialTheme.typography.labelSmall,
                             color = ParchmentInk
                         )
                         Button(
-                            onClick = onSaveGame,
-                            colors = ButtonDefaults.buttonColors(containerColor = MercyYellow, contentColor = ObsidianBg),
+                            onClick = onManualRiftJump,
+                            colors = ButtonDefaults.buttonColors(containerColor = GlitchCyan, contentColor = ObsidianBg),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(46.dp)
-                                .testTag("explore_save_star_button")
+                                .testTag("explore_manual_rift_button")
                         ) {
-                            Text(tr(lang, "SAVE WITH ASHEN ★", "احفظ مع آشن ★"), style = MaterialTheme.typography.labelLarge)
+                            Text(tr(lang, "ENTER PARADOX RIFT", "ادخل صدع المفارقة"), style = MaterialTheme.typography.labelLarge)
                         }
                     }
 
@@ -696,8 +834,8 @@ fun WorldExploreScreen(
                             text = if (world.hasLandmarks) {
                                 tr(
                                     lang,
-                                    "Bosses: ${state.resolvedBossCount}/${state.totalStandardBosses} · Friends: ${state.friendAllies.size} · Escorting: ${state.escortingKidIds.size}\nWalk near Ashen ★ to Save, dodge chasing Monsters, or meet Bosses.",
-                                    "الزعماء: ${state.resolvedBossCount}/${state.totalStandardBosses} · الأصدقاء: ${state.friendAllies.size} · المرافقون: ${state.escortingKidIds.size}\nاقترب من آشن ★ للحفظ، واحذر الوحوش التي تطاردك!"
+                                    "${zone.titleEn} · Bosses: ${state.resolvedBossCount}/${state.totalStandardBosses} · Friends: ${state.friendAllies.size}\nExplore all 5 doors (edges + Door V) or save with Ashen ★.",
+                                    "${zone.titleAr} · الزعماء: ${state.resolvedBossCount}/${state.totalStandardBosses} · الأصدقاء: ${state.friendAllies.size}\nاستكشف الأبواب الخمسة (الحواف + الباب ٥) أو احفظ مع آشن ★!"
                                 )
                             } else {
                                 if (state.isJourneyCompleteForEcho) {
@@ -1065,114 +1203,166 @@ fun WorldExploreScreen(
     }
 }
 
-private fun DrawScope.drawWorldTerrain(world: WorldId, ambientClock: Float) {
-    val cols = 14
-    val rows = 8
-    val tileW = size.width / cols
-    val tileH = size.height / rows
+private fun formatMmSs(seconds: Float): String {
+    val total = seconds.toInt().coerceAtLeast(0)
+    val mins = total / 60
+    val secs = total % 60
+    return "%d:%02d".format(mins, secs)
+}
+
+private fun DrawScope.drawWorldTerrain(
+    world: WorldId,
+    zone: WorldZone,
+    doors: List<ZoneDoorInfo>,
+    ambientClock: Float
+) {
+    // 256x144 (36,864 pixels!) crisp cached pixel-art ground texture base
+    val terrainBitmap = UltraPixelArtEngine.getWorldTerrainBitmap(world, zone)
+    drawImage(
+        image = terrainBitmap,
+        dstOffset = IntOffset.Zero,
+        dstSize = IntSize(size.width.roundToInt().coerceAtLeast(1), size.height.roundToInt().coerceAtLeast(1)),
+        filterQuality = FilterQuality.None
+    )
 
     when (world) {
         WorldId.NORMAL_WORLD -> {
-            // Undertale-style checker grass pixel tiles + paved sidewalk crossroads + pixel flower & grass tufts
-            for (r in 0 until rows) {
-                for (c in 0 until cols) {
-                    val color = if ((r + c) % 2 == 0) Color(0xFF3E6B38) else Color(0xFF365E30)
-                    val tx = c * tileW
-                    val ty = r * tileH
-                    drawRect(color, Offset(tx, ty), Size(tileW + 0.5f, tileH + 0.5f))
-                    if ((r * 7 + c * 3) % 11 == 0) {
-                        drawRect(Color(0xFF16A34A), Offset(tx + tileW * 0.35f, ty + tileH * 0.45f), Size(4.dp.toPx(), 3.dp.toPx()))
-                        drawRect(Color(0xFFFACC15), Offset(tx + tileW * 0.42f, ty + tileH * 0.35f), Size(4.dp.toPx(), 4.dp.toPx()))
-                    } else if ((r * 3 + c * 5) % 9 == 0) {
-                        drawRect(Color(0xFF4ADE80).copy(alpha = 0.35f), Offset(tx + tileW * 0.25f, ty + tileH * 0.6f), Size(5.dp.toPx(), 2.5.dp.toPx()))
-                    }
+            val isSanctum = zone == WorldZone.SANCTUM
+            drawDoorPaths(doors, roadFill = if (isSanctum) Color(0xFF364152) else Color(0xFF565D68), roadTrim = if (isSanctum) GlitchCyan.copy(alpha = 0.6f) else Color(0xFF94A3B8))
+
+            if (zone == WorldZone.WEST || zone == WorldZone.CENTER) {
+                drawScenicPond(Offset(size.width * 0.19f, size.height * 0.77f), 26.dp.toPx(), Color(0xFF1D4ED8), Color(0xFF60A5FA), ambientClock)
+            }
+            if (!isSanctum) {
+                listOf(0.11f to 0.18f, 0.88f to 0.80f, 0.12f to 0.85f, 0.88f to 0.18f).forEach { (tx, ty) ->
+                    drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF214A1E), Color(0xFF43863C), Color(0xFF5A3D28))
                 }
             }
-            // Stepped stone roads + cobblestone seams
-            drawRect(color = Color(0xFF525862), topLeft = Offset(0f, size.height * 0.44f), size = Size(size.width, size.height * 0.12f))
-            drawRect(color = Color(0xFF525862), topLeft = Offset(size.width * 0.44f, 0f), size = Size(size.width * 0.12f, size.height))
-            drawRect(color = Color(0xFF8C929C), topLeft = Offset(0f, size.height * 0.44f), size = Size(size.width, 3.dp.toPx()))
-            drawRect(color = Color(0xFF8C929C), topLeft = Offset(0f, size.height * 0.56f), size = Size(size.width, 3.dp.toPx()))
-            drawRect(color = Color(0xFF8C929C), topLeft = Offset(size.width * 0.44f, 0f), size = Size(3.dp.toPx(), size.height))
-            drawRect(color = Color(0xFF8C929C), topLeft = Offset(size.width * 0.56f, 0f), size = Size(3.dp.toPx(), size.height))
-            for (i in 0..10) {
-                drawRect(Color(0xFF6E7582), Offset(size.width * (i * 0.095f + 0.02f), size.height * 0.495f), Size(10.dp.toPx(), 3.dp.toPx()))
-            }
-
-            val trees = listOf(0.10f to 0.40f, 0.35f to 0.14f, 0.64f to 0.16f, 0.88f to 0.40f, 0.36f to 0.86f, 0.64f to 0.86f)
-            trees.forEach { (tx, ty) ->
-                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF23491F), Color(0xFF3E7B37), Color(0xFF5A3D28))
+            listOf(0.39f to 0.40f, 0.61f to 0.40f, 0.39f to 0.62f, 0.61f to 0.62f).forEach { (lx, ly) ->
+                drawPixelLantern(Offset(lx * size.width, ly * size.height), MercyYellow, ambientClock)
             }
         }
 
         WorldId.TRI_RACE_REALM -> {
-            // Warm sandstone dunes + pebble clusters + vivid cyan crystalline trees
-            for (r in 0 until rows) {
-                for (c in 0 until cols) {
-                    val color = if ((r + c) % 2 == 0) Color(0xFFD9C39D) else Color(0xFFCBB186)
-                    val tx = c * tileW
-                    val ty = r * tileH
-                    drawRect(color, Offset(tx, ty), Size(tileW + 0.5f, tileH + 0.5f))
-                    if ((r * 5 + c * 9) % 7 == 0) {
-                        drawRect(Color(0xFF9C7B50), Offset(tx + tileW * 0.35f, ty + tileH * 0.5f), Size(5.dp.toPx(), 4.dp.toPx()))
-                        drawRect(Color(0xFFE7D6B5), Offset(tx + tileW * 0.42f, ty + tileH * 0.44f), Size(3.dp.toPx(), 2.dp.toPx()))
-                    }
+            val isSanctum = zone == WorldZone.SANCTUM
+            drawDoorPaths(doors, roadFill = if (isSanctum) Color(0xFF473E59) else Color(0xFFA9885D), roadTrim = Color(0xFF22D3EE).copy(alpha = 0.72f))
+            if (zone == WorldZone.WEST || zone == WorldZone.NORTH) {
+                drawScenicPond(Offset(size.width * 0.80f, size.height * 0.78f), 25.dp.toPx(), Color(0xFF0E7490), Color(0xFF67E8F9), ambientClock)
+            }
+            if (!isSanctum) {
+                listOf(0.11f to 0.22f, 0.88f to 0.78f, 0.12f to 0.84f, 0.88f to 0.22f).forEach { (tx, ty) ->
+                    drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF0E7490), Color(0xFF22D3EE), Color(0xFF6B4423))
                 }
             }
-            val cyanTrees = listOf(0.12f to 0.38f, 0.38f to 0.15f, 0.60f to 0.15f, 0.88f to 0.44f, 0.42f to 0.86f, 0.62f to 0.88f)
-            cyanTrees.forEach { (tx, ty) ->
-                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF0E7490), Color(0xFF22D3EE), Color(0xFF6B4423))
+            listOf(0.39f to 0.40f, 0.61f to 0.62f).forEach { (lx, ly) ->
+                drawPixelLantern(Offset(lx * size.width, ly * size.height), Color(0xFF22D3EE), ambientClock)
             }
         }
 
         WorldId.SPLIT_REALM -> {
-            // Left Half: Angels' purple-pink stone tiles & emerald pixel trees
-            // Right Half: Devils' obsidian-basalt wastes & crimson pixel trees
-            for (r in 0 until rows) {
-                for (c in 0 until cols) {
-                    val isAngelSide = c < cols / 2
-                    val color = if (isAngelSide) {
-                        if ((r + c) % 2 == 0) Color(0xFF7B409E) else Color(0xFFA84784)
-                    } else {
-                        if ((r + c) % 2 == 0) Color(0xFF5D402C) else Color(0xFF51555E)
-                    }
-                    val tx = c * tileW
-                    val ty = r * tileH
-                    drawRect(color, Offset(tx, ty), Size(tileW + 0.5f, tileH + 0.5f))
-                    if ((r + c) % 5 == 0) {
-                        drawRect(
-                            color = (if (isAngelSide) Color(0xFFF9A8D4) else Color(0xFFEF4444)).copy(alpha = 0.22f),
-                            topLeft = Offset(tx + tileW * 0.3f, ty + tileH * 0.4f),
-                            size = Size(5.dp.toPx(), 3.dp.toPx())
-                        )
-                    }
+            val forceAngel = zone == WorldZone.WEST || zone == WorldZone.SANCTUM
+            val forceDevil = zone == WorldZone.EAST
+            drawDoorPaths(doors, roadFill = Color(0xFF3E3546), roadTrim = if (forceAngel) Color(0xFFF472B6) else if (forceDevil) Color(0xFFEF4444) else GlitchCyan)
+
+            if (!forceAngel && !forceDevil) {
+                val borderPulse = 0.45f + 0.35f * sin(ambientClock * 3.5f)
+                drawLine(GlitchCyan.copy(alpha = borderPulse * 0.45f), Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), strokeWidth = 10f)
+                drawLine(Color.White, Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), strokeWidth = 3f)
+            }
+            if (!forceDevil) {
+                listOf(0.11f to 0.22f, 0.14f to 0.82f).forEach { (tx, ty) ->
+                    drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF15803D), Color(0xFF4ADE80), Color(0xFF4A2E1B))
                 }
+                drawPixelLantern(Offset(size.width * 0.38f, size.height * 0.40f), Color(0xFFF472B6), ambientClock)
             }
-            // Pulsing Paradox rift barrier down the middle
-            val borderPulse = 0.45f + 0.35f * sin(ambientClock * 3.5f)
-            drawLine(GlitchCyan.copy(alpha = borderPulse * 0.45f), Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), strokeWidth = 10f)
-            drawLine(Color.White, Offset(size.width * 0.5f, 0f), Offset(size.width * 0.5f, size.height), strokeWidth = 3.5f)
-            listOf(0.10f to 0.42f, 0.36f to 0.18f, 0.38f to 0.84f).forEach { (tx, ty) ->
-                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF15803D), Color(0xFF4ADE80), Color(0xFF4A2E1B))
-            }
-            listOf(0.64f to 0.16f, 0.90f to 0.44f, 0.62f to 0.86f).forEach { (tx, ty) ->
-                drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF991B1B), Color(0xFFEF4444), Color(0xFF2B2523))
+            if (!forceAngel) {
+                listOf(0.88f to 0.22f, 0.86f to 0.82f).forEach { (tx, ty) ->
+                    drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF991B1B), Color(0xFFEF4444), Color(0xFF2B2523))
+                }
+                drawPixelLantern(Offset(size.width * 0.62f, size.height * 0.62f), Color(0xFFEF4444), ambientClock)
             }
         }
 
         WorldId.GLITCHED_WORLD -> {
-            drawRect(color = Color.Black)
             val r = Random((ambientClock * 8f).toInt())
-            repeat(14) {
+            repeat(18) {
                 val y = r.nextFloat() * size.height
                 drawRect(
                     color = if (it % 2 == 0) GlitchCyan.copy(alpha = 0.22f) else GlitchMagenta.copy(alpha = 0.18f),
                     topLeft = Offset(r.nextFloat() * size.width * 0.35f, y),
-                    size = Size(size.width * 0.62f, 4.dp.toPx())
+                    size = Size(size.width * 0.65f, 3.dp.toPx())
                 )
             }
         }
     }
+}
+
+private fun DrawScope.drawDoorPaths(doors: List<ZoneDoorInfo>, roadFill: Color, roadTrim: Color) {
+    val cx = size.width * 0.50f
+    val cy = size.height * 0.50f
+    val pathW = size.width * 0.11f
+    val pathH = size.height * 0.13f
+
+    // Central plaza stone square
+    drawRect(roadFill, Offset(cx - pathW * 0.85f, cy - pathH * 0.85f), Size(pathW * 1.7f, pathH * 1.7f))
+    drawRect(roadTrim, Offset(cx - pathW * 0.85f, cy - pathH * 0.85f), Size(pathW * 1.7f, pathH * 1.7f), style = Stroke(2f))
+
+    doors.forEach { d ->
+        when (d.edge) {
+            ZoneEdge.TOP -> {
+                drawRect(roadFill, Offset(cx - pathW * 0.5f, 0f), Size(pathW, cy))
+                drawLine(roadTrim, Offset(cx - pathW * 0.5f, 0f), Offset(cx - pathW * 0.5f, cy - pathH * 0.85f), strokeWidth = 2f)
+                drawLine(roadTrim, Offset(cx + pathW * 0.5f, 0f), Offset(cx + pathW * 0.5f, cy - pathH * 0.85f), strokeWidth = 2f)
+            }
+            ZoneEdge.BOTTOM -> {
+                drawRect(roadFill, Offset(cx - pathW * 0.5f, cy), Size(pathW, size.height - cy))
+                drawLine(roadTrim, Offset(cx - pathW * 0.5f, cy + pathH * 0.85f), Offset(cx - pathW * 0.5f, size.height), strokeWidth = 2f)
+                drawLine(roadTrim, Offset(cx + pathW * 0.5f, cy + pathH * 0.85f), Offset(cx + pathW * 0.5f, size.height), strokeWidth = 2f)
+            }
+            ZoneEdge.LEFT -> {
+                drawRect(roadFill, Offset(0f, cy - pathH * 0.5f), Size(cx, pathH))
+                drawLine(roadTrim, Offset(0f, cy - pathH * 0.5f), Offset(cx - pathW * 0.85f, cy - pathH * 0.5f), strokeWidth = 2f)
+                drawLine(roadTrim, Offset(0f, cy + pathH * 0.5f), Offset(cx - pathW * 0.85f, cy + pathH * 0.5f), strokeWidth = 2f)
+            }
+            ZoneEdge.RIGHT -> {
+                drawRect(roadFill, Offset(cx, cy - pathH * 0.5f), Size(size.width - cx, pathH))
+                drawLine(roadTrim, Offset(cx + pathW * 0.85f, cy - pathH * 0.5f), Offset(size.width, cy - pathH * 0.5f), strokeWidth = 2f)
+                drawLine(roadTrim, Offset(cx + pathW * 0.85f, cy + pathH * 0.5f), Offset(size.width, cy + pathH * 0.5f), strokeWidth = 2f)
+            }
+            null -> {
+                val dx = d.doorX * size.width
+                val dy = d.doorY * size.height
+                drawLine(GlitchCyan.copy(alpha = 0.35f), Offset(cx, cy), Offset(dx, dy), strokeWidth = 10f)
+                drawLine(MercyYellow.copy(alpha = 0.65f), Offset(cx, cy), Offset(dx, dy), strokeWidth = 2.5f)
+            }
+        }
+    }
+}
+
+private fun DrawScope.drawScenicPond(
+    center: Offset,
+    radiusPx: Float,
+    waterDark: Color,
+    waterHighlight: Color,
+    ambientClock: Float
+) {
+    drawOval(Color(0xFF1F2937), Offset(center.x - radiusPx * 1.15f, center.y - radiusPx * 0.72f), Size(radiusPx * 2.3f, radiusPx * 1.44f))
+    drawOval(waterDark, Offset(center.x - radiusPx, center.y - radiusPx * 0.60f), Size(radiusPx * 2.0f, radiusPx * 1.20f))
+    val shimmer = sin(ambientClock * 3.5f) * 3f
+    drawRect(waterHighlight.copy(alpha = 0.72f), Offset(center.x - radiusPx * 0.5f + shimmer, center.y - radiusPx * 0.16f), Size(radiusPx * 0.65f, 2.5.dp.toPx()))
+    drawRect(Color.White.copy(alpha = 0.6f), Offset(center.x + radiusPx * 0.1f - shimmer, center.y + radiusPx * 0.14f), Size(radiusPx * 0.35f, 2.dp.toPx()))
+}
+
+private fun DrawScope.drawPixelLantern(
+    center: Offset,
+    glowColor: Color,
+    ambientClock: Float
+) {
+    val pulse = 0.85f + 0.15f * sin(ambientClock * 5f + center.x * 0.02f)
+    drawCircle(glowColor.copy(alpha = 0.22f * pulse), radius = 14.dp.toPx(), center = Offset(center.x, center.y - 6.dp.toPx()))
+    drawRect(Color(0xFF1E293B), Offset(center.x - 1.8.dp.toPx(), center.y - 8.dp.toPx()), Size(3.6.dp.toPx(), 12.dp.toPx()))
+    drawRect(glowColor, Offset(center.x - 3.dp.toPx(), center.y - 10.dp.toPx()), Size(6.dp.toPx(), 5.dp.toPx()))
+    drawRect(Color.White.copy(alpha = 0.8f), Offset(center.x - 1.5.dp.toPx(), center.y - 8.5.dp.toPx()), Size(3.dp.toPx(), 2.5.dp.toPx()))
 }
 
 private fun DrawScope.drawPixelTree(
@@ -1181,18 +1371,14 @@ private fun DrawScope.drawPixelTree(
     canopyLight: Color,
     trunkColor: Color
 ) {
-    val u = 6.dp.toPx()
-    // Ground shadow
+    val u = 5.2.dp.toPx()
     drawOval(Color.Black.copy(alpha = 0.36f), Offset(center.x - u * 1.9f, center.y + u * 1.0f), Size(u * 3.8f, u * 0.9f))
-    // Shaded bark trunk
     drawRect(trunkColor, Offset(center.x - u * 0.55f, center.y - u * 0.1f), Size(u * 1.1f, u * 1.55f))
     drawRect(Color.Black.copy(alpha = 0.25f), Offset(center.x + u * 0.15f, center.y - u * 0.1f), Size(u * 0.4f, u * 1.55f))
-    // Multi-tiered crisp Undertale-style pixel foliage
     drawRect(Color(0xFF140E0A), Offset(center.x - u * 2.0f, center.y - u * 1.75f), Size(u * 4.0f, u * 2.25f))
     drawRect(Color(0xFF140E0A), Offset(center.x - u * 1.4f, center.y - u * 2.45f), Size(u * 2.8f, u * 1.0f))
     drawRect(canopyDark, Offset(center.x - u * 1.85f, center.y - u * 1.6f), Size(u * 3.7f, u * 1.95f))
     drawRect(canopyDark, Offset(center.x - u * 1.25f, center.y - u * 2.3f), Size(u * 2.5f, u * 0.9f))
-    // Leaf highlight clusters
     drawRect(canopyLight, Offset(center.x - u * 1.25f, center.y - u * 1.95f), Size(u * 2.1f, u * 1.15f))
     drawRect(canopyLight, Offset(center.x - u * 0.80f, center.y - u * 2.15f), Size(u * 1.4f, u * 0.45f))
 }

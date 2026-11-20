@@ -7,6 +7,7 @@ import com.example.model.ControlScheme
 import com.example.model.EnemyId
 import com.example.model.RouteType
 import com.example.model.WorldId
+import com.example.model.WorldZone
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -19,6 +20,7 @@ data class SavedGameSnapshot(
     val ruinsSwitchActivated: Boolean = false,
     val ruinsDummyPracticed: Boolean = false,
     val activeWorld: WorldId = WorldId.NORMAL_WORLD,
+    val activeZone: WorldZone = WorldZone.CENTER,
     val playerMapX: Float = 0.50f,
     val playerMapY: Float = 0.50f,
     val defeatedEnemies: Set<EnemyId> = emptySet(),
@@ -44,7 +46,7 @@ data class SavedGameSnapshot(
     val teleportControlMastered: Boolean = false,
     val worldDestroyedEnding: Boolean = false,
     val peaceSacrificeEnding: Boolean = false,
-    val saveCounter: Int = 1
+    val saveCounter: Int = 0
 )
 
 class GameSaveStorage(context: Context) {
@@ -82,8 +84,9 @@ class GameSaveStorage(context: Context) {
                 ruinsSwitchActivated = obj.optBoolean("ruinsSwitchActivated", false),
                 ruinsDummyPracticed = obj.optBoolean("ruinsDummyPracticed", false),
                 activeWorld = runCatching { WorldId.valueOf(obj.optString("activeWorld", "NORMAL_WORLD")) }.getOrDefault(WorldId.NORMAL_WORLD),
-                playerMapX = obj.optDouble("playerMapX", 0.50).toFloat().coerceIn(0.07f, 0.93f),
-                playerMapY = obj.optDouble("playerMapY", 0.50).toFloat().coerceIn(0.10f, 0.90f),
+                activeZone = runCatching { WorldZone.valueOf(obj.optString("activeZone", "CENTER")) }.getOrDefault(WorldZone.CENTER),
+                playerMapX = obj.optDouble("playerMapX", 0.50).toFloat().coerceIn(0.05f, 0.95f),
+                playerMapY = obj.optDouble("playerMapY", 0.50).toFloat().coerceIn(0.07f, 0.93f),
                 defeatedEnemies = obj.optStringSet("defeatedEnemies").mapNotNull { runCatching { EnemyId.valueOf(it) }.getOrNull() }.toSet(),
                 friendAllies = obj.optStringSet("friendAllies").mapNotNull { runCatching { EnemyId.valueOf(it) }.getOrNull() }.toSet(),
                 escortingKidIds = obj.optStringSet("escortingKidIds"),
@@ -103,7 +106,7 @@ class GameSaveStorage(context: Context) {
                 teleportControlMastered = obj.optBoolean("teleportControlMastered", false),
                 worldDestroyedEnding = obj.optBoolean("worldDestroyedEnding", false),
                 peaceSacrificeEnding = obj.optBoolean("peaceSacrificeEnding", false),
-                saveCounter = obj.optInt("saveCounter", 1).coerceIn(1, 8)
+                saveCounter = obj.optInt("saveCounter", 0).coerceIn(0, 8)
             )
         } catch (_: Throwable) {
             SavedGameSnapshot()
@@ -119,6 +122,7 @@ class GameSaveStorage(context: Context) {
             put("ruinsSwitchActivated", snapshot.ruinsSwitchActivated)
             put("ruinsDummyPracticed", snapshot.ruinsDummyPracticed)
             put("activeWorld", snapshot.activeWorld.name)
+            put("activeZone", snapshot.activeZone.name)
             put("playerMapX", snapshot.playerMapX.toDouble())
             put("playerMapY", snapshot.playerMapY.toDouble())
             put("defeatedEnemies", JSONArray(snapshot.defeatedEnemies.map { it.name }))

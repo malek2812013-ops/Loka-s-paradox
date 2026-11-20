@@ -87,8 +87,11 @@ fun LokaPortraitCanvas(
             'O' to Color(0xFF140E0A),
             'H' to Color(0xFF7C2614),
             'h' to Color(0xFFB8452A),
+            'd' to Color(0xFF4E170C),
             'S' to Color(0xFFEBC7A8),
             's' to Color(0xFFD2A37E),
+            'r' to Color(0xFFE89A8A),
+            'W' to Color.White,
             'G' to Color(0xFF6B7D85),
             'C' to (if (isSickGlitched) Color.White else if (expression == PortraitExpression.DETERMINED) Color(0xFF7DD3FC) else Color(0xFF38BDF8)),
             'l' to Color(0xFF9CA3AF),
@@ -97,7 +100,9 @@ fun LokaPortraitCanvas(
             'Y' to SepiaGold,
             'y' to Color(0xFFB45309),
             'P' to Color(0xFFD6C29F),
-            'p' to Color(0xFFB09B76)
+            'p' to Color(0xFFB09B76),
+            'B' to Color(0xFF3A271B),
+            'b' to Color(0xFF5C3E2A)
         )
 
         drawPixelMatrix(
@@ -108,25 +113,25 @@ fun LokaPortraitCanvas(
         )
 
         // Dynamic Undertale-style expression overlays
-        val u = spriteSize / 20f
+        val u = spriteSize / 28f
         when (expression) {
             PortraitExpression.HAPPY -> {
-                drawRect(Color(0xFF140E0A), Offset(cx - u * 1.1f, cy + u * 1.1f), SizeCompat(u * 2.2f, u * 0.65f))
-                drawPixelSaveStar(Offset(cx + u * 5.2f, cy - u * 4.8f), u * 1.0f, SepiaGold)
+                drawRect(Color(0xFF140E0A), Offset(cx - u * 1.4f, cy + u * 1.2f), SizeCompat(u * 2.8f, u * 0.75f))
+                drawPixelSaveStar(Offset(cx + u * 6.0f, cy - u * 5.4f), u * 1.1f, SepiaGold)
             }
             PortraitExpression.SURPRISED -> {
-                drawRect(Color.White, Offset(cx - u * 3.1f, cy - u * 1.6f), SizeCompat(u * 1.1f, u * 1.3f))
-                drawRect(Color.White, Offset(cx + u * 2.0f, cy - u * 1.6f), SizeCompat(u * 1.1f, u * 1.3f))
-                drawRect(Color(0xFF140E0A), Offset(cx - u * 0.6f, cy + u * 1.1f), SizeCompat(u * 1.2f, u * 1.2f))
+                drawRect(Color.White, Offset(cx - u * 3.8f, cy - u * 1.9f), SizeCompat(u * 1.3f, u * 1.5f))
+                drawRect(Color.White, Offset(cx + u * 2.5f, cy - u * 1.9f), SizeCompat(u * 1.3f, u * 1.5f))
+                drawRect(Color(0xFF140E0A), Offset(cx - u * 0.7f, cy + u * 1.3f), SizeCompat(u * 1.4f, u * 1.4f))
             }
             PortraitExpression.ANGRY -> {
-                drawLine(Color(0xFF140E0A), Offset(cx - u * 3.4f, cy - u * 2.2f), Offset(cx - u * 1.0f, cy - u * 1.5f), strokeWidth = u * 0.85f)
-                drawLine(Color(0xFF140E0A), Offset(cx + u * 3.4f, cy - u * 2.2f), Offset(cx + u * 1.0f, cy - u * 1.5f), strokeWidth = u * 0.85f)
-                drawRect(Color(0xFFEF4444), Offset(cx + u * 2.1f, cy - u * 0.8f), SizeCompat(u * 0.85f, u * 0.85f))
+                drawLine(Color(0xFF140E0A), Offset(cx - u * 4.2f, cy - u * 2.5f), Offset(cx - u * 1.2f, cy - u * 1.7f), strokeWidth = u * 0.9f)
+                drawLine(Color(0xFF140E0A), Offset(cx + u * 4.2f, cy - u * 2.5f), Offset(cx + u * 1.2f, cy - u * 1.7f), strokeWidth = u * 0.9f)
+                drawRect(Color(0xFFEF4444), Offset(cx + u * 2.5f, cy - u * 0.9f), SizeCompat(u * 0.95f, u * 0.95f))
             }
             PortraitExpression.DETERMINED -> {
-                drawCircle(Color(0xFF38BDF8).copy(alpha = 0.55f), radius = u * 1.8f, center = Offset(cx + u * 2.5f, cy - u * 0.6f))
-                drawPixelSaveStar(Offset(cx + u * 2.5f, cy - u * 0.6f), u * 1.1f, Color(0xFF38BDF8))
+                drawCircle(Color(0xFF38BDF8).copy(alpha = 0.55f), radius = u * 2.1f, center = Offset(cx + u * 3.0f, cy - u * 0.8f))
+                drawPixelSaveStar(Offset(cx + u * 3.0f, cy - u * 0.8f), u * 1.25f, Color(0xFF38BDF8))
             }
             PortraitExpression.NEUTRAL -> Unit
         }
@@ -179,8 +184,11 @@ fun DrawScope.drawLokaOverworldSprite(
         'O' to Color(0xFF120C08),
         'H' to Color(0xFF7C2614),
         'h' to Color(0xFFB8452A),
+        'd' to Color(0xFF4E170C),
         'S' to Color(0xFFEBC7A8),
-        's' to Color(0xFF2B1C14),
+        's' to Color(0xFFD2A37E),
+        'r' to Color(0xFFE89A8A),
+        'W' to Color.White,
         'G' to Color(0xFF6B7D85),
         'C' to (if (isGlitched) Color.White else Color(0xFF38BDF8)),
         'l' to Color(0xFF9CA3AF),
@@ -190,14 +198,15 @@ fun DrawScope.drawLokaOverworldSprite(
         'y' to Color(0xFFB45309),
         'P' to Color(0xFFD6C29F),
         'p' to Color(0xFFB09B76),
-        'B' to Color(0xFF3A271B)
+        'B' to Color(0xFF3A271B),
+        'b' to Color(0xFF5C3E2A)
     )
 
     drawPixelMatrix(
         rows = PixelSprites.lokaOverworldGrid,
         palette = palette,
         center = center,
-        targetSizePx = unit * 2.95f
+        targetSizePx = unit * 3.15f
     )
 }
 
@@ -290,9 +299,9 @@ fun DrawScope.drawSoulEmblem(
 
     val alpha = if (isInvulnerable) blinkAlpha else 1f
     val outlineColor = if (soul == SoulType.WHITE_SICK) {
-        Color(0xFF6B7280).copy(alpha = alpha)
+        Color(0xFF6B7280)
     } else {
-        Color(0xFF0A0A0D).copy(alpha = alpha)
+        Color(0xFF0A0A0D)
     }
 
     if (soul == SoulType.SPLIT_DUO) {
@@ -300,25 +309,28 @@ fun DrawScope.drawSoulEmblem(
         drawSplitPixelHeart(
             center = center,
             sizePx = sizePx,
-            leftColor = soul.color.copy(alpha = alpha),
-            rightColor = (soul.secondaryColor ?: Color(0xFF2DD4BF)).copy(alpha = alpha),
+            leftColor = soul.color,
+            rightColor = soul.secondaryColor ?: Color(0xFF2DD4BF),
             outlineColor = outlineColor,
-            splitHalfIndex = splitHalfIndex
+            splitHalfIndex = splitHalfIndex,
+            alpha = alpha
         )
     } else {
         drawPixelHeart(
             center = center,
             sizePx = sizePx * 1.08f,
-            fillColor = Color.White.copy(alpha = 0.55f * alpha),
-            outlineColor = Color.White.copy(alpha = 0.55f * alpha),
-            cracked = false
+            fillColor = Color.White,
+            outlineColor = Color.White,
+            cracked = false,
+            alpha = 0.55f * alpha
         )
         drawPixelHeart(
             center = center,
             sizePx = sizePx,
-            fillColor = soul.color.copy(alpha = alpha),
+            fillColor = soul.color,
             outlineColor = outlineColor,
-            cracked = soul == SoulType.WHITE_SICK
+            cracked = soul == SoulType.WHITE_SICK,
+            alpha = alpha
         )
     }
 }
@@ -384,14 +396,14 @@ fun AshenFlowerCanvas(
             targetSizePx = spriteSize
         )
 
-        val u = spriteSize / 18f
+        val u = spriteSize / 28f
         when (expression) {
             PortraitExpression.HAPPY -> {
-                drawRect(Color(0xFF09090B), Offset(cx - u * 1.4f, cy - u * 0.6f), SizeCompat(u * 2.8f, u * 0.65f))
+                drawRect(Color(0xFF09090B), Offset(cx - u * 1.8f, cy - u * 0.8f), SizeCompat(u * 3.6f, u * 0.85f))
             }
             PortraitExpression.SURPRISED -> {
-                drawCircle(Color.White, radius = u * 0.8f, center = Offset(cx - u * 1.6f, cy - u * 2.0f))
-                drawCircle(Color.White, radius = u * 0.8f, center = Offset(cx + u * 1.6f, cy - u * 2.0f))
+                drawCircle(Color.White, radius = u * 0.95f, center = Offset(cx - u * 2.0f, cy - u * 2.5f))
+                drawCircle(Color.White, radius = u * 0.95f, center = Offset(cx + u * 2.0f, cy - u * 2.5f))
             }
             else -> Unit
         }

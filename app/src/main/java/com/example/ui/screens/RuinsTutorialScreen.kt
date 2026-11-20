@@ -49,10 +49,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.example.audio.RetroSoundEngine
 import com.example.model.AppLanguage
@@ -61,10 +64,13 @@ import com.example.model.PortraitExpression
 import com.example.model.tr
 import com.example.ui.components.ControllerPadOverlay
 import com.example.ui.components.LokaPortraitCanvas
+import com.example.ui.components.UltraPixelArtEngine
 import com.example.ui.components.drawDummyRoomProps
 import com.example.ui.components.drawLokaOverworldSprite
+import com.example.ui.components.drawPixelBrickSaveMonument
 import com.example.ui.components.drawSaveStar
 import com.example.ui.components.drawUndertaleBossPixelSprite
+import kotlin.math.roundToInt
 import com.example.ui.theme.EspressoCard
 import com.example.ui.theme.EspressoSurface
 import com.example.ui.theme.GlitchCyan
@@ -84,6 +90,8 @@ import kotlin.math.hypot
 fun RuinsTutorialScreen(
     state: AppUiState,
     onMovePlayer: (Float, Float) -> Unit,
+    onInspectLore: () -> Unit,
+    onClaimCandy: () -> Unit,
     onActivateSwitch: () -> Unit,
     onPracticeDummy: () -> Unit,
     onToggleControls: () -> Unit,
@@ -123,27 +131,38 @@ fun RuinsTutorialScreen(
     }
 
     val lang = state.language
+    val roomIndex = state.ruinsRoomIndex
     val px = state.ruinsPlayerX
     val py = state.ruinsPlayerY
 
-    val switchPos = 0.34f to 0.50f
-    val dummyPos = 0.60f to 0.48f
-    val gatePos = 0.88f to 0.52f
+    val pillarPos = 0.62f to 0.48f
+    val switchPos = 0.40f to 0.48f
+    val candyPos = 0.68f to 0.70f
+    val dummyPos = 0.44f to 0.50f
+    val gatePos = 0.84f to 0.52f
 
-    val nearSwitch = hypot(px - switchPos.first, py - switchPos.second) < 0.14f
-    val nearDummy = hypot(px - dummyPos.first, py - dummyPos.second) < 0.14f
-    val nearGate = hypot(px - gatePos.first, py - gatePos.second) < 0.15f
+    val nearPillar = roomIndex == 0 && hypot(px - pillarPos.first, py - pillarPos.second) < 0.14f
+    val nearSwitch = roomIndex == 1 && hypot(px - switchPos.first, py - switchPos.second) < 0.14f
+    val nearCandy = roomIndex == 1 && hypot(px - candyPos.first, py - candyPos.second) < 0.13f
+    val nearDummy = roomIndex == 2 && hypot(px - dummyPos.first, py - dummyPos.second) < 0.14f
+    val nearGate = roomIndex == 2 && hypot(px - gatePos.first, py - gatePos.second) < 0.15f
+
+    val roomTitle = when (roomIndex) {
+        0 -> tr(lang, "THE RUINS (1/3) · FLOWERBED ENTRY", "أنقاض المفارقة (١/٣) · فراش الزهور")
+        1 -> tr(lang, "THE RUINS (2/3) · PILLAR & SWITCH HALL", "أنقاض المفارقة (٢/٣) · رواق الأعمدة")
+        else -> tr(lang, "THE RUINS (3/3) · DUMMY & EXIT GATE", "أنقاض المفارقة (٣/٣) · قاعة الخروج")
+    }
 
     val dialogueLines = listOf(
         tr(
             lang,
-            "Loka: \"Whoa... purple stone walls and ancient pillars—looks like we woke up in the Ruins.\"",
-            "لوكا: «واو... جدران حجرية بنفسجية وأعمدة قديمة—يبدو أننا استيقظنا داخل الرونز!»"
+            "Loka: \"Whoa... golden flowers cushioned our fall! Purple stone walls and ancient Ruins stretch way further than I expected.\"",
+            "لوكا: «واو... أزهار ذهبية خفّفت سقوطنا! تبدو الرونز أكبر وأعمق بكثير مما توقعت!»"
         ),
         tr(
             lang,
-            "Loka: \"Hey, you! Drag on the floor (or switch to D-Pad) to walk me over to that glowing Golden Switch first.\"",
-            "لوكا: «هيي أنت! اسحب إصبعك على الأرضية (أو بدّل إلى الأسهم) لتحرّكني نحو الزر الذهبي المضيء أولاً.»"
+            "Loka: \"Walk through the glowing arched doorways on the right/left edges (→ ←) to explore all 3 Ruins halls!\"",
+            "لوكا: «اعبر عبر البوابات المقوّسة على اليمين واليسار (→ ←) لتستكشف قاعات الرونز الثلاث!»"
         )
     )
 
@@ -197,9 +216,14 @@ fun RuinsTutorialScreen(
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawRuinsChamber(
+                    roomIndex = roomIndex,
+                    pillarPos = pillarPos,
                     switchPos = switchPos,
+                    candyPos = candyPos,
                     dummyPos = dummyPos,
                     gatePos = gatePos,
+                    loreRead = state.ruinsLoreRead,
+                    candyClaimed = state.ruinsCandyClaimed,
                     switchActive = state.ruinsSwitchActivated,
                     dummyPracticed = state.ruinsDummyPracticed,
                     ambientClock = ambientClock
@@ -212,15 +236,43 @@ fun RuinsTutorialScreen(
             }
 
             Text(
-                text = tr(lang, "THE PARADOX RUINS · TUTORIAL", "أنقاض المفارقة · بداية اللعب"),
+                text = roomTitle,
                 style = MaterialTheme.typography.labelSmall,
                 color = Color(0xFFE9D5FF),
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .padding(8.dp)
-                    .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(4.dp))
+                    .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(4.dp))
+                    .border(1.dp, Color(0xFFA855F7).copy(alpha = 0.55f), RoundedCornerShape(4.dp))
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             )
+
+            if (roomIndex > 0) {
+                Text(
+                    text = "← ${tr(lang, "PREV ROOM", "القاعة السابقة")}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SepiaGold,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 6.dp)
+                        .background(Color(0xC809090D), RoundedCornerShape(4.dp))
+                        .border(1.dp, SepiaAmber.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
+            if (roomIndex < 2) {
+                Text(
+                    text = "${tr(lang, "NEXT ROOM", "القاعة التالية")} →",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SepiaGold,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 6.dp)
+                        .background(Color(0xC809090D), RoundedCornerShape(4.dp))
+                        .border(1.dp, SepiaAmber.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
 
             if (state.controlScheme != ControlScheme.TOUCH_DRAG && exitMonologueStep == 0) {
                 ControllerPadOverlay(
@@ -298,6 +350,21 @@ fun RuinsTutorialScreen(
 
             val activeText = when {
                 exitMonologueStep in 1..4 -> fourthWallLines[exitMonologueStep - 1]
+                nearPillar && state.ruinsLoreRead -> tr(
+                    lang,
+                    "Carving: \"When the Golden Necklace hums beneath the violet sky, even shattered timelines leave a doorway home.\" Head right (→) to the Corridor!",
+                    "النقش القديم: «حين تهمس القلادة الذهبية تحت السماء البنفسجية، حتى الخطوط الزمنية المكسورة تترك باباً للعودة.» اتجه يميناً (→)!"
+                )
+                nearPillar -> tr(
+                    lang,
+                    "Loka: \"There's an ancient Ruins carving on this stone pillar! Tap INSPECT PILLAR to read it.\"",
+                    "لوكا: «هناك نقش قديم على هذا العمود الحجري! اضغط لقراءة النقش.»"
+                )
+                nearCandy && !state.ruinsCandyClaimed -> tr(
+                    lang,
+                    "Loka: \"Ooh! Someone left a gleaming Chrono Shard on this Ruins pedestal. Take one!\"",
+                    "لوكا: «أوه! ترك أحدهم شظية زمنية علاجية على هذه المنصة. خذها معك!»"
+                )
                 nearDummy && dummyExplained -> tr(
                     lang,
                     "Loka: \"Use FIGHT to strike the center, or ACT -> SPARE to make Friends! While dodging, switch Souls with SOUL and tap ABILITY!\"",
@@ -315,23 +382,43 @@ fun RuinsTutorialScreen(
                 )
                 nearGate && (!state.ruinsSwitchActivated || (!state.ruinsDummyPracticed && !dummyExplained)) -> tr(
                     lang,
-                    "Loka: \"Wait—press the glowing Golden Switch and check the Dummy first so you know how to survive out there!\"",
-                    "لوكا: «انتظر—اضغط الزر الذهبي المضيء وتفقد الدمية أولاً حتى تعرف كيف تلعب وتتفادى في الخارج!»"
+                    "Loka: \"Wait—press the Golden Switch in Hall 2 (←) and test the Cotton Dummy first so the bars open!\"",
+                    "لوكا: «انتظر—اضغط الزر الذهبي في القاعة ٢ (←) وجرّب الدمية أولاً حتى تفتح قضبان البوابة!»"
                 )
                 nearGate -> tr(
                     lang,
                     "Loka: \"There's the Exit Gate out of the Ruins. Ready to step through?\"",
                     "لوكا: «هذه بوابة الخروج من الرونز. هل أنت مستعد للخروج؟»"
                 )
-                state.ruinsSwitchActivated -> tr(
+                nearSwitch && state.ruinsSwitchActivated -> tr(
                     lang,
-                    "Loka: \"Nice! Whenever we approach landmarks, NPCs, or other lost kids, a button pops up. Walk right to the Dummy next!\"",
-                    "لوكا: «رائع! كلما اقتربنا من مكان أو شخص أو طفل مفقود سيظهر زر التفاعل. اتجه يميناً نحو الدمية الآن!»"
+                    "Loka: \"The Ruins Exit Gate bars unlocked in Hall 3! Walk through the right archway (→) to meet the Dummy.\"",
+                    "لوكا: «فُتحت قضبان بوابة الخروج في القاعة ٣! اعبر البوابة اليمنى (→) نحو الدمية.»"
                 )
                 nearSwitch -> tr(
                     lang,
-                    "Loka: \"Tap PRESS SWITCH! That's how we interact with secrets and quests in every world.\"",
-                    "لوكا: «اضغط الزر الذهبي! هكذا نتفاعل مع المهام والأسرار في كل العوالم.»"
+                    "Loka: \"Tap PRESS SWITCH! That opens the stone bars in the Exit Hall.\"",
+                    "لوكا: «اضغط الزر الذهبي! هذا يفتح بوابة الخروج في القاعة الثالثة.»"
+                )
+                roomIndex == 1 && !state.ruinsSwitchActivated -> tr(
+                    lang,
+                    "Loka: \"This corridor has ancient torches and autumn leaves. Walk up to the Golden Switch Monument!\"",
+                    "لوكا: «هذا الرواق مليء بالمشاعل وأوراق الخريف. اقترب من نصب الزر الذهبي واضغطه!»"
+                )
+                roomIndex == 1 -> tr(
+                    lang,
+                    "Loka: \"Switch activated! Check the pedestal below or walk right (→) into the Dummy & Exit Hall.\"",
+                    "لوكا: «تم تفعيل الزر! تفقد المنصة بالأسفل أو اعبر يميناً (→) لقاعة الدمية والخروج.»"
+                )
+                roomIndex == 2 && !state.ruinsSwitchActivated -> tr(
+                    lang,
+                    "Loka: \"The Exit Gate bars are locked! Walk back left (←) to Hall 2 to press the Golden Switch.\"",
+                    "لوكا: «بوابة الخروج ما زالت مقفلة! عد يساراً (←) للقاعة ٢ لتضغط الزر الذهبي.»"
+                )
+                roomIndex == 2 -> tr(
+                    lang,
+                    "Loka: \"Practice with the Cotton Dummy or walk over to the open Ruins Exit Gate on the right!\"",
+                    "لوكا: «تدرّب مع الدمية القطنية أو اتجه نحو بوابة الخروج المفتوحة على اليمين!»"
                 )
                 else -> dialogueLines[introDialogueStep.coerceIn(0, dialogueLines.lastIndex)]
             }
@@ -405,6 +492,32 @@ fun RuinsTutorialScreen(
                         }
                     }
 
+                    nearPillar && !state.ruinsLoreRead -> {
+                        Button(
+                            onClick = onInspectLore,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC084FC), contentColor = ObsidianBg),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("ruins_inspect_lore_button")
+                        ) {
+                            Text(tr(lang, "INSPECT ANCIENT PILLAR", "اقرأ النقش القديم"), style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+
+                    nearCandy && !state.ruinsCandyClaimed -> {
+                        Button(
+                            onClick = onClaimCandy,
+                            colors = ButtonDefaults.buttonColors(containerColor = SepiaGold, contentColor = ObsidianBg),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("ruins_claim_candy_button")
+                        ) {
+                            Text(tr(lang, "TAKE CHRONO SHARD (+1)", "خذ شظية زمنية (+١)"), style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+
                     nearSwitch && !state.ruinsSwitchActivated -> {
                         Button(
                             onClick = onActivateSwitch,
@@ -471,10 +584,12 @@ fun RuinsTutorialScreen(
                             ) {
                                 Text(
                                     text = when {
-                                        !state.ruinsSwitchActivated && introDialogueStep == 0 -> tr(lang, "NEXT TIP >>", "النصيحة التالية >>")
-                                        !state.ruinsSwitchActivated -> tr(lang, "WALK TO SWITCH ->", "اتجه للزر ->")
-                                        !state.ruinsDummyPracticed && !dummyExplained -> tr(lang, "WALK TO DUMMY ->", "اتجه للدمية ->")
-                                        else -> tr(lang, "WALK TO EXIT ->", "اتجه للبوابة ->")
+                                        roomIndex == 0 && introDialogueStep == 0 -> tr(lang, "NEXT TIP >>", "النصيحة التالية >>")
+                                        roomIndex == 0 -> tr(lang, "WALK EAST DOOR →", "اعبر البوابة اليمنى →")
+                                        !state.ruinsSwitchActivated -> tr(lang, "PRESS SWITCH (HALL 2)", "اضغط الزر (قاعة ٢)")
+                                        roomIndex == 1 -> tr(lang, "WALK EAST DOOR →", "اعبر نحو الدمية →")
+                                        !state.ruinsDummyPracticed && !dummyExplained -> tr(lang, "WALK TO DUMMY", "اتجه للدمية")
+                                        else -> tr(lang, "WALK TO EXIT →", "اتجه للبوابة →")
                                     },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = ParchmentInk
@@ -496,55 +611,55 @@ fun RuinsTutorialScreen(
 }
 
 private fun DrawScope.drawRuinsChamber(
+    roomIndex: Int,
+    pillarPos: Pair<Float, Float>,
     switchPos: Pair<Float, Float>,
+    candyPos: Pair<Float, Float>,
     dummyPos: Pair<Float, Float>,
     gatePos: Pair<Float, Float>,
+    loreRead: Boolean,
+    candyClaimed: Boolean,
     switchActive: Boolean,
     dummyPracticed: Boolean,
     ambientClock: Float
 ) {
-    // Deep Undertale Ruins dark-purple outer border backdrop
-    drawRect(color = Color(0xFF1D0926))
+    // 256x144 (36,864 pixels!) crisp cached Ruins brick & lavender tile base per room
+    val ruinsBitmap = UltraPixelArtEngine.getRuinsChamberBitmap(roomIndex)
+    drawImage(
+        image = ruinsBitmap,
+        dstOffset = IntOffset.Zero,
+        dstSize = IntSize(size.width.roundToInt().coerceAtLeast(1), size.height.roundToInt().coerceAtLeast(1)),
+        filterQuality = FilterQuality.None
+    )
 
-    // Brick Top Wall (authentic Undertale Ruins purple brick mortar + top highlight bevel)
     val wallH = size.height * 0.25f
-    drawRect(color = Color(0xFF542266), topLeft = Offset.Zero, size = Size(size.width, wallH))
-    val brickH = wallH / 3f
-    val brickW = size.width / 8f
-    val mortar = Color(0xFF2D0E3A)
-    for (row in 0..2) {
-        val y = row * brickH
-        drawLine(mortar, Offset(0f, y), Offset(size.width, y), strokeWidth = 3f)
-        drawLine(Color(0xFF6B2E82), Offset(0f, y + 2f), Offset(size.width, y + 2f), strokeWidth = 1.5f)
-        val xShift = if (row % 2 == 1) brickW * 0.5f else 0f
-        for (col in 0..8) {
-            val x = col * brickW + xShift
-            if (x in 0f..size.width) {
-                drawLine(mortar, Offset(x, y), Offset(x, y + brickH), strokeWidth = 3f)
-            }
-        }
-    }
-    drawRect(Color(0xFF230B2E), Offset(0f, wallH - 5.dp.toPx()), Size(size.width, 5.dp.toPx()))
-    drawLine(Color(0xFF8C49A8), Offset(0f, wallH), Offset(size.width, wallH), strokeWidth = 3f)
 
     // Vine-draped stone columns along the Ruins wall
-    listOf(0.18f, 0.46f, 0.74f).forEach { px ->
+    val columnXs = when (roomIndex) {
+        0 -> listOf(0.14f, 0.44f, 0.78f)
+        1 -> listOf(0.18f, 0.50f, 0.82f)
+        else -> listOf(0.16f, 0.42f, 0.68f)
+    }
+    columnXs.forEach { px ->
         val x = px * size.width
         drawRect(color = Color(0xFF3E164E), topLeft = Offset(x - 16.dp.toPx(), 0f), size = Size(32.dp.toPx(), wallH))
         drawRect(color = Color(0xFF5D2673), topLeft = Offset(x - 14.dp.toPx(), 0f), size = Size(10.dp.toPx(), wallH))
         drawRect(color = Color(0xFF7B3B96), topLeft = Offset(x - 16.dp.toPx(), 0f), size = Size(32.dp.toPx(), wallH), style = Stroke(2f))
-        // Pixel hanging vines & small moss cap
         drawRect(color = Color(0xFF15803D), topLeft = Offset(x - 8.dp.toPx(), 4.dp.toPx()), size = Size(5.dp.toPx(), wallH * 0.55f))
         drawRect(color = Color(0xFF22C55E), topLeft = Offset(x + 4.dp.toPx(), 8.dp.toPx()), size = Size(5.dp.toPx(), wallH * 0.72f))
         drawRect(color = Color(0xFF4ADE80), topLeft = Offset(x + 6.dp.toPx(), 10.dp.toPx()), size = Size(2.dp.toPx(), wallH * 0.35f))
     }
 
     // Flickering Undertale Wall Torches between columns
-    listOf(0.32f, 0.60f).forEachIndexed { idx, tx ->
+    val torchXs = when (roomIndex) {
+        0 -> listOf(0.58f, 0.88f)
+        1 -> listOf(0.34f, 0.66f)
+        else -> listOf(0.29f, 0.55f)
+    }
+    torchXs.forEachIndexed { idx, tx ->
         val fx = tx * size.width
         val fy = wallH * 0.52f
         val flicker = kotlin.math.sin(ambientClock * 9f + idx * 2.1f) * 2.dp.toPx()
-        // Warm glow halo
         drawCircle(
             brush = androidx.compose.ui.graphics.Brush.radialGradient(
                 colors = listOf(Color(0x55F59E0B), Color(0x18F97316), Color.Transparent),
@@ -554,121 +669,175 @@ private fun DrawScope.drawRuinsChamber(
             radius = 44.dp.toPx() + flicker,
             center = Offset(fx, fy)
         )
-        // Iron sconce + multi-layer pixel flame
         drawRect(Color(0xFF475569), Offset(fx - 3.dp.toPx(), fy), Size(6.dp.toPx(), 12.dp.toPx()))
         drawRect(Color(0xFFEA580C), Offset(fx - 5.dp.toPx(), fy - 9.dp.toPx() - flicker * 0.4f), Size(10.dp.toPx(), 9.dp.toPx()))
         drawRect(Color(0xFFFACC15), Offset(fx - 3.dp.toPx(), fy - 7.dp.toPx() - flicker * 0.3f), Size(6.dp.toPx(), 6.dp.toPx()))
         drawRect(Color(0xFFFFFBEB), Offset(fx - 1.5.dp.toPx(), fy - 4.dp.toPx()), Size(3.dp.toPx(), 3.dp.toPx()))
     }
 
-    // Lavender checkered Ruins stone tile floor
-    val floorTop = wallH
-    val floorH = size.height - wallH
-    val cols = 12
-    val rows = 6
-    val tileW = size.width / cols
-    val tileH = floorH / rows
-    for (r in 0 until rows) {
-        for (c in 0 until cols) {
-            val isEdge = r == 0 || r == rows - 1 || c == 0 || c == cols - 1
-            val baseColor = when {
-                isEdge -> Color(0xFF3A184A)
-                (r + c) % 2 == 0 -> Color(0xFF7C4391)
-                else -> Color(0xFF6E3882)
-            }
-            val tileTop = floorTop + r * tileH
-            drawRect(
-                color = baseColor,
-                topLeft = Offset(c * tileW, tileTop),
-                size = Size(tileW + 0.5f, tileH + 0.5f)
-            )
-            if (!isEdge) {
-                drawLine(
-                    color = Color(0xFF9155A8).copy(alpha = 0.25f),
-                    start = Offset(c * tileW + 2f, tileTop + 2f),
-                    end = Offset((c + 1) * tileW - 2f, tileTop + 2f),
-                    strokeWidth = 1.2f
-                )
-            }
-            drawRect(
-                color = Color(0xFF4B215C).copy(alpha = 0.45f),
-                topLeft = Offset(c * tileW, tileTop),
-                size = Size(tileW, tileH),
-                style = Stroke(1.2f)
-            )
-        }
+    // West & East Room Transition Archway Thresholds (aligns with ny in 0.36f..0.74f)
+    val doorTop = size.height * 0.38f
+    val doorH = size.height * 0.32f
+    val doorPulse = 0.25f + 0.15f * kotlin.math.sin(ambientClock * 3.5f)
+    if (roomIndex > 0) {
+        drawRect(Color(0xFF2B1038), Offset(0f, doorTop), Size(14.dp.toPx(), doorH))
+        drawRect(SepiaGold.copy(alpha = doorPulse), Offset(2.dp.toPx(), doorTop + 4.dp.toPx()), Size(8.dp.toPx(), doorH - 8.dp.toPx()))
+        drawRect(Color(0xFFA264BA), Offset(0f, doorTop), Size(14.dp.toPx(), doorH), style = Stroke(2f))
+    }
+    if (roomIndex < 2) {
+        val rightX = size.width - 14.dp.toPx()
+        drawRect(Color(0xFF2B1038), Offset(rightX, doorTop), Size(14.dp.toPx(), doorH))
+        drawRect(SepiaGold.copy(alpha = doorPulse), Offset(rightX + 4.dp.toPx(), doorTop + 4.dp.toPx()), Size(8.dp.toPx(), doorH - 8.dp.toPx()))
+        drawRect(Color(0xFFA264BA), Offset(rightX, doorTop), Size(14.dp.toPx(), doorH), style = Stroke(2f))
     }
 
-    // Central crimson-plum Ruins walkway carpet + inner trim & tassels
-    val rugLeft = size.width * 0.08f
-    val rugTop = size.height * 0.41f
-    val rugW = size.width * 0.80f
-    val rugH = size.height * 0.24f
-    drawRect(color = Color(0xFF4A1F5A), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH))
-    drawRect(color = Color(0xFF642B78), topLeft = Offset(rugLeft + 5.dp.toPx(), rugTop + 5.dp.toPx()), size = Size(rugW - 10.dp.toPx(), rugH - 10.dp.toPx()))
-    drawRect(color = Color(0xFFA264BA), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH), style = Stroke(2.5f))
+    when (roomIndex) {
+        0 -> {
+            // Room 0: Flowerbed Awakening Entry & Ancient Ruins Lore Pillar
+            val rugLeft = size.width * 0.42f
+            val rugTop = size.height * 0.44f
+            val rugW = size.width * 0.56f
+            val rugH = size.height * 0.20f
+            drawRect(color = Color(0xFF4A1F5A), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH))
+            drawRect(color = Color(0xFF642B78), topLeft = Offset(rugLeft + 4.dp.toPx(), rugTop + 4.dp.toPx()), size = Size(rugW - 8.dp.toPx(), rugH - 8.dp.toPx()))
+            drawRect(color = Color(0xFFA264BA), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH), style = Stroke(2.5f))
 
-    // Iconic red autumn Ruins leaf pile (classic Toriel's Ruins aesthetic)
-    val leafSpots = listOf(0.20f to 0.74f, 0.24f to 0.78f, 0.22f to 0.81f, 0.49f to 0.34f, 0.53f to 0.36f, 0.72f to 0.76f)
-    leafSpots.forEach { (lx, ly) ->
-        drawRect(Color(0xFF991B1B), Offset(lx * size.width - 1f, ly * size.height + 2f), Size(7.dp.toPx(), 5.dp.toPx()))
-        drawRect(Color(0xFFDC2626), Offset(lx * size.width, ly * size.height), Size(6.dp.toPx(), 5.dp.toPx()))
-        drawRect(Color(0xFFF97316), Offset(lx * size.width + 4.dp.toPx(), ly * size.height + 2.dp.toPx()), Size(4.dp.toPx(), 4.dp.toPx()))
-    }
+            // Floating golden dust motes over the spotlight flowerbed
+            for (i in 0..5) {
+                val mx = size.width * (0.19f + 0.025f * i)
+                val my = size.height * (0.26f + ((ambientClock * 0.14f + i * 0.17f) % 0.34f))
+                drawRect(Color(0xFFFEF08A).copy(alpha = 0.72f), Offset(mx, my), Size(3.dp.toPx(), 3.dp.toPx()))
+            }
 
-    // Golden Ruins Floor Switch (Pixel Pad)
-    val sc = Offset(switchPos.first * size.width, switchPos.second * size.height)
-    drawCircle(color = (if (switchActive) HpBarGreen else MercyYellow).copy(alpha = 0.22f), radius = 26.dp.toPx(), center = sc)
-    drawRect(color = Color(0xFF2B1838), topLeft = Offset(sc.x - 14.dp.toPx(), sc.y - 14.dp.toPx()), size = Size(28.dp.toPx(), 28.dp.toPx()))
-    drawRect(color = if (switchActive) HpBarGreen else SepiaGold, topLeft = Offset(sc.x - 14.dp.toPx(), sc.y - 14.dp.toPx()), size = Size(28.dp.toPx(), 28.dp.toPx()), style = Stroke(2f))
-    drawSaveStar(center = sc, radius = 11.dp.toPx(), color = if (switchActive) HpBarGreen else MercyYellow)
-
-    // Crisp Pixel Cotton Dummy on wooden stand with shaded Sack & Crate props
-    val dc = Offset(dummyPos.first * size.width, dummyPos.second * size.height)
-    drawDummyRoomProps(dummyCenter = dc, unitPx = 11.dp.toPx())
-    drawCircle(color = (if (dummyPracticed) HpBarGreen else Color(0xFFC084FC)).copy(alpha = 0.22f), radius = 24.dp.toPx(), center = dc)
-    drawUndertaleBossPixelSprite(
-        enemyId = com.example.model.EnemyId.RUINS_DUMMY,
-        center = dc,
-        sizePx = 38.dp.toPx(),
-        isHitFlash = false,
-        isSpareReady = dummyPracticed
-    )
-
-    // Arched Pixel Stone Ruins Exit Gate with keystone arch & shadow depth
-    val gc = Offset(gatePos.first * size.width, gatePos.second * size.height)
-    drawRect(
-        color = Color(0xFF3E164E),
-        topLeft = Offset(gc.x - 24.dp.toPx(), gc.y - 36.dp.toPx()),
-        size = Size(48.dp.toPx(), 68.dp.toPx())
-    )
-    drawRect(
-        color = if (switchActive) Color(0xFF07050A) else Color(0xFF3E294D),
-        topLeft = Offset(gc.x - 19.dp.toPx(), gc.y - 31.dp.toPx()),
-        size = Size(38.dp.toPx(), 60.dp.toPx())
-    )
-    drawRect(
-        color = if (switchActive) SepiaGold else Color(0xFF9E6AC2),
-        topLeft = Offset(gc.x - 20.dp.toPx(), gc.y - 32.dp.toPx()),
-        size = Size(40.dp.toPx(), 62.dp.toPx()),
-        style = Stroke(3.5f)
-    )
-    // Keystone crown above gate
-    drawRect(
-        color = if (switchActive) SepiaGold else Color(0xFFA855F7),
-        topLeft = Offset(gc.x - 8.dp.toPx(), gc.y - 38.dp.toPx()),
-        size = Size(16.dp.toPx(), 8.dp.toPx())
-    )
-    if (!switchActive) {
-        for (bx in listOf(-10f, 0f, 10f)) {
-            drawLine(
-                Color(0xFFA78BFA),
-                Offset(gc.x + bx.dp.toPx(), gc.y - 30.dp.toPx()),
-                Offset(gc.x + bx.dp.toPx(), gc.y + 28.dp.toPx()),
-                strokeWidth = 3f
-            )
+            // Ancient Lore Pillar Monument
+            val pc = Offset(pillarPos.first * size.width, pillarPos.second * size.height)
+            val runeGlow = if (loreRead) SepiaGold else GlitchCyan
+            drawCircle(color = runeGlow.copy(alpha = 0.22f), radius = 26.dp.toPx(), center = pc)
+            drawRect(Color(0xFF421A54), Offset(pc.x - 16.dp.toPx(), pc.y - 24.dp.toPx()), Size(32.dp.toPx(), 44.dp.toPx()))
+            drawRect(Color(0xFF6B2D84), Offset(pc.x - 13.dp.toPx(), pc.y - 21.dp.toPx()), Size(26.dp.toPx(), 38.dp.toPx()))
+            drawRect(Color(0xFFA864BF), Offset(pc.x - 16.dp.toPx(), pc.y - 24.dp.toPx()), Size(32.dp.toPx(), 44.dp.toPx()), style = Stroke(2.5f))
+            // Rune tablet plaque & glowing glyph lines
+            drawRect(Color(0xFF1F0C28), Offset(pc.x - 10.dp.toPx(), pc.y - 12.dp.toPx()), Size(20.dp.toPx(), 18.dp.toPx()))
+            drawRect(runeGlow, Offset(pc.x - 7.dp.toPx(), pc.y - 8.dp.toPx()), Size(14.dp.toPx(), 2.5.dp.toPx()))
+            drawRect(runeGlow.copy(alpha = 0.85f), Offset(pc.x - 7.dp.toPx(), pc.y - 3.dp.toPx()), Size(10.dp.toPx(), 2.5.dp.toPx()))
+            drawRect(runeGlow.copy(alpha = 0.75f), Offset(pc.x - 7.dp.toPx(), pc.y + 2.dp.toPx()), Size(12.dp.toPx(), 2.5.dp.toPx()))
         }
-    } else {
-        drawSaveStar(center = Offset(gc.x, gc.y - 2.dp.toPx()), radius = 8.dp.toPx(), color = SepiaGold)
+
+        1 -> {
+            // Room 1: Pillar & Switch Hall (Fountain Basin, Autumn Leaves, Golden Switch, Chrono Shard Pedestal)
+            val rugLeft = size.width * 0.04f
+            val rugTop = size.height * 0.42f
+            val rugW = size.width * 0.92f
+            val rugH = size.height * 0.22f
+            drawRect(color = Color(0xFF4A1F5A), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH))
+            drawRect(color = Color(0xFF642B78), topLeft = Offset(rugLeft + 5.dp.toPx(), rugTop + 5.dp.toPx()), size = Size(rugW - 10.dp.toPx(), rugH - 10.dp.toPx()))
+            drawRect(color = Color(0xFFA264BA), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH), style = Stroke(2.5f))
+
+            // Decorative Ruins Fountain Basin along upper stone walkway
+            val fx = size.width * 0.72f
+            val fy = size.height * 0.31f
+            val shimmer = kotlin.math.sin(ambientClock * 5f) * 0.15f + 0.75f
+            drawRect(Color(0xFF4C1D60), Offset(fx - 26.dp.toPx(), fy - 8.dp.toPx()), Size(52.dp.toPx(), 18.dp.toPx()))
+            drawRect(Color(0xFF0E7490), Offset(fx - 21.dp.toPx(), fy - 5.dp.toPx()), Size(42.dp.toPx(), 12.dp.toPx()))
+            drawRect(GlitchCyan.copy(alpha = shimmer), Offset(fx - 15.dp.toPx(), fy - 2.dp.toPx()), Size(18.dp.toPx(), 3.dp.toPx()))
+            drawRect(Color(0xFFA864BF), Offset(fx - 26.dp.toPx(), fy - 8.dp.toPx()), Size(52.dp.toPx(), 18.dp.toPx()), style = Stroke(2f))
+
+            // Iconic red autumn Ruins leaf piles
+            val leafSpots = listOf(0.20f to 0.74f, 0.24f to 0.78f, 0.22f to 0.81f, 0.49f to 0.34f, 0.53f to 0.36f, 0.84f to 0.76f)
+            leafSpots.forEach { (lx, ly) ->
+                drawRect(Color(0xFF991B1B), Offset(lx * size.width - 1f, ly * size.height + 2f), Size(7.dp.toPx(), 5.dp.toPx()))
+                drawRect(Color(0xFFDC2626), Offset(lx * size.width, ly * size.height), Size(6.dp.toPx(), 5.dp.toPx()))
+                drawRect(Color(0xFFF97316), Offset(lx * size.width + 4.dp.toPx(), ly * size.height + 2.dp.toPx()), Size(4.dp.toPx(), 4.dp.toPx()))
+            }
+
+            // Golden Ruins Brick & Moss Switch Pedestal
+            val sc = Offset(switchPos.first * size.width, switchPos.second * size.height)
+            drawCircle(color = (if (switchActive) HpBarGreen else MercyYellow).copy(alpha = 0.24f), radius = 28.dp.toPx(), center = sc)
+            drawPixelBrickSaveMonument(
+                center = Offset(sc.x, sc.y + 4.dp.toPx()),
+                sizePx = 30.dp.toPx(),
+                ambientClock = ambientClock,
+                brickBase = Color(0xFF7B3F8E),
+                brickShadow = Color(0xFF4C2259),
+                brickHighlight = Color(0xFFA864BF),
+                mossColor = Color(0xFF2D6A4F),
+                emblemColor = if (switchActive) HpBarGreen else MercyYellow
+            )
+
+            // Chrono Shard Relic Pedestal
+            val cc = Offset(candyPos.first * size.width, candyPos.second * size.height)
+            drawRect(Color(0xFF421A54), Offset(cc.x - 14.dp.toPx(), cc.y - 6.dp.toPx()), Size(28.dp.toPx(), 18.dp.toPx()))
+            drawRect(Color(0xFFA864BF), Offset(cc.x - 14.dp.toPx(), cc.y - 6.dp.toPx()), Size(28.dp.toPx(), 18.dp.toPx()), style = Stroke(2f))
+            if (!candyClaimed) {
+                val bob = kotlin.math.sin(ambientClock * 4f) * 2.5.dp.toPx()
+                drawCircle(color = SepiaGold.copy(alpha = 0.25f), radius = 18.dp.toPx(), center = Offset(cc.x, cc.y - 10.dp.toPx() + bob))
+                drawSaveStar(center = Offset(cc.x, cc.y - 10.dp.toPx() + bob), radius = 7.dp.toPx(), color = SepiaGold)
+            }
+        }
+
+        else -> {
+            // Room 2: Dummy & Exit Sanctum
+            val rugLeft = size.width * 0.04f
+            val rugTop = size.height * 0.42f
+            val rugW = size.width * 0.78f
+            val rugH = size.height * 0.22f
+            drawRect(color = Color(0xFF4A1F5A), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH))
+            drawRect(color = Color(0xFF642B78), topLeft = Offset(rugLeft + 5.dp.toPx(), rugTop + 5.dp.toPx()), size = Size(rugW - 10.dp.toPx(), rugH - 10.dp.toPx()))
+            drawRect(color = Color(0xFFA264BA), topLeft = Offset(rugLeft, rugTop), size = Size(rugW, rugH), style = Stroke(2.5f))
+
+            listOf(0.18f to 0.75f, 0.23f to 0.79f, 0.62f to 0.76f).forEach { (lx, ly) ->
+                drawRect(Color(0xFF991B1B), Offset(lx * size.width - 1f, ly * size.height + 2f), Size(7.dp.toPx(), 5.dp.toPx()))
+                drawRect(Color(0xFFDC2626), Offset(lx * size.width, ly * size.height), Size(6.dp.toPx(), 5.dp.toPx()))
+            }
+
+            // Crisp Pixel Cotton Dummy on wooden stand with shaded Sack & Crate props
+            val dc = Offset(dummyPos.first * size.width, dummyPos.second * size.height)
+            drawDummyRoomProps(dummyCenter = dc, unitPx = 11.dp.toPx())
+            drawCircle(color = (if (dummyPracticed) HpBarGreen else Color(0xFFC084FC)).copy(alpha = 0.22f), radius = 24.dp.toPx(), center = dc)
+            drawUndertaleBossPixelSprite(
+                enemyId = com.example.model.EnemyId.RUINS_DUMMY,
+                center = dc,
+                sizePx = 38.dp.toPx(),
+                isHitFlash = false,
+                isSpareReady = dummyPracticed
+            )
+
+            // Arched Pixel Stone Ruins Exit Gate with keystone arch & shadow depth
+            val gc = Offset(gatePos.first * size.width, gatePos.second * size.height)
+            drawRect(
+                color = Color(0xFF3E164E),
+                topLeft = Offset(gc.x - 24.dp.toPx(), gc.y - 36.dp.toPx()),
+                size = Size(48.dp.toPx(), 68.dp.toPx())
+            )
+            drawRect(
+                color = if (switchActive) Color(0xFF07050A) else Color(0xFF3E294D),
+                topLeft = Offset(gc.x - 19.dp.toPx(), gc.y - 31.dp.toPx()),
+                size = Size(38.dp.toPx(), 60.dp.toPx())
+            )
+            drawRect(
+                color = if (switchActive) SepiaGold else Color(0xFF9E6AC2),
+                topLeft = Offset(gc.x - 20.dp.toPx(), gc.y - 32.dp.toPx()),
+                size = Size(40.dp.toPx(), 62.dp.toPx()),
+                style = Stroke(3.5f)
+            )
+            // Keystone crown above gate
+            drawRect(
+                color = if (switchActive) SepiaGold else Color(0xFFA855F7),
+                topLeft = Offset(gc.x - 8.dp.toPx(), gc.y - 38.dp.toPx()),
+                size = Size(16.dp.toPx(), 8.dp.toPx())
+            )
+            if (!switchActive) {
+                for (bx in listOf(-10f, 0f, 10f)) {
+                    drawLine(
+                        Color(0xFFA78BFA),
+                        Offset(gc.x + bx.dp.toPx(), gc.y - 30.dp.toPx()),
+                        Offset(gc.x + bx.dp.toPx(), gc.y + 28.dp.toPx()),
+                        strokeWidth = 3f
+                    )
+                }
+            } else {
+                drawSaveStar(center = Offset(gc.x, gc.y - 2.dp.toPx()), radius = 8.dp.toPx(), color = SepiaGold)
+            }
+        }
     }
 }

@@ -217,6 +217,73 @@ enum class WorldId(
     )
 }
 
+enum class WorldZone(val titleEn: String, val titleAr: String) {
+    CENTER("Central Plaza", "الساحة المركزية"),
+    NORTH("Northern Sector", "البوابة الشمالية"),
+    SOUTH("Southern Sector", "البوابة الجنوبية"),
+    WEST("Western Sector", "البوابة الغربية"),
+    EAST("Eastern Sector", "البوابة الشرقية"),
+    SANCTUM("Sanctum Vault (Door V)", "المعبد السري (الباب 5)")
+}
+
+enum class ZoneEdge {
+    TOP,
+    BOTTOM,
+    LEFT,
+    RIGHT
+}
+
+data class ZoneDoorInfo(
+    val edge: ZoneEdge?,
+    val targetZone: WorldZone,
+    val spawnX: Float,
+    val spawnY: Float,
+    val labelEn: String,
+    val labelAr: String,
+    val doorX: Float,
+    val doorY: Float
+)
+
+object WorldZoneMap {
+    fun doorsInZone(world: WorldId, zone: WorldZone): List<ZoneDoorInfo> {
+        if (!world.hasLandmarks) return emptyList()
+        return when (zone) {
+            WorldZone.CENTER -> listOf(
+                ZoneDoorInfo(ZoneEdge.TOP, WorldZone.NORTH, 0.50f, 0.81f, "NORTH", "الشمال", 0.50f, 0.05f),
+                ZoneDoorInfo(ZoneEdge.BOTTOM, WorldZone.SOUTH, 0.50f, 0.19f, "SOUTH", "الجنوب", 0.50f, 0.95f),
+                ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.WEST, 0.83f, 0.50f, "WEST", "الغرب", 0.04f, 0.50f),
+                ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.EAST, 0.17f, 0.50f, "EAST", "الشرق", 0.96f, 0.50f),
+                ZoneDoorInfo(null, WorldZone.SANCTUM, 0.50f, 0.81f, "DOOR V", "الباب ٥", 0.84f, 0.16f)
+            )
+            WorldZone.NORTH -> listOf(
+                ZoneDoorInfo(ZoneEdge.BOTTOM, WorldZone.CENTER, 0.50f, 0.19f, "CENTER", "المركز", 0.50f, 0.95f),
+                ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.WEST, 0.50f, 0.19f, "WEST", "الغرب", 0.04f, 0.50f),
+                ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.EAST, 0.50f, 0.19f, "EAST", "الشرق", 0.96f, 0.50f),
+                ZoneDoorInfo(ZoneEdge.TOP, WorldZone.SANCTUM, 0.50f, 0.81f, "DOOR V", "الباب ٥", 0.50f, 0.05f)
+            )
+            WorldZone.SOUTH -> listOf(
+                ZoneDoorInfo(ZoneEdge.TOP, WorldZone.CENTER, 0.50f, 0.81f, "CENTER", "المركز", 0.50f, 0.05f),
+                ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.WEST, 0.50f, 0.81f, "WEST", "الغرب", 0.04f, 0.50f),
+                ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.EAST, 0.50f, 0.81f, "EAST", "الشرق", 0.96f, 0.50f)
+            )
+            WorldZone.WEST -> listOf(
+                ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.CENTER, 0.17f, 0.50f, "CENTER", "المركز", 0.96f, 0.50f),
+                ZoneDoorInfo(ZoneEdge.TOP, WorldZone.NORTH, 0.17f, 0.50f, "NORTH", "الشمال", 0.50f, 0.05f),
+                ZoneDoorInfo(ZoneEdge.BOTTOM, WorldZone.SOUTH, 0.17f, 0.50f, "SOUTH", "الجنوب", 0.50f, 0.95f)
+            )
+            WorldZone.EAST -> listOf(
+                ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.CENTER, 0.83f, 0.50f, "CENTER", "المركز", 0.04f, 0.50f),
+                ZoneDoorInfo(ZoneEdge.TOP, WorldZone.NORTH, 0.83f, 0.50f, "NORTH", "الشمال", 0.50f, 0.05f),
+                ZoneDoorInfo(ZoneEdge.BOTTOM, WorldZone.SOUTH, 0.83f, 0.50f, "SOUTH", "الجنوب", 0.50f, 0.95f)
+            )
+            WorldZone.SANCTUM -> listOf(
+                ZoneDoorInfo(ZoneEdge.BOTTOM, WorldZone.CENTER, 0.78f, 0.25f, "PLAZA", "الساحة", 0.50f, 0.95f),
+                ZoneDoorInfo(ZoneEdge.TOP, WorldZone.NORTH, 0.50f, 0.19f, "NORTH", "الشمال", 0.50f, 0.05f)
+            )
+        }
+    }
+}
+
 enum class LandmarkKind(val label: String) {
     HILLS("Hills"),
     CAVE("Cave"),
@@ -237,7 +304,8 @@ data class WorldLandmark(
     val rewardItemId: String? = null,
     val rewardArmorId: String? = null,
     val rewardWeaponId: String? = null,
-    val rewardLabel: String
+    val rewardLabel: String,
+    val zone: WorldZone = WorldZone.CENTER
 )
 
 data class WorldNpc(
@@ -251,7 +319,8 @@ data class WorldNpc(
     val dialogue: String,
     val eventTitle: String? = null,
     val eventRewardItemId: String? = null,
-    val eventRewardText: String? = null
+    val eventRewardText: String? = null,
+    val zone: WorldZone = WorldZone.CENTER
 )
 
 enum class ChestStyle {
@@ -269,7 +338,8 @@ data class WorldChest(
     val xNorm: Float,
     val yNorm: Float,
     val rewardItemId: String,
-    val rewardCount: Int
+    val rewardCount: Int,
+    val zone: WorldZone = WorldZone.CENTER
 )
 
 data class ArmorEquipment(
@@ -474,7 +544,8 @@ data class EnemyProfile(
     val defeatLine: String,
     val actOptions: List<EnemyActOption>,
     val isNormalMonster: Boolean = false,
-    val canBefriend: Boolean = true
+    val canBefriend: Boolean = true,
+    val zone: WorldZone = WorldZone.CENTER
 )
 
 object EnemyRoster {
@@ -515,6 +586,7 @@ object EnemyRoster {
             accentColor = SoulAegisAmber,
             xNorm = 0.72f,
             yNorm = 0.36f,
+            zone = WorldZone.NORTH,
             allyBonusTitle = "Vex's Tactical Visor",
             allyBonusDesc = "+2 Attack Damage & wider Critical strike zone.",
             introLine = "Vex locks his visor. \"Loka—wait! Why did the paradox clock spike again?!\"",
@@ -540,8 +612,9 @@ object EnemyRoster {
             maxHp = 95,
             attackPower = 3,
             accentColor = Color(0xFF4ADE80),
-            xNorm = 0.28f,
-            yNorm = 0.72f,
+            xNorm = 0.72f,
+            yNorm = 0.66f,
+            zone = WorldZone.SOUTH,
             allyBonusTitle = "Bramble's Moss Guard",
             allyBonusDesc = "+4 Max HP & +1 Defense across every battle.",
             introLine = "Bramble blocks the cave entrance nervously. \"Humans and Monsters... are we still fighting?\"",
@@ -567,8 +640,9 @@ object EnemyRoster {
             maxHp = 105,
             attackPower = 4,
             accentColor = Color(0xFFFACC15),
-            xNorm = 0.74f,
-            yNorm = 0.68f,
+            xNorm = 0.68f,
+            yNorm = 0.66f,
+            zone = WorldZone.EAST,
             allyBonusTitle = "Vespera's Cyan Tea",
             allyBonusDesc = "Restores +1 HP at the start of every player turn.",
             introLine = "Vespera adjusts her cyan-silk fan. \"A Yellow and Blue Soul bearer in my beige courtyard?\"",
@@ -594,8 +668,9 @@ object EnemyRoster {
             maxHp = 115,
             attackPower = 4,
             accentColor = Color(0xFF3B82F6),
-            xNorm = 0.25f,
-            yNorm = 0.34f,
+            xNorm = 0.74f,
+            yNorm = 0.56f,
+            zone = WorldZone.SOUTH,
             allyBonusTitle = "Orin's Anchor Rune",
             allyBonusDesc = "Reduces Soul ability cooldowns by 20%.",
             introLine = "Orin's carved stone eyes ignite. \"INTRUDER OR FRIEND? PROVE IT IN MOTION.\"",
@@ -621,8 +696,9 @@ object EnemyRoster {
             maxHp = 120,
             attackPower = 4,
             accentColor = Color(0xFF22C55E),
-            xNorm = 0.24f,
+            xNorm = 0.28f,
             yNorm = 0.44f,
+            zone = WorldZone.WEST,
             allyBonusTitle = "Seraphiel's Green Grace",
             allyBonusDesc = "Start every battle with a free Guard Shield.",
             introLine = "Six wings scatter green leaves over pink-purple grass. \"Will your Purple and Green Souls bring peace?\"",
@@ -648,8 +724,9 @@ object EnemyRoster {
             maxHp = 130,
             attackPower = 5,
             accentColor = SoulInfernalViolet,
-            xNorm = 0.78f,
-            yNorm = 0.56f,
+            xNorm = 0.72f,
+            yNorm = 0.44f,
+            zone = WorldZone.EAST,
             allyBonusTitle = "Malakor's Ember Pact",
             allyBonusDesc = "+4 Attack Damage & bonus fight precision.",
             introLine = "Malakor steps from beneath red-leafed trees onto grey-brown earth. \"Show me what Loka's made of!\"",
@@ -691,7 +768,8 @@ object EnemyRoster {
                 EnemyActOption("pet", "Pat Head", "You gently pat its leafy cap. Mossy Puff purrs!", 80)
             ),
             isNormalMonster = true,
-            canBefriend = true
+            canBefriend = true,
+            zone = WorldZone.NORTH
         ),
         EnemyProfile(
             id = EnemyId.FERAL_HOUND,
@@ -702,8 +780,8 @@ object EnemyRoster {
             maxHp = 58,
             attackPower = 3,
             accentColor = Color(0xFFEF4444),
-            xNorm = 0.84f,
-            yNorm = 0.62f,
+            xNorm = 0.30f,
+            yNorm = 0.58f,
             allyBonusTitle = "Untamed",
             allyBonusDesc = "Cannot be befriended.",
             introLine = "A feral Rift Hound lunges from the shadows, fangs bared! It refuses to listen!",
@@ -718,7 +796,8 @@ object EnemyRoster {
                 EnemyActOption("glare", "Stand Ground", "The Rift Hound snarls fiercely and refuses mercy!", 0)
             ),
             isNormalMonster = true,
-            canBefriend = false
+            canBefriend = false,
+            zone = WorldZone.WEST
         ),
         EnemyProfile(
             id = EnemyId.SAND_MOTH,
@@ -729,8 +808,8 @@ object EnemyRoster {
             maxHp = 56,
             attackPower = 3,
             accentColor = SoulSeraphCyan,
-            xNorm = 0.16f,
-            yNorm = 0.52f,
+            xNorm = 0.28f,
+            yNorm = 0.72f,
             allyBonusTitle = "Luminous Dust",
             allyBonusDesc = "Gentle cyan-tree moth that loves shiny necklaces.",
             introLine = "A glowing Cyan Moth swoops toward Loka's golden heart necklace!",
@@ -745,7 +824,8 @@ object EnemyRoster {
                 EnemyActOption("shine", "Show Gold Heart", "You hold up your golden necklace. The moth hums with joy!", 80)
             ),
             isNormalMonster = true,
-            canBefriend = true
+            canBefriend = true,
+            zone = WorldZone.NORTH
         ),
         EnemyProfile(
             id = EnemyId.IRON_STALKER,
@@ -756,8 +836,8 @@ object EnemyRoster {
             maxHp = 70,
             attackPower = 4,
             accentColor = Color(0xFFF97316),
-            xNorm = 0.84f,
-            yNorm = 0.38f,
+            xNorm = 0.26f,
+            yNorm = 0.72f,
             allyBonusTitle = "Rogue Automaton",
             allyBonusDesc = "Cannot be befriended.",
             introLine = "A rusted Chrono Stalker locks onto your Soul signature! Diplomacy module offline!",
@@ -772,7 +852,8 @@ object EnemyRoster {
                 EnemyActOption("signal", "Wave Hand", "No response. Its red optics lock straight onto you!", 0)
             ),
             isNormalMonster = true,
-            canBefriend = false
+            canBefriend = false,
+            zone = WorldZone.WEST
         ),
         EnemyProfile(
             id = EnemyId.HALO_SCRIBE,
@@ -783,8 +864,8 @@ object EnemyRoster {
             maxHp = 60,
             attackPower = 3,
             accentColor = Color(0xFFF472B6),
-            xNorm = 0.16f,
-            yNorm = 0.56f,
+            xNorm = 0.64f,
+            yNorm = 0.66f,
             allyBonusTitle = "Choir Bell",
             allyBonusDesc = "Playful pink-grove spirit that loves music.",
             introLine = "A tiny Choir Wisp races across the pink grass, humming a nervous tune!",
@@ -799,7 +880,8 @@ object EnemyRoster {
                 EnemyActOption("hum", "Hum Melody", "You hum a soft rhythm. The Choir Wisp twirls with delight!", 80)
             ),
             isNormalMonster = true,
-            canBefriend = true
+            canBefriend = true,
+            zone = WorldZone.WEST
         ),
         EnemyProfile(
             id = EnemyId.ASH_IMP,
@@ -810,8 +892,8 @@ object EnemyRoster {
             maxHp = 74,
             attackPower = 4,
             accentColor = SoulParadoxCrimson,
-            xNorm = 0.84f,
-            yNorm = 0.36f,
+            xNorm = 0.32f,
+            yNorm = 0.68f,
             allyBonusTitle = "Pure Mischief",
             allyBonusDesc = "Cannot be befriended.",
             introLine = "A cackling Cinder Imp bolts across the grey ash! It only wants a brawl!",
@@ -826,7 +908,8 @@ object EnemyRoster {
                 EnemyActOption("reason", "Ask For Truce", "The Cinder Imp sticks out its tongue and tosses sparks!", 0)
             ),
             isNormalMonster = true,
-            canBefriend = false
+            canBefriend = false,
+            zone = WorldZone.EAST
         ),
         EnemyProfile(
             id = EnemyId.ECHO_LOKA,
@@ -901,57 +984,57 @@ object EnemyRoster {
 
 object WorldContentCatalog {
     val landmarks: List<WorldLandmark> = listOf(
-        // Normal World
-        WorldLandmark("nw_hills", WorldId.NORMAL_WORLD, LandmarkKind.HILLS, "Emerald Overlook Hills", 0.22f, 0.22f,
-            "Mission: Lost Kite", "Retrieve Maya's kite caught on the hilltop wind.", false, rewardArmorId = "hill_cloak", rewardLabel = "Armor: Greenhill Cloak"),
-        WorldLandmark("nw_cave", WorldId.NORMAL_WORLD, LandmarkKind.CAVE, "Subway Hollow Cave", 0.18f, 0.78f,
-            "Event: Glowing Stones", "Help Bramble clear fallen boulders blocking the tunnel.", false, rewardItemId = "chrono_shard", rewardLabel = "+2 Chrono Shards"),
-        WorldLandmark("nw_mansion", WorldId.NORMAL_WORLD, LandmarkKind.MANSION, "Mayor's Old Mansion", 0.80f, 0.24f,
-            "Mission: Peace Ledger", "Deliver the Four-Race Treaty page from the parlor.", false, rewardItemId = "sepia_ration", rewardWeaponId = "chrono_lance", rewardLabel = "Weapon: Chrono Lance + 2 Rations"),
-        WorldLandmark("nw_lab", WorldId.NORMAL_WORLD, LandmarkKind.LAB, "Gov. Chrono Lab #4", 0.80f, 0.78f,
-            "Secret Quest: Save #8 Tape", "Shocking discovery! Dr. Kestrel's tape reveals your 10-minute warp happens every 8 saves!", true, rewardItemId = "save_anchor", rewardLabel = "+2 Save Anchors"),
+        // Normal World (spread across 5 doors & Sanctum)
+        WorldLandmark("nw_hills", WorldId.NORMAL_WORLD, LandmarkKind.HILLS, "Emerald Overlook Hills", 0.25f, 0.30f,
+            "Mission: Lost Kite", "Retrieve Maya's kite caught on the hilltop wind.", false, rewardArmorId = "hill_cloak", rewardLabel = "Armor: Greenhill Cloak", zone = WorldZone.NORTH),
+        WorldLandmark("nw_cave", WorldId.NORMAL_WORLD, LandmarkKind.CAVE, "Subway Hollow Cave", 0.24f, 0.70f,
+            "Event: Glowing Stones", "Help Bramble clear fallen boulders blocking the tunnel.", false, rewardItemId = "chrono_shard", rewardLabel = "+2 Chrono Shards", zone = WorldZone.SOUTH),
+        WorldLandmark("nw_mansion", WorldId.NORMAL_WORLD, LandmarkKind.MANSION, "Mayor's Old Mansion", 0.72f, 0.34f,
+            "Mission: Peace Ledger", "Deliver the Four-Race Treaty page from the parlor.", false, rewardItemId = "sepia_ration", rewardWeaponId = "chrono_lance", rewardLabel = "Weapon: Chrono Lance + 2 Rations", zone = WorldZone.EAST),
+        WorldLandmark("nw_lab", WorldId.NORMAL_WORLD, LandmarkKind.LAB, "Gov. Chrono Lab #4", 0.50f, 0.34f,
+            "Secret Quest: Save #8 Tape", "Shocking discovery! Dr. Kestrel's tape reveals your 10-minute warp happens every 8 Ashen saves!", true, rewardItemId = "save_anchor", rewardLabel = "+2 Save Anchors", zone = WorldZone.SANCTUM),
 
-        // Tri-Race Realm (Beige ground, Cyan trees, Brown caves)
-        WorldLandmark("tr_hills", WorldId.TRI_RACE_REALM, LandmarkKind.HILLS, "Beige Ridge Hills", 0.22f, 0.20f,
-            "Event: Cyan Sapling", "Water three flickering cyan saplings on the beige ridge.", false, rewardArmorId = "cyan_bark_vest", rewardLabel = "Armor: Cyan Bark Mail"),
-        WorldLandmark("tr_cave", WorldId.TRI_RACE_REALM, LandmarkKind.CAVE, "Amber-Brown Cavern", 0.22f, 0.76f,
-            "Mission: Echo Crystals", "Align the humming crystals inside the brown cave.", false, rewardItemId = "chrono_shard", rewardWeaponId = "paradox_wrench", rewardLabel = "Weapon: Paradox Wrench + 2 Shards"),
-        WorldLandmark("tr_mansion", WorldId.TRI_RACE_REALM, LandmarkKind.MANSION, "Vespera's Sand Mansion", 0.78f, 0.76f,
-            "Event: Midnight Tea", "Join Lady Vespera's monster-angel-devil tea salon.", false, rewardItemId = "sepia_ration", rewardLabel = "+2 Sepia Rations"),
-        WorldLandmark("tr_lab", WorldId.TRI_RACE_REALM, LandmarkKind.LAB, "Outlands Drift Lab", 0.78f, 0.22f,
-            "Secret Quest: Yellow-Blue Core", "Calibrate the dual-soul capacitor and uncover another Lost Tape about your saves.", true, rewardItemId = "save_anchor", rewardLabel = "+2 Save Anchors"),
+        // Tri-Race Realm (Beige ground, Cyan trees, Brown caves across 5 doors & Sanctum)
+        WorldLandmark("tr_hills", WorldId.TRI_RACE_REALM, LandmarkKind.HILLS, "Beige Ridge Hills", 0.24f, 0.32f,
+            "Event: Cyan Sapling", "Water three flickering cyan saplings on the beige ridge.", false, rewardArmorId = "cyan_bark_vest", rewardLabel = "Armor: Cyan Bark Mail", zone = WorldZone.NORTH),
+        WorldLandmark("tr_cave", WorldId.TRI_RACE_REALM, LandmarkKind.CAVE, "Amber-Brown Cavern", 0.24f, 0.68f,
+            "Mission: Echo Crystals", "Align the humming crystals inside the brown cave.", false, rewardItemId = "chrono_shard", rewardWeaponId = "paradox_wrench", rewardLabel = "Weapon: Paradox Wrench + 2 Shards", zone = WorldZone.SOUTH),
+        WorldLandmark("tr_mansion", WorldId.TRI_RACE_REALM, LandmarkKind.MANSION, "Vespera's Sand Mansion", 0.74f, 0.34f,
+            "Event: Midnight Tea", "Join Lady Vespera's monster-angel-devil tea salon.", false, rewardItemId = "sepia_ration", rewardLabel = "+2 Sepia Rations", zone = WorldZone.EAST),
+        WorldLandmark("tr_lab", WorldId.TRI_RACE_REALM, LandmarkKind.LAB, "Outlands Drift Lab", 0.50f, 0.34f,
+            "Secret Quest: Yellow-Blue Core", "Calibrate the dual-soul capacitor and uncover another Lost Tape about your saves.", true, rewardItemId = "save_anchor", rewardLabel = "+2 Save Anchors", zone = WorldZone.SANCTUM),
 
         // Split Realm (Angels: purple-pink ground + green trees; Devils: brown-grey ground + red trees)
-        WorldLandmark("sr_hills", WorldId.SPLIT_REALM, LandmarkKind.HILLS, "Halo Crest Hills", 0.20f, 0.20f,
-            "Mission: Fallen Feather", "Return a luminous green leaf & feather to the Angels' shrine.", false, rewardItemId = "sepia_ration", rewardWeaponId = "seraph_blade", rewardLabel = "Weapon: Seraph Blade + 2 Rations"),
-        WorldLandmark("sr_mansion", WorldId.SPLIT_REALM, LandmarkKind.MANSION, "Pink-Silk Angel Mansion", 0.22f, 0.78f,
-            "Secret Quest: Choir Loom", "Weave purple-pink threads and decode the hidden Lost Tape inside Aurelia's sanctuary.", true, rewardArmorId = "seraph_silk", rewardLabel = "Armor: Pink-Silk Halo Mantle"),
-        WorldLandmark("sr_cave", WorldId.SPLIT_REALM, LandmarkKind.CAVE, "Ash-Brown Devil Cave", 0.80f, 0.24f,
-            "Mission: Ember Forge", "Cool Kaelith's forge beneath the red-leaved trees.", false, rewardArmorId = "rift_plate", rewardLabel = "Armor: Ash-Iron Devil Guard"),
-        WorldLandmark("sr_lab", WorldId.SPLIT_REALM, LandmarkKind.LAB, "Borderline Rift Lab", 0.78f, 0.78f,
-            "Event: Truce Transmitter", "Link the Angel and Devil power grids across the divide.", false, rewardItemId = "save_anchor", rewardLabel = "+2 Save Anchors")
+        WorldLandmark("sr_hills", WorldId.SPLIT_REALM, LandmarkKind.HILLS, "Halo Crest Hills", 0.24f, 0.34f,
+            "Mission: Fallen Feather", "Return a luminous green leaf & feather to the Angels' shrine.", false, rewardItemId = "sepia_ration", rewardWeaponId = "seraph_blade", rewardLabel = "Weapon: Seraph Blade + 2 Rations", zone = WorldZone.NORTH),
+        WorldLandmark("sr_mansion", WorldId.SPLIT_REALM, LandmarkKind.MANSION, "Pink-Silk Angel Mansion", 0.50f, 0.34f,
+            "Secret Quest: Choir Loom", "Weave purple-pink threads and decode the hidden Lost Tape inside Aurelia's sanctuary.", true, rewardArmorId = "seraph_silk", rewardLabel = "Armor: Pink-Silk Halo Mantle", zone = WorldZone.SANCTUM),
+        WorldLandmark("sr_cave", WorldId.SPLIT_REALM, LandmarkKind.CAVE, "Ash-Brown Devil Cave", 0.74f, 0.64f,
+            "Mission: Ember Forge", "Cool Kaelith's forge beneath the red-leaved trees.", false, rewardArmorId = "rift_plate", rewardLabel = "Armor: Ash-Iron Devil Guard", zone = WorldZone.SOUTH),
+        WorldLandmark("sr_lab", WorldId.SPLIT_REALM, LandmarkKind.LAB, "Borderline Rift Lab", 0.70f, 0.76f,
+            "Event: Truce Transmitter", "Link the Angel and Devil power grids across the divide.", false, rewardItemId = "save_anchor", rewardLabel = "+2 Save Anchors", zone = WorldZone.EAST)
     )
 
     val npcs: List<WorldNpc> = listOf(
-        WorldNpc("npc_maya", WorldId.NORMAL_WORLD, "Maya", "Human", 0.45f, 0.25f, Color(0xFFF59E0B),
-            "\"Hey Loka! Love the golden heart necklace—no hat today? Watch out near the Lab!\"" ,
-            "Neighborhood Gift", "sepia_ration", "Maya handed you +1 Sepia Ration!"),
-        WorldNpc("npc_pip", WorldId.NORMAL_WORLD, "Pip", "Monster", 0.48f, 0.72f, Color(0xFF4ADE80),
-            "\"My big brother says Humans, Monsters, Angels, and Devils used to hang out before the paradox war!\""),
-        WorldNpc("npc_kestrel", WorldId.NORMAL_WORLD, "Dr. Kestrel", "Angel-Human", 0.65f, 0.64f, SoulSeraphCyan,
-            "\"Your paradox warps seem completely random, Loka... Check the secret Labs if you dare learn why!\""),
+        WorldNpc("npc_maya", WorldId.NORMAL_WORLD, "Maya", "Human", 0.34f, 0.25f, Color(0xFFF59E0B),
+            "\"Hey Loka! Five doors lead out of this plaza—explore North, South, East, West, or Door V!\"",
+            "Neighborhood Gift", "sepia_ration", "Maya handed you +1 Sepia Ration!", zone = WorldZone.CENTER),
+        WorldNpc("npc_pip", WorldId.NORMAL_WORLD, "Pip", "Monster", 0.42f, 0.30f, Color(0xFF4ADE80),
+            "\"My big brother says Humans, Monsters, Angels, and Devils used to hang out before the paradox war!\"", zone = WorldZone.SOUTH),
+        WorldNpc("npc_kestrel", WorldId.NORMAL_WORLD, "Dr. Kestrel", "Angel-Human", 0.48f, 0.30f, SoulSeraphCyan,
+            "\"Did you see Ashen slip underground after saving? Check Door V's Secret Lab if you dare learn why 8 saves matter!\"", zone = WorldZone.WEST),
 
-        WorldNpc("npc_lyra", WorldId.TRI_RACE_REALM, "Lyra", "Angel Scout", 0.46f, 0.24f, SoulSeraphCyan,
-            "\"No humans live in this realm—only Monsters, Angels, and Devils. Your Yellow & Blue Souls resonate here!\""),
-        WorldNpc("npc_zor", WorldId.TRI_RACE_REALM, "Zor", "Devil Merchant", 0.56f, 0.74f, SoulInfernalViolet,
+        WorldNpc("npc_lyra", WorldId.TRI_RACE_REALM, "Lyra", "Angel Scout", 0.35f, 0.28f, SoulSeraphCyan,
+            "\"No humans live in this realm—only Monsters, Angels, and Devils. Check all 5 doorways around the dunes!\"", zone = WorldZone.CENTER),
+        WorldNpc("npc_zor", WorldId.TRI_RACE_REALM, "Zor", "Devil Merchant", 0.46f, 0.26f, SoulInfernalViolet,
             "\"Beige sand and cyan trees look strange, huh? Take this shard for the brown caves!\"",
-            "Zor's Bargain", "chrono_shard", "Zor tossed you +1 Chrono Shard!"),
+            "Zor's Bargain", "chrono_shard", "Zor tossed you +1 Chrono Shard!", zone = WorldZone.SOUTH),
 
-        WorldNpc("npc_aurelia", WorldId.SPLIT_REALM, "Aurelia", "Angel", 0.36f, 0.58f, Color(0xFFEC4899),
-            "\"The Angels' side has purple-pink earth and green trees. Hold steady with your Green Soul!\""),
-        WorldNpc("npc_kaelith", WorldId.SPLIT_REALM, "Kaelith", "Devil", 0.64f, 0.36f, Color(0xFFEF4444),
-            "\"Devils' turf: brown-grey dirt and red trees. Tell Malakor we're rooting for peace, Loka!\"",
-            "Red-Tree Ration", "chrono_shard", "Kaelith gave you +1 Chrono Shard!")
+        WorldNpc("npc_aurelia", WorldId.SPLIT_REALM, "Aurelia", "Angel", 0.32f, 0.56f, Color(0xFFEC4899),
+            "\"West leads deep into the Angels' pink-purple sanctuary. Hold steady with your Green Soul!\"", zone = WorldZone.CENTER),
+        WorldNpc("npc_kaelith", WorldId.SPLIT_REALM, "Kaelith", "Devil", 0.68f, 0.56f, Color(0xFFEF4444),
+            "\"East crosses into Devils' turf: brown-grey ash and red trees. Tell Malakor we're rooting for peace, Loka!\"",
+            "Red-Tree Ration", "chrono_shard", "Kaelith gave you +1 Chrono Shard!", zone = WorldZone.CENTER)
     )
 
     val lostKids: List<LostKid> = listOf(
@@ -960,8 +1043,8 @@ object WorldContentCatalog {
             worldId = WorldId.TRI_RACE_REALM,
             name = "Sora",
             nameAr = "سورا",
-            xNorm = 0.66f,
-            yNorm = 0.28f,
+            xNorm = 0.68f,
+            yNorm = 0.36f,
             accentColor = Color(0xFFF472B6),
             pleaEn = "\"Loka?! I fell into this cyan forest! Please help me stay safe until we warp back to the Normal World!\"",
             pleaAr = "\"لوكا؟! سقطت في هذه الغابة السماوية! ساعدني وخذني معك حتى نصل إلى العالم الطبيعي فقط!\"",
@@ -970,15 +1053,16 @@ object WorldContentCatalog {
             buffEn = "+5 Max HP & Battle Heal (+6 HP) while escorted",
             buffAr = "+5 دم أقصى وعلاج (+6 HP) حتى الوصول للعالم الطبيعي",
             hpBonus = 5,
-            healAmount = 6
+            healAmount = 6,
+            zone = WorldZone.NORTH
         ),
         LostKid(
             id = "kid_taro",
             worldId = WorldId.TRI_RACE_REALM,
             name = "Taro",
             nameAr = "تارو",
-            xNorm = 0.44f,
-            yNorm = 0.52f,
+            xNorm = 0.34f,
+            yNorm = 0.40f,
             accentColor = Color(0xFF38BDF8),
             pleaEn = "\"I got pulled away from the other kids... this beige desert wind is freezing!\"",
             pleaAr = "\"انفصلت عن باقي الأطفال... رياح هذه الصحراء البيج باردة جداً!\"",
@@ -987,15 +1071,16 @@ object WorldContentCatalog {
             buffEn = "+2 Defense & +2 Max HP",
             buffAr = "+2 دفاع و+2 دم أقصى",
             hpBonus = 2,
-            defBonus = 2
+            defBonus = 2,
+            zone = WorldZone.WEST
         ),
         LostKid(
             id = "kid_nora",
             worldId = WorldId.SPLIT_REALM,
             name = "Nora",
             nameAr = "نورا",
-            xNorm = 0.32f,
-            yNorm = 0.36f,
+            xNorm = 0.34f,
+            yNorm = 0.66f,
             accentColor = Color(0xFFFACC15),
             pleaEn = "\"I'm trapped between the pink-purple grass and the border! Help me break the seal!\"",
             pleaAr = "\"أنا عالقة عند عشب الملائكة الوردي-البنفسجي! ساعدني في كسر الختم!\"",
@@ -1004,15 +1089,16 @@ object WorldContentCatalog {
             buffEn = "+4 Attack Power & +4 HP Heal",
             buffAr = "+4 قوة هجوم وعلاج (+4 HP)",
             atkBonus = 4,
-            healAmount = 4
+            healAmount = 4,
+            zone = WorldZone.NORTH
         ),
         LostKid(
             id = "kid_zayn",
             worldId = WorldId.SPLIT_REALM,
             name = "Zayn",
             nameAr = "زين",
-            xNorm = 0.68f,
-            yNorm = 0.66f,
+            xNorm = 0.60f,
+            yNorm = 0.32f,
             accentColor = Color(0xFF4ADE80),
             pleaEn = "\"My paradox boots froze on the Devils' grey-brown ash! Give me a pull, Loka!\"",
             pleaAr = "\"حذائي الزمني تجمد فوق تراب الشياطين البني-الرمادي! اسحبني يا لوكا!\"",
@@ -1021,7 +1107,8 @@ object WorldContentCatalog {
             buffEn = "+28% Speed & +2 Attack",
             buffAr = "+28% سرعة حركة و+2 هجوم",
             atkBonus = 2,
-            speedBonus = 0.28f
+            speedBonus = 0.28f,
+            zone = WorldZone.SOUTH
         )
     )
 
@@ -1064,12 +1151,20 @@ object WorldContentCatalog {
     )
 
     val chests: List<WorldChest> = listOf(
-        WorldChest("chest_nw_dot", WorldId.NORMAL_WORLD, ChestStyle.SMALL_DOT, "Park Supply Box", "صندوق الحديقة الصغير", 0.30f, 0.30f, "chrono_shard", 1),
-        WorldChest("chest_nw_lock", WorldId.NORMAL_WORLD, ChestStyle.WIDE_PADLOCK, "Sealed Street Chest", "صندوق الشارع المقفل", 0.68f, 0.80f, "sepia_ration", 2),
-        WorldChest("chest_tr_star", WorldId.TRI_RACE_REALM, ChestStyle.SQUARE_STAR, "Star-Clasp Crate", "صندوق النجمة السماوي", 0.32f, 0.66f, "save_anchor", 1),
-        WorldChest("chest_tr_lock", WorldId.TRI_RACE_REALM, ChestStyle.WIDE_PADLOCK, "Outlands Vault Chest", "صندوق البراري المقفل", 0.68f, 0.42f, "sepia_ration", 2),
-        WorldChest("chest_sr_dot", WorldId.SPLIT_REALM, ChestStyle.SMALL_DOT, "Angel Grove Chest", "صندوق الملائكة الصغير", 0.32f, 0.24f, "save_anchor", 2),
-        WorldChest("chest_sr_star", WorldId.SPLIT_REALM, ChestStyle.SQUARE_STAR, "Ash-Border Star Chest", "صندوق النجمة المشتعل", 0.66f, 0.78f, "chrono_shard", 2)
+        WorldChest("chest_nw_dot", WorldId.NORMAL_WORLD, ChestStyle.SMALL_DOT, "Park Supply Box", "صندوق الحديقة الصغير", 0.68f, 0.72f, "chrono_shard", 1, zone = WorldZone.CENTER),
+        WorldChest("chest_nw_star", WorldId.NORMAL_WORLD, ChestStyle.SQUARE_STAR, "Fountain Plaza Crate", "صندوق الساحة المرصع", 0.70f, 0.70f, "chrono_shard", 2, zone = WorldZone.WEST),
+        WorldChest("chest_nw_lock", WorldId.NORMAL_WORLD, ChestStyle.WIDE_PADLOCK, "Sealed Street Chest", "صندوق الشارع المقفل", 0.64f, 0.74f, "sepia_ration", 2, zone = WorldZone.EAST),
+        WorldChest("chest_nw_sanctum", WorldId.NORMAL_WORLD, ChestStyle.WIDE_PADLOCK, "Secret Lab Strongbox", "خزنة المختبر السري", 0.26f, 0.68f, "save_anchor", 1, zone = WorldZone.SANCTUM),
+
+        WorldChest("chest_tr_star", WorldId.TRI_RACE_REALM, ChestStyle.SQUARE_STAR, "Star-Clasp Crate", "صندوق النجمة السماوي", 0.68f, 0.72f, "save_anchor", 1, zone = WorldZone.CENTER),
+        WorldChest("chest_tr_lock", WorldId.TRI_RACE_REALM, ChestStyle.WIDE_PADLOCK, "Outlands Vault Chest", "صندوق البراري المقفل", 0.70f, 0.72f, "sepia_ration", 2, zone = WorldZone.WEST),
+        WorldChest("chest_tr_east", WorldId.TRI_RACE_REALM, ChestStyle.SMALL_DOT, "Cyan Courtyard Box", "صندوق البلاط السماوي", 0.28f, 0.28f, "chrono_shard", 2, zone = WorldZone.EAST),
+        WorldChest("chest_tr_sanctum", WorldId.TRI_RACE_REALM, ChestStyle.SQUARE_STAR, "Drift Vault Box", "صندوق القبو الزمني", 0.74f, 0.68f, "save_anchor", 1, zone = WorldZone.SANCTUM),
+
+        WorldChest("chest_sr_dot", WorldId.SPLIT_REALM, ChestStyle.SMALL_DOT, "Angel Grove Chest", "صندوق الملائكة الصغير", 0.72f, 0.34f, "save_anchor", 2, zone = WorldZone.NORTH),
+        WorldChest("chest_sr_star", WorldId.SPLIT_REALM, ChestStyle.SQUARE_STAR, "Ash-Border Star Chest", "صندوق النجمة المشتعل", 0.28f, 0.68f, "chrono_shard", 2, zone = WorldZone.SOUTH),
+        WorldChest("chest_sr_west", WorldId.SPLIT_REALM, ChestStyle.SMALL_DOT, "Seraph Garden Box", "صندوق الحديقة الوردية", 0.56f, 0.24f, "sepia_ration", 2, zone = WorldZone.WEST),
+        WorldChest("chest_sr_sanctum", WorldId.SPLIT_REALM, ChestStyle.WIDE_PADLOCK, "Sanctuary Silk Chest", "صندوق الحرير السري", 0.26f, 0.68f, "save_anchor", 1, zone = WorldZone.SANCTUM)
     )
 }
 
@@ -1091,7 +1186,8 @@ data class LostKid(
     val defBonus: Int = 0,
     val atkBonus: Int = 0,
     val speedBonus: Float = 0f,
-    val healAmount: Int = 0
+    val healAmount: Int = 0,
+    val zone: WorldZone = WorldZone.CENTER
 )
 
 data class GlitchedMemory(

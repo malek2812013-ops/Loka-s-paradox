@@ -20,12 +20,18 @@ import com.example.model.WeaponCatalog
 import com.example.model.WeaponEquipment
 import com.example.model.WorldContentCatalog
 import com.example.model.WorldId
+import com.example.model.WorldZone
+import com.example.model.WorldZoneMap
+import com.example.model.ZoneEdge
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.math.hypot
 import kotlin.random.Random
+
+private const val DEFAULT_WARP_SECONDS = 600f // 10 full minutes
+private const val ASHEN_UNDERGROUND_SECONDS = 75f // ~1m 15s underground after saving
 
 data class GlitchGhost(
     val id: Int,
@@ -38,6 +44,7 @@ data class RoamingMonster(
     val uid: String,
     val enemyId: EnemyId,
     val worldId: WorldId,
+    val zone: WorldZone,
     val xNorm: Float,
     val yNorm: Float,
     val homeX: Float,
@@ -54,19 +61,25 @@ data class AppUiState(
     val controlScheme: ControlScheme = ControlScheme.TOUCH_DRAG,
     val isMuted: Boolean = false,
 
-    // Ruins Opening Tutorial Area
-    val ruinsPlayerX: Float = 0.14f,
-    val ruinsPlayerY: Float = 0.54f,
+    // Ruins Expanded 3-Chamber Opening Area (Flowerbed -> Pillar & Switch Hall -> Dummy & Exit Gate)
+    val ruinsRoomIndex: Int = 0,
+    val ruinsPlayerX: Float = 0.22f,
+    val ruinsPlayerY: Float = 0.56f,
+    val ruinsLoreRead: Boolean = false,
+    val ruinsCandyClaimed: Boolean = false,
     val ruinsSwitchActivated: Boolean = false,
     val ruinsDummyPracticed: Boolean = false,
 
-    // World & Random Paradox Exploration (Zero player control over destination!)
+    // World, 5-Door Zones & Paradox Exploration
     val activeWorld: WorldId = WorldId.NORMAL_WORLD,
+    val activeZone: WorldZone = WorldZone.CENTER,
+    val zoneCooldownSec: Float = 0f,
     val playerMapX: Float = 0.50f,
     val playerMapY: Float = 0.50f,
-    val paradoxRiftPos: Pair<Float, Float> = 0.50f to 0.48f,
-    val randomWarpCountdownSec: Float = 45f,
+    val paradoxRiftPos: Pair<Float, Float> = 0.18f to 0.22f,
+    val randomWarpCountdownSec: Float = DEFAULT_WARP_SECONDS,
     val glitchedCountdownSec: Float = 10f,
+    val ashenHiddenTimerSec: Float = 0f,
     val glitchGhosts: List<GlitchGhost> = emptyList(),
     val activeGlitchMemory: GlitchedMemory = WorldContentCatalog.glitchedMemories.first(),
     val glitchMemoryCycleSec: Float = 0f,
@@ -106,7 +119,7 @@ data class AppUiState(
     val peaceSacrificeEnding: Boolean = false,
 
     // Hidden Save mystery counter & Persistence flag
-    val saveCounter: Int = 1,
+    val saveCounter: Int = 0,
     val hasSavedFile: Boolean = false
 ) {
     val equippedArmor: ArmorEquipment get() = ArmorCatalog.byId(equippedArmorId)
@@ -178,8 +191,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 ruinsSwitchActivated = snap.ruinsSwitchActivated,
                 ruinsDummyPracticed = snap.ruinsDummyPracticed,
                 activeWorld = snap.activeWorld,
+                activeZone = snap.activeZone,
                 playerMapX = snap.playerMapX,
                 playerMapY = snap.playerMapY,
+                randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
                 defeatedEnemies = snap.defeatedEnemies,
                 friendAllies = snap.friendAllies,
                 escortingKidIds = snap.escortingKidIds,
@@ -213,6 +228,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 uid = "${worldId.name}_${enemy.id.name}",
                 enemyId = enemy.id,
                 worldId = worldId,
+                zone = enemy.zone,
                 xNorm = enemy.xNorm,
                 yNorm = enemy.yNorm,
                 homeX = enemy.xNorm,
@@ -232,6 +248,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 ruinsSwitchActivated = state.ruinsSwitchActivated,
                 ruinsDummyPracticed = state.ruinsDummyPracticed,
                 activeWorld = state.activeWorld,
+                activeZone = state.activeZone,
                 playerMapX = state.playerMapX,
                 playerMapY = state.playerMapY,
                 defeatedEnemies = state.defeatedEnemies,
@@ -278,9 +295,46 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun moveRuinsPlayer(dx: Float, dy: Float) {
         _uiState.update { state ->
             if (state.currentScreen != AppScreen.RUINS_TUTORIAL) return@update state
-            val nx = (state.ruinsPlayerX + dx * state.kidSpeedMultiplier).coerceIn(0.08f, 0.92f)
-            val ny = (state.ruinsPlayerY + dy * state.kidSpeedMultiplier).coerceIn(0.20f, 0.85f)
-            state.copy(ruinsPlayerX = nx, ruinsPlayerY = ny)
+            val rawX = state.ruinsPlayerX + dx * state.kidSpeedMultiplier
+            val ny = (state.ruinsPlayerY + dy * state.kidSpeedMultiplier).coerceIn(0.27f, 0.85f)
+
+            // Smooth doorway transitions across the 3 Ruins chambers along the doorway corridor Y-band
+            if (rawX >= 0.92f && state.ruinsRoomIndex < 2 && ny in 0.36f..0.74f) {
+                RetroSoundEngine.playTypeBlip(310f)
+                return@update state.copy(
+                    ruinsRoomIndex = state.ruinsRoomIndex + 1,
+                    ruinsPlayerX = 0.14f,
+                    ruinsPlayerY = ny
+                )
+            }
+            if (rawX <= 0.08f && state.ruinsRoomIndex > 0 && ny in 0.36f..0.74f) {
+                RetroSoundEngine.playTypeBlip(275f)
+                return@update state.copy(
+                    ruinsRoomIndex = state.ruinsRoomIndex - 1,
+                    ruinsPlayerX = 0.86f,
+                    ruinsPlayerY = ny
+                )
+            }
+
+            state.copy(
+                ruinsPlayerX = rawX.coerceIn(0.08f, 0.92f),
+                ruinsPlayerY = ny
+            )
+        }
+    }
+
+    fun inspectRuinsLore() {
+        RetroSoundEngine.playTypeBlip(360f)
+        _uiState.update { it.copy(ruinsLoreRead = true) }
+    }
+
+    fun claimRuinsCandy() {
+        _uiState.update { state ->
+            if (state.ruinsCandyClaimed) return@update state
+            RetroSoundEngine.playSaveChime()
+            val updatedItems = state.itemCounts.toMutableMap()
+            updatedItems["chrono_shard"] = (updatedItems["chrono_shard"] ?: 0) + 1
+            state.copy(ruinsCandyClaimed = true, itemCounts = updatedItems)
         }
     }
 
@@ -322,35 +376,71 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { state ->
             state.copy(
                 activeWorld = randomFirstWorld,
+                activeZone = WorldZone.CENTER,
+                zoneCooldownSec = 0.65f,
                 currentScreen = AppScreen.WORLD_EXPLORE,
                 playerMapX = 0.50f,
                 playerMapY = 0.54f,
-                paradoxRiftPos = randomRiftPosition(),
-                randomWarpCountdownSec = 45f,
+                paradoxRiftPos = 0.18f to 0.22f,
+                randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
                 glitchedCountdownSec = 10f,
+                ashenHiddenTimerSec = 0f,
                 glitchGhosts = emptyList(),
                 roamingMonsters = roamingForWorld(randomFirstWorld),
                 roamGraceTimerSec = 2.6f,
                 worldBannerMessage = if (state.language == AppLanguage.AR) {
-                    "انتقال مفاجئ! سحبتك المفارقة عشوائياً إلى ${randomFirstWorld.title}"
+                    "انتقال مفاجئ! سحبتك المفارقة عشوائياً إلى ${randomFirstWorld.title} (لديك 10 دقائق)"
                 } else {
-                    "Paradox Jump! Pulled randomly into ${randomFirstWorld.title}."
+                    "Paradox Jump! Pulled into ${randomFirstWorld.title} (10:00 timer active)."
                 }
             ).also(::persist)
         }
     }
 
     fun saveProgressExplicitly(fromAshen: Boolean = false) {
-        RetroSoundEngine.playSaveChime()
         _uiState.update { state ->
-            val nextSave = if (state.saveCounter >= 8) 1 else state.saveCounter + 1
-            val msg = if (fromAshen) {
+            val inOverworld = state.currentScreen == AppScreen.WORLD_EXPLORE
+            if (fromAshen && inOverworld && state.ashenHiddenTimerSec > 0f) {
+                return@update state
+            }
+            RetroSoundEngine.playSaveChime()
+            val incremented = state.saveCounter + 1
+
+            // 8 Ashen saves trigger a Paradox Warp (unless Teleport is mastered)!
+            if (fromAshen && inOverworld && incremented >= 8 && !state.teleportControlMastered) {
+                val warped = warpToRandomWorld(
+                    state.copy(
+                        saveCounter = 0,
+                        ashenHiddenTimerSec = ASHEN_UNDERGROUND_SECONDS,
+                        hasSavedFile = true
+                    )
+                )
+                return@update warped.copy(
+                    worldBannerMessage = if (state.language == AppLanguage.AR) {
+                        "الحفظ رقم 8! نزل آشن تحت الأرض وسحبتك المفارقة إلى ${warped.activeWorld.title}!"
+                    } else {
+                        "Save #8! Ashen burrowed underground & the Paradox warped you to ${warped.activeWorld.title}!"
+                    }
+                ).also(::persist)
+            }
+
+            val nextSave = if (incremented >= 8) 0 else incremented
+            val nextHidden = if (fromAshen && inOverworld) ASHEN_UNDERGROUND_SECONDS else state.ashenHiddenTimerSec
+            val msg = if (fromAshen && inOverworld) {
+                if (state.language == AppLanguage.AR) {
+                    "حفظ آشن تقدمك (#$incremented) ونزل تحت الأرض! سيظهر مجدداً بعد دقيقة وربع ★"
+                } else {
+                    "Ashen saved (#$incremented) & burrowed underground! Back in ~1m 15s ★"
+                }
+            } else if (fromAshen) {
                 if (state.language == AppLanguage.AR) "حفظ آشن تقدمك على الجهاز بنجاح! ★" else "Ashen saved your timeline to device! ★"
             } else {
-                if (state.language == AppLanguage.AR) "تم حفظ ملف اللعبة! نجمة المفارقة تملؤك بالعزيمة ★" else "File Saved! The Paradox Star fills you with determination ★"
+                if (state.language == AppLanguage.AR) "تم حفظ ملف اللعبة! ★" else "File Saved! ★"
             }
+
             state.copy(
                 saveCounter = nextSave,
+                ashenHiddenTimerSec = nextHidden,
                 hasSavedFile = true,
                 worldBannerMessage = msg
             ).also(::persist)
@@ -374,18 +464,46 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { state ->
             if (state.currentScreen != AppScreen.WORLD_EXPLORE) return@update state
             val speed = if (state.activeWorld == WorldId.GLITCHED_WORLD) 1f else state.kidSpeedMultiplier
-            val nx = (state.playerMapX + dx * speed).coerceIn(0.07f, 0.93f)
-            val ny = (state.playerMapY + dy * speed).coerceIn(0.10f, 0.90f)
-            val updated = state.copy(playerMapX = nx, playerMapY = ny)
+            val nx = (state.playerMapX + dx * speed).coerceIn(0.03f, 0.97f)
+            val ny = (state.playerMapY + dy * speed).coerceIn(0.04f, 0.96f)
 
-            // Stepping into the unstable Paradox Rift warps Loka randomly (zero player choice!)
-            if (state.activeWorld != WorldId.GLITCHED_WORLD && !state.teleportControlMastered) {
-                val (rx, ry) = state.paradoxRiftPos
-                if (hypot(nx - rx, ny - ry) < 0.065f) {
-                    return@update warpToRandomWorld(updated)
+            // 5-Door edge & Door V transitions across connected world zones!
+            if (state.activeWorld.hasLandmarks && state.zoneCooldownSec <= 0f) {
+                val doors = WorldZoneMap.doorsInZone(state.activeWorld, state.activeZone)
+                val crossedDoor = doors.firstOrNull { d ->
+                    when (d.edge) {
+                        ZoneEdge.TOP -> ny <= 0.085f && nx in 0.34f..0.66f
+                        ZoneEdge.BOTTOM -> ny >= 0.915f && nx in 0.34f..0.66f
+                        ZoneEdge.LEFT -> nx <= 0.065f && ny in 0.34f..0.66f
+                        ZoneEdge.RIGHT -> nx >= 0.935f && ny in 0.34f..0.66f
+                        null -> hypot(nx - d.doorX, ny - d.doorY) < 0.075f
+                    }
+                }
+                if (crossedDoor != null) {
+                    RetroSoundEngine.playSoulSwitch(0)
+                    return@update state.copy(
+                        activeZone = crossedDoor.targetZone,
+                        playerMapX = crossedDoor.spawnX,
+                        playerMapY = crossedDoor.spawnY,
+                        zoneCooldownSec = 0.65f,
+                        roamGraceTimerSec = 1.6f,
+                        worldBannerMessage = if (state.language == AppLanguage.AR) {
+                            "${state.activeWorld.title} — ${crossedDoor.targetZone.titleAr}"
+                        } else {
+                            "${state.activeWorld.title} — ${crossedDoor.targetZone.titleEn}"
+                        }
+                    ).also(::persist)
                 }
             }
-            updated
+
+            state.copy(playerMapX = nx, playerMapY = ny)
+        }
+    }
+
+    fun triggerManualRiftJump() {
+        _uiState.update { state ->
+            if (state.currentScreen != AppScreen.WORLD_EXPLORE) return@update state
+            warpToRandomWorld(state).also(::persist)
         }
     }
 
@@ -393,6 +511,18 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val dt = dtRaw.coerceIn(0.001f, 0.05f)
         _uiState.update { state ->
             if (state.currentScreen != AppScreen.WORLD_EXPLORE) return@update state
+
+            val nextZoneCooldown = (state.zoneCooldownSec - dt).coerceAtLeast(0f)
+            val prevHidden = state.ashenHiddenTimerSec
+            val nextHidden = (prevHidden - dt).coerceAtLeast(0f)
+            val ashenJustReturned = prevHidden > 0f && nextHidden <= 0f
+            if (ashenJustReturned) {
+                RetroSoundEngine.playHealChime()
+            }
+            val returnNotice = if (ashenJustReturned && state.activeWorld != WorldId.GLITCHED_WORLD) {
+                if (state.language == AppLanguage.AR) "ظهر آشن مجدداً من تحت الأرض في الساحة المركزية!"
+                else "Ashen popped back out of the ground in the Central Plaza!"
+            } else state.worldBannerMessage
 
             if (state.activeWorld == WorldId.GLITCHED_WORLD) {
                 val nextTime = if (state.teleportControlMastered) state.glitchedCountdownSec else state.glitchedCountdownSec - dt
@@ -402,18 +532,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     RetroSoundEngine.playGlitchNoise(120)
                     val base = state.copy(
                         activeWorld = dest,
+                        activeZone = WorldZone.CENTER,
+                        zoneCooldownSec = 0.65f,
                         playerMapX = 0.50f,
                         playerMapY = 0.54f,
-                        paradoxRiftPos = randomRiftPosition(),
-                        randomWarpCountdownSec = 45f,
+                        paradoxRiftPos = 0.18f to 0.22f,
+                        randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
                         glitchedCountdownSec = 10f,
+                        ashenHiddenTimerSec = nextHidden,
                         glitchGhosts = emptyList(),
                         roamingMonsters = roamingForWorld(dest),
                         roamGraceTimerSec = 2.6f,
                         worldBannerMessage = if (state.language == AppLanguage.AR) {
-                            "انتقال مفاجئ! انتقلت عشوائياً إلى ${dest.title}."
+                            "انتقال مفاجئ! عدت إلى ${dest.title}."
                         } else {
-                            "Paradox warp! Thrown randomly into ${dest.title}."
+                            "Paradox warp! Returned to ${dest.title}."
                         }
                     )
                     return@update applyNormalWorldDropOff(base)
@@ -429,7 +562,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     RetroSoundEngine.playWhisper()
                 }
 
-                // Random disappearing ghostly silhouettes
                 val updatedGhosts = state.glitchGhosts.mapNotNull { g ->
                     val rem = g.ttlSec - dt
                     if (rem <= 0f) null else g.copy(ttlSec = rem)
@@ -445,10 +577,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 return@update state.copy(
+                    zoneCooldownSec = nextZoneCooldown,
+                    ashenHiddenTimerSec = nextHidden,
                     glitchedCountdownSec = nextTime,
                     glitchGhosts = updatedGhosts,
                     activeGlitchMemory = nextMem,
-                    glitchMemoryCycleSec = nextMemCycle
+                    glitchMemoryCycleSec = nextMemCycle,
+                    worldBannerMessage = returnNotice
                 )
             } else {
                 val nextGrace = (state.roamGraceTimerSec - dt).coerceAtLeast(0f)
@@ -457,7 +592,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 val currentRoamers = state.roamingMonsters.ifEmpty { roamingForWorld(state.activeWorld) }
                 var collidedEnemy: RoamingMonster? = null
                 val movedRoamers = currentRoamers.map { m ->
-                    if (m.worldId != state.activeWorld) return@map m
+                    if (m.worldId != state.activeWorld || m.zone != state.activeZone) return@map m
                     val isAlreadyFriend = m.enemyId in state.friendAllies
                     val dx = px - m.xNorm
                     val dy = py - m.yNorm
@@ -493,32 +628,46 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     val caught = collidedEnemy!!
                     RetroSoundEngine.playGlitchNoise(55)
                     val remaining = movedRoamers.filterNot { it.uid == caught.uid }
-                    val nextSave = if (state.saveCounter >= 8) 1 else state.saveCounter + 1
                     return@update state.copy(
+                        zoneCooldownSec = nextZoneCooldown,
+                        ashenHiddenTimerSec = nextHidden,
                         roamingMonsters = remaining,
                         roamGraceTimerSec = 2.8f,
                         selectedEnemyId = caught.enemyId,
                         battleSessionId = state.battleSessionId + 1L,
                         battleFromRuins = false,
-                        saveCounter = nextSave,
-                        currentScreen = AppScreen.BATTLE
+                        currentScreen = AppScreen.BATTLE,
+                        worldBannerMessage = returnNotice
                     )
                 }
 
                 if (state.teleportControlMastered) {
                     return@update state.copy(
+                        zoneCooldownSec = nextZoneCooldown,
+                        ashenHiddenTimerSec = nextHidden,
                         roamGraceTimerSec = nextGrace,
-                        roamingMonsters = movedRoamers
+                        roamingMonsters = movedRoamers,
+                        worldBannerMessage = returnNotice
                     )
                 }
                 val nextWarp = state.randomWarpCountdownSec - dt
                 if (nextWarp <= 0f) {
-                    return@update warpToRandomWorld(state.copy(roamGraceTimerSec = nextGrace, roamingMonsters = movedRoamers))
+                    return@update warpToRandomWorld(
+                        state.copy(
+                            zoneCooldownSec = nextZoneCooldown,
+                            ashenHiddenTimerSec = nextHidden,
+                            roamGraceTimerSec = nextGrace,
+                            roamingMonsters = movedRoamers
+                        )
+                    )
                 }
                 return@update state.copy(
+                    zoneCooldownSec = nextZoneCooldown,
+                    ashenHiddenTimerSec = nextHidden,
                     randomWarpCountdownSec = nextWarp,
                     roamGraceTimerSec = nextGrace,
-                    roamingMonsters = movedRoamers
+                    roamingMonsters = movedRoamers,
+                    worldBannerMessage = returnNotice
                 )
             }
         }
@@ -547,10 +696,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         val warped = state.copy(
             activeWorld = dest,
+            activeZone = WorldZone.CENTER,
+            zoneCooldownSec = 0.65f,
             playerMapX = 0.50f,
             playerMapY = 0.54f,
-            paradoxRiftPos = randomRiftPosition(),
-            randomWarpCountdownSec = 45f,
+            paradoxRiftPos = 0.18f to 0.22f,
+            randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
             glitchedCountdownSec = 10f,
             glitchGhosts = emptyList(),
             roamingMonsters = roamingForWorld(dest),
@@ -590,11 +741,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 "Reached Normal World! $names returned safely and parted ways with Loka."
             }
         )
-    }
-
-    private fun randomRiftPosition(): Pair<Float, Float> {
-        val spots = listOf(0.50f to 0.48f, 0.34f to 0.50f, 0.66f to 0.48f, 0.50f to 0.36f)
-        return spots.random()
     }
 
     fun helpLostKid(kidId: String) {
@@ -731,13 +877,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             val targetWorld = worldOverride ?: state.activeWorld
-            val nextSave = if (state.saveCounter >= 8) 1 else state.saveCounter + 1
             state.copy(
                 activeWorld = targetWorld,
                 selectedEnemyId = enemyId,
                 battleSessionId = state.battleSessionId + 1L,
                 battleFromRuins = enemyId == EnemyId.RUINS_DUMMY,
-                saveCounter = nextSave,
                 roamGraceTimerSec = 2.8f,
                 currentScreen = AppScreen.BATTLE
             )
@@ -756,8 +900,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 val safeWorld = listOf(WorldId.NORMAL_WORLD, WorldId.TRI_RACE_REALM, WorldId.SPLIT_REALM).random()
                 val nextState = state.copy(
                     activeWorld = safeWorld,
+                    activeZone = WorldZone.CENTER,
+                    zoneCooldownSec = 0.65f,
                     playerMapX = 0.50f,
                     playerMapY = 0.54f,
+                    randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
                     roamingMonsters = roamingForWorld(safeWorld),
                     roamGraceTimerSec = 2.6f,
                     currentScreen = AppScreen.WORLD_EXPLORE,
@@ -855,6 +1002,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 rescuedToNormalKidIds = emptySet(),
                 killedKidIds = emptySet(),
                 activeWorld = WorldId.NORMAL_WORLD,
+                activeZone = WorldZone.CENTER,
+                zoneCooldownSec = 0.65f,
+                playerMapX = 0.50f,
+                playerMapY = 0.54f,
+                saveCounter = 0,
+                ashenHiddenTimerSec = 0f,
+                randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
                 currentScreen = AppScreen.WORLD_EXPLORE,
                 worldBannerMessage = if (targetPath == RouteType.PERFECT) {
                     "World Restarted: Teleport mastered — Perfect Mercy Route!"

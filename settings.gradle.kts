@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Loka Paradox"
+rootProject.name = "Loka's Paradox"
 
 include(":app")
