@@ -68,8 +68,11 @@ import com.example.model.BulletKind
 import com.example.model.ControlScheme
 import com.example.model.EnemyId
 import com.example.model.EnemyRoster
+import com.example.model.GameDifficulty
 import com.example.model.MenuSubTab
 import com.example.model.PortraitExpression
+import com.example.model.RelicCatalog
+import com.example.model.RelicEquipment
 import com.example.model.SoulType
 import com.example.model.WeaponCatalog
 import com.example.model.WeaponEquipment
@@ -113,6 +116,9 @@ fun BattleScreen(
     worldId: WorldId,
     equippedArmor: ArmorEquipment,
     equippedWeapon: WeaponEquipment = WeaponCatalog.byId("worn_stick"),
+    equippedRelic: RelicEquipment = RelicCatalog.byId("golden_locket"),
+    difficulty: GameDifficulty = GameDifficulty.NORMAL,
+    reduceFlash: Boolean = false,
     friendAllies: Set<EnemyId>,
     helpedKidIds: Set<String>,
     itemCounts: Map<String, Int>,
@@ -125,13 +131,15 @@ fun BattleScreen(
 ) {
     BackHandler { onExitBattle() }
 
-    LaunchedEffect(battleSessionId, enemyId, worldId, helpedKidIds, equippedWeapon.id, equippedArmor.id) {
+    LaunchedEffect(battleSessionId, enemyId, worldId, helpedKidIds, equippedWeapon.id, equippedArmor.id, equippedRelic.id, difficulty) {
         battleViewModel.initEncounter(
             encounterId = battleSessionId,
             enemyId = enemyId,
             worldId = worldId,
             armor = equippedArmor,
             weapon = equippedWeapon,
+            relic = equippedRelic,
+            difficulty = difficulty,
             allies = friendAllies,
             helpedKidIds = helpedKidIds,
             itemCounts = itemCounts
@@ -366,7 +374,7 @@ fun BattleScreen(
                 ) {
                     BossSpriteCanvas(
                         enemyId = state.enemy.id,
-                        isHitFlash = state.isEnemyHitFlash,
+                        isHitFlash = !reduceFlash && state.isEnemyHitFlash,
                         isSpareReady = state.canSpare,
                         expression = state.bossExpression,
                         monochromeBattle = true,
@@ -452,7 +460,7 @@ fun BattleScreen(
                     ) {
                         BossSpriteCanvas(
                             enemyId = state.enemy.id,
-                            isHitFlash = state.isEnemyHitFlash,
+                            isHitFlash = !reduceFlash && state.isEnemyHitFlash,
                             isSpareReady = state.canSpare,
                             expression = state.bossExpression,
                             monochromeBattle = true,
@@ -640,6 +648,8 @@ fun BattleScreen(
                                             worldId = worldId,
                                             armor = equippedArmor,
                                             weapon = equippedWeapon,
+                                            relic = equippedRelic,
+                                            difficulty = difficulty,
                                             allies = friendAllies,
                                             helpedKidIds = helpedKidIds,
                                             itemCounts = itemCounts
@@ -956,21 +966,49 @@ private fun PlayerMenuInsideBox(
             }
 
             MenuSubTab.ACT_LIST -> {
+                val hint = if (language == AppLanguage.AR) state.enemy.spareMethodHintAr else state.enemy.spareMethodHintEn
+                if (hint.isNotBlank()) {
+                    Text(
+                        text = "* $hint",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MercyYellow
+                    )
+                }
                 state.enemy.actOptions.forEach { act ->
+                    val prereqMet = act.requiredPrevActId == null || act.requiredPrevActId in state.completedActIds
+                    val done = act.id in state.completedActIds
+                    val pctGain = if (!state.enemy.isNormalMonster && state.enemy.id != EnemyId.RUINS_DUMMY) 10 else act.mercyGain
                     OutlinedButton(
                         onClick = { onPerformAct(act.id) },
                         shape = RoundedCornerShape(0.dp),
-                        border = BorderStroke(1.5.dp, Color.White),
+                        border = BorderStroke(
+                            1.5.dp,
+                            when {
+                                !prereqMet -> MutedSepiaInk.copy(alpha = 0.65f)
+                                done -> HpBarGreen
+                                else -> Color.White
+                            }
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        val actLabel = when {
-                            state.enemy.canBefriend && act.mercyGain > 0 ->
-                                "* ${act.title} (+${act.mercyGain}% ${tr(language, "Mercy", "رحمة")})"
-                            state.enemy.canStopWithoutKilling && act.mercyGain > 0 ->
-                                "* ${act.title} (+${act.mercyGain}% ${tr(language, "Stop", "إيقاف")})"
-                            else -> "* ${act.title}"
+                        val prefix = when {
+                            !prereqMet -> "🔒 "
+                            done -> "✓ "
+                            else -> "* "
                         }
-                        Text(actLabel, style = MaterialTheme.typography.labelMedium, color = Color.White)
+                        val actLabel = when {
+                            !prereqMet -> "$prefix${act.title} (${tr(language, "Needs prev step", "يتطلب الخطوة السابقة")})"
+                            state.enemy.canBefriend && pctGain > 0 ->
+                                "$prefix${act.title} (+$pctGain% ${tr(language, "Mercy", "رحمة")})"
+                            state.enemy.canStopWithoutKilling && pctGain > 0 ->
+                                "$prefix${act.title} (+$pctGain% ${tr(language, "Stop", "إيقاف")})"
+                            else -> "$prefix${act.title}"
+                        }
+                        Text(
+                            text = actLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (!prereqMet) MutedSepiaInk else if (done) HpBarGreen else Color.White
+                        )
                     }
                 }
                 if (state.enemy.id != EnemyId.FUTURE_LOKA) {

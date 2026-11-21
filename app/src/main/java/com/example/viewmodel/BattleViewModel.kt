@@ -3,6 +3,8 @@ package com.example.viewmodel
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import com.example.audio.RetroSoundEngine
+import com.example.engine.BattleEngine
+import com.example.engine.LokaStatsCalculator
 import com.example.model.ArenaBomb
 import com.example.model.ArenaParticle
 import com.example.model.ArmorEquipment
@@ -14,11 +16,14 @@ import com.example.model.BulletKind
 import com.example.model.EnemyId
 import com.example.model.EnemyProfile
 import com.example.model.EnemyRoster
+import com.example.model.GameDifficulty
 import com.example.model.LaneTelegraph
 import com.example.model.LaserBeam
 import com.example.model.MenuSubTab
 import com.example.model.MonsterJawAttack
 import com.example.model.PortraitExpression
+import com.example.model.RelicCatalog
+import com.example.model.RelicEquipment
 import com.example.model.SideWallShotWarning
 import com.example.model.SoulType
 import com.example.model.WeaponCatalog
@@ -50,6 +55,7 @@ data class BattleUiState(
     val enemy: EnemyProfile = EnemyRoster.byId(EnemyId.VEX),
     val enemyHp: Int = 85,
     val mercyProgress: Int = 0,
+    val completedActIds: Set<String> = emptySet(),
     val turnNumber: Int = 1,
     val phase: BattlePhase = BattlePhase.PLAYER_MENU,
     val subTab: MenuSubTab = MenuSubTab.ROOT,
@@ -97,6 +103,8 @@ data class BattleUiState(
     val ashenHelpingThisTurn: Boolean = false,
     val equippedArmorName: String = "Loka's Grey Tee & Scarf",
     val equippedWeapon: WeaponEquipment = WeaponCatalog.byId("worn_stick"),
+    val equippedRelic: RelicEquipment = RelicCatalog.byId("golden_locket"),
+    val difficulty: GameDifficulty = GameDifficulty.NORMAL,
     val bossExpression: PortraitExpression = PortraitExpression.NEUTRAL,
     val speakerExpression: PortraitExpression = PortraitExpression.DETERMINED,
 
@@ -146,6 +154,8 @@ class BattleViewModel : ViewModel() {
         worldId: WorldId,
         armor: ArmorEquipment,
         weapon: WeaponEquipment = WeaponCatalog.byId("worn_stick"),
+        relic: RelicEquipment = RelicCatalog.byId("golden_locket"),
+        difficulty: GameDifficulty = GameDifficulty.NORMAL,
         allies: Set<EnemyId>,
         helpedKidIds: Set<String>,
         itemCounts: Map<String, Int>
@@ -154,23 +164,15 @@ class BattleViewModel : ViewModel() {
         val allowed = worldId.allowedSouls
         val startingSoul = allowed.first()
 
-        val kidAllies = WorldContentCatalog.lostKids.filter { it.id in helpedKidIds }
-        val kidHp = kidAllies.sumOf { it.hpBonus }
-        val kidDef = kidAllies.sumOf { it.defBonus }
-        val kidAtk = kidAllies.sumOf { it.atkBonus }
-        val kidSpeed = 1f + kidAllies.sumOf { it.speedBonus.toDouble() }.toFloat()
-
-        val brambleHp = if (EnemyId.BRAMBLE in allies) 4 else 0
-        val krogHp = if (EnemyId.GOV_MONSTER_CHIEF in allies) 3 else 0
-        val brambleDef = if (EnemyId.BRAMBLE in allies) 1 else 0
-        val maxHp = 20 + armor.maxHpBonus + brambleHp + krogHp + kidHp
-        val totalDef = armor.defenseBonus + brambleDef + kidDef
-
-        var atkBonus = kidAtk + weapon.attackBonus
-        if (EnemyId.VEX in allies) atkBonus += 2
-        if (EnemyId.MALAKOR in allies) atkBonus += 4
-        if (EnemyId.GOV_MONSTER_CHIEF in allies) atkBonus += 3
-        if (EnemyId.ECHO_LOKA in allies) atkBonus += 3
+        val computedStats = LokaStatsCalculator.compute(
+            armor = armor,
+            weapon = weapon,
+            relic = relic,
+            allies = allies,
+            helpedKidIds = helpedKidIds,
+            difficulty = difficulty,
+            worldId = worldId
+        )
 
         val startShield = (EnemyId.SERAPHIEL in allies) && worldId != WorldId.GLITCHED_WORLD
 
@@ -196,11 +198,11 @@ class BattleViewModel : ViewModel() {
             worldId = worldId,
             enemy = profile,
             enemyHp = profile.maxHp,
-            playerHp = maxHp,
-            maxPlayerHp = maxHp,
-            defenseBonus = totalDef,
-            attackBonus = atkBonus,
-            speedMultiplier = if (worldId == WorldId.GLITCHED_WORLD) 1f else kidSpeed,
+            playerHp = computedStats.maxHp,
+            maxPlayerHp = computedStats.maxHp,
+            defenseBonus = computedStats.defense,
+            attackBonus = computedStats.attackBonus,
+            speedMultiplier = computedStats.speedMultiplier,
             activeAllies = allies,
             helpedKids = helpedKidIds,
             allowedSouls = allowed,
@@ -208,6 +210,8 @@ class BattleViewModel : ViewModel() {
             hasGreenShield = startShield,
             equippedArmorName = armor.name,
             equippedWeapon = weapon,
+            equippedRelic = relic,
+            difficulty = difficulty,
             bossExpression = PortraitExpression.NEUTRAL,
             speakerExpression = if (startingSoul == SoulType.WHITE_SICK) PortraitExpression.SURPRISED else PortraitExpression.DETERMINED,
             items = battleItems,
@@ -255,17 +259,17 @@ class BattleViewModel : ViewModel() {
     fun commitFightStrike() {
         _state.update { s ->
             if (s.phase != BattlePhase.FIGHT_MINIGAME) return@update s
-            val targetX = 0.50f
-            val dist = abs(s.fightCursorPos - targetX)
-            val accuracy = (1f - (dist / 0.46f)).coerceIn(0.08f, 1f)
-            val critWindow = 0.055f + (s.equippedWeapon.critWindowBonus * 0.45f) +
-                (if (EnemyId.VEX in s.activeAllies) 0.015f else 0f)
-            val isCrit = dist <= critWindow
-
-            val rawDamage = 14 + (accuracy * 18).toInt() + s.attackBonus
-            val weaponMultDamage = (rawDamage * s.equippedWeapon.strikeMultiplier * (if (isCrit) 1.35f else 1f)).toInt()
-            val scaledDamage = (weaponMultDamage * s.activeSoul.damageMultiplier).toInt().coerceAtLeast(1)
-            val finalDamage = s.activeSoul.flatDamageCap ?: scaledDamage
+            val strike = BattleEngine.calculateStrikeDamage(
+                cursorPos = s.fightCursorPos,
+                attackBonus = s.attackBonus,
+                weapon = s.equippedWeapon,
+                relic = s.equippedRelic,
+                activeAllies = s.activeAllies,
+                activeSoul = s.activeSoul,
+                difficulty = s.difficulty
+            )
+            val finalDamage = strike.damage
+            val isCrit = strike.isCritical
             val newHp = (s.enemyHp - finalDamage).coerceAtLeast(0)
             RetroSoundEngine.playStrike(isCrit && s.activeSoul != SoulType.WHITE_SICK && s.activeSoul != SoulType.PURPLE)
             hitFlashTimer = 0.36f
@@ -308,27 +312,63 @@ class BattleViewModel : ViewModel() {
 
     fun performAct(optionId: String) {
         _state.update { s ->
-            val act = s.enemy.actOptions.firstOrNull { it.id == optionId } ?: return@update s
-            val allowsNonLethal = s.enemy.canBefriend || s.enemy.canStopWithoutKilling
-            val newMercy = if (allowsNonLethal) {
-                (s.mercyProgress + act.mercyGain).coerceAtMost(100)
-            } else {
-                0
+            val eval = BattleEngine.evaluateActStep(
+                enemy = s.enemy,
+                optionId = optionId,
+                currentMercyProgress = s.mercyProgress,
+                completedActIds = s.completedActIds,
+                relic = s.equippedRelic
+            )
+            if (!eval.optionFound) return@update s
+
+            if (eval.blockedByUnfriendable) {
+                RetroSoundEngine.playSoulSwitch(0)
+                return@update s.copy(
+                    subTab = MenuSubTab.ROOT,
+                    bossExpression = PortraitExpression.ANGRY,
+                    speakerExpression = PortraitExpression.DETERMINED,
+                    phase = BattlePhase.ENEMY_DIALOGUE,
+                    dialogueText = eval.message
+                )
             }
+
+            if (eval.outOfOrder) {
+                RetroSoundEngine.playGlitchNoise(35)
+                return@update s.copy(
+                    subTab = MenuSubTab.ROOT,
+                    bossExpression = PortraitExpression.ANGRY,
+                    speakerExpression = PortraitExpression.SURPRISED,
+                    phase = BattlePhase.ENEMY_DIALOGUE,
+                    dialogueText = eval.message
+                )
+            }
+
+            if (eval.alreadyCompletedStep) {
+                RetroSoundEngine.playSoulSwitch(0)
+                return@update s.copy(
+                    subTab = MenuSubTab.ROOT,
+                    bossExpression = PortraitExpression.NEUTRAL,
+                    speakerExpression = PortraitExpression.SURPRISED,
+                    phase = BattlePhase.ENEMY_DIALOGUE,
+                    dialogueText = eval.message
+                )
+            }
+
+            val newMercy = eval.newMercyProgress
             RetroSoundEngine.playSoulSwitch(2)
             s.copy(
                 mercyProgress = newMercy,
+                completedActIds = eval.completedActIds,
                 subTab = MenuSubTab.ROOT,
                 bossExpression = when {
-                    !allowsNonLethal -> PortraitExpression.ANGRY
                     newMercy >= 100 && s.enemy.canBefriend -> PortraitExpression.HAPPY
                     newMercy >= 100 -> PortraitExpression.SURPRISED
                     s.enemy.canBefriend -> PortraitExpression.SURPRISED
                     else -> PortraitExpression.ANGRY
                 },
-                speakerExpression = if (allowsNonLethal) PortraitExpression.DETERMINED else PortraitExpression.DETERMINED,
+                speakerExpression = PortraitExpression.DETERMINED,
                 phase = BattlePhase.ENEMY_DIALOGUE,
-                dialogueText = act.response
+                dialogueText = eval.message
             )
         }
     }
@@ -954,7 +994,12 @@ class BattleViewModel : ViewModel() {
         val hitRadius = 0.032f * s.activeSoul.hitboxScale * splitScale
 
         val totalDefense = s.defenseBonus + s.activeSoul.defenseBonus
-        val actualIncoming = (s.enemy.attackPower - totalDefense).coerceAtLeast(1) * s.activeSoul.incomingDamageMultiplier
+        val actualIncoming = BattleEngine.calculateIncomingDamage(
+            enemyAttackPower = s.enemy.attackPower,
+            totalDefense = totalDefense,
+            activeSoul = s.activeSoul,
+            difficulty = s.difficulty
+        )
 
         fun applyDamageAt(hitX: Float, hitY: Float, hitOnControlledHalf: Boolean) {
             if (shield) {
@@ -985,6 +1030,7 @@ class BattleViewModel : ViewModel() {
             }
         }
 
+        val bulletTimeScale = timeScale * s.difficulty.enemyBulletSpeedMult
         for (b in enemyBulletsRaw) {
             if (b.id in destroyedEnemyIds) continue
             var nvx = b.vx
@@ -1000,8 +1046,8 @@ class BattleViewModel : ViewModel() {
                 }
             }
 
-            var nx = b.x + nvx * dt * timeScale
-            var ny = b.y + nvy * dt * timeScale
+            var nx = b.x + nvx * dt * bulletTimeScale
+            var ny = b.y + nvy * dt * bulletTimeScale
             var bounces = b.bouncesLeft
 
             if (bounces > 0) {

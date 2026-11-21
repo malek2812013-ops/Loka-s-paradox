@@ -175,11 +175,41 @@ fun LokaFullBodySpriteCanvas(
 fun DrawScope.drawLokaOverworldSprite(
     center: Offset,
     unit: Float,
-    isGlitched: Boolean
+    isGlitched: Boolean,
+    isMoving: Boolean = false,
+    isRunning: Boolean = false,
+    animClock: Float = 0f,
+    facingRight: Boolean = true
 ) {
+    val freq = if (isRunning) 13.5f else 7.5f
+    val phase = if (isMoving) (animClock * freq).toInt() % 4 else 0
+    val bobOffset = when {
+        !isMoving -> 0f
+        isRunning -> if (phase % 2 == 1) -unit * 0.19f else 0f
+        else -> if (phase % 2 == 1) -unit * 0.08f else 0f
+    }
+
+    // Running / walking pixel dust puffs behind Loka's heels
+    if (isMoving) {
+        val dirSign = if (facingRight) -1f else 1f
+        val dustCount = if (isRunning) 3 else 1
+        for (i in 0 until dustCount) {
+            val puffPhase = ((animClock * (if (isRunning) 5.5f else 3.2f) + i * 0.33f) % 1f)
+            val dx = dirSign * unit * (0.65f + puffPhase * (if (isRunning) 1.65f else 0.9f))
+            val dy = unit * (1.28f - puffPhase * (if (isRunning) 0.55f else 0.25f))
+            val puffSize = unit * (if (isRunning) 0.38f else 0.24f) * (1f - puffPhase * 0.65f)
+            val dustColor = if (isGlitched) Color.Cyan else Color(0xFFE2CEAB)
+            drawRect(
+                color = dustColor.copy(alpha = (1f - puffPhase) * (if (isRunning) 0.72f else 0.42f)),
+                topLeft = Offset(center.x + dx - puffSize * 0.5f, center.y + dy - puffSize * 0.5f),
+                size = SizeCompat(puffSize, puffSize)
+            )
+        }
+    }
+
     drawSteppedPixelShadow(
         center = Offset(center.x, center.y + unit * 1.48f),
-        widthPx = unit * 2.15f,
+        widthPx = unit * (if (isRunning && isMoving) 2.30f else 2.15f),
         heightPx = unit * 0.56f
     )
 
@@ -208,11 +238,22 @@ fun DrawScope.drawLokaOverworldSprite(
         'b' to Color(0xFF63422D)
     )
 
+    val activeGrid = when {
+        !isMoving -> PixelSprites.lokaOverworldGrid
+        isRunning -> if (phase % 2 == 0) PixelSprites.lokaRunFrameAGrid else PixelSprites.lokaRunFrameBGrid
+        else -> when (phase) {
+            0 -> PixelSprites.lokaWalkFrameAGrid
+            2 -> PixelSprites.lokaWalkFrameBGrid
+            else -> PixelSprites.lokaOverworldGrid
+        }
+    }
+
     drawPixelMatrix(
-        rows = PixelSprites.lokaOverworldGrid,
+        rows = activeGrid,
         palette = palette,
-        center = center,
-        targetSizePx = unit * 3.55f
+        center = Offset(center.x, center.y + bobOffset),
+        targetSizePx = unit * 3.55f,
+        flipX = !facingRight
     )
 }
 

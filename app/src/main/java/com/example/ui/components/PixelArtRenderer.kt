@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -32,14 +33,15 @@ import com.example.ui.theme.SoulSeraphCyan
 
 /**
  * Renders 512x512 Ultra-Crisp Integer-Scaled Undertale Pixel Art Sprites
- * (32x32 grids upscaled cleanly at 16x integer factor via FilterQuality.None).
+ * (32x32 / 64x64 grids upscaled cleanly at integer factor via FilterQuality.None).
  */
 fun DrawScope.drawPixelMatrix(
     rows: List<String>,
     palette: Map<Char, Color>,
     center: Offset,
     targetSizePx: Float,
-    alpha: Float = 1f
+    alpha: Float = 1f,
+    flipX: Boolean = false
 ) {
     if (rows.isEmpty()) return
     val hdBitmap = UltraPixelArtEngine.getHdSpriteBitmap(rows, palette)
@@ -49,13 +51,25 @@ fun DrawScope.drawPixelMatrix(
     val left = (center.x - drawW * 0.5f).roundToInt()
     val top = (center.y - drawH * 0.5f).roundToInt()
 
-    drawImage(
-        image = hdBitmap,
-        dstOffset = IntOffset(left, top),
-        dstSize = IntSize(drawW, drawH),
-        alpha = alpha.coerceIn(0f, 1f),
-        filterQuality = FilterQuality.None
-    )
+    if (flipX) {
+        scale(scaleX = -1f, scaleY = 1f, pivot = center) {
+            drawImage(
+                image = hdBitmap,
+                dstOffset = IntOffset(left, top),
+                dstSize = IntSize(drawW, drawH),
+                alpha = alpha.coerceIn(0f, 1f),
+                filterQuality = FilterQuality.None
+            )
+        }
+    } else {
+        drawImage(
+            image = hdBitmap,
+            dstOffset = IntOffset(left, top),
+            dstSize = IntSize(drawW, drawH),
+            alpha = alpha.coerceIn(0f, 1f),
+            filterQuality = FilterQuality.None
+        )
+    }
 }
 
 /**
@@ -421,6 +435,140 @@ object PixelSprites {
         "................................................................",
         "................................................................"
     )
+
+    val lokaWalkFrameAGrid: List<String> by lazy {
+        buildLokaMotionFrame(
+            bodyDx = 0,
+            headDy = -1,
+            leftLegDx = -1,
+            leftLegDy = -3,
+            rightLegDx = 1,
+            rightLegDy = 1,
+            leftArmDx = -2,
+            leftArmDy = 1,
+            rightArmDx = 2,
+            rightArmDy = -2,
+            isSprint = false
+        )
+    }
+
+    val lokaWalkFrameBGrid: List<String> by lazy {
+        buildLokaMotionFrame(
+            bodyDx = 0,
+            headDy = -1,
+            leftLegDx = -1,
+            leftLegDy = 1,
+            rightLegDx = 1,
+            rightLegDy = -3,
+            leftArmDx = -2,
+            leftArmDy = -2,
+            rightArmDx = 2,
+            rightArmDy = 1,
+            isSprint = false
+        )
+    }
+
+    // Forward-leaning sprint frames (facing right; flipped horizontally when moving left)
+    val lokaRunFrameAGrid: List<String> by lazy {
+        buildLokaMotionFrame(
+            bodyDx = 3,
+            headDy = -2,
+            leftLegDx = -5,
+            leftLegDy = -2,
+            rightLegDx = 5,
+            rightLegDy = -4,
+            leftArmDx = -4,
+            leftArmDy = 1,
+            rightArmDx = 4,
+            rightArmDy = -3,
+            isSprint = true
+        )
+    }
+
+    val lokaRunFrameBGrid: List<String> by lazy {
+        buildLokaMotionFrame(
+            bodyDx = 2,
+            headDy = 0,
+            leftLegDx = 5,
+            leftLegDy = -3,
+            rightLegDx = -5,
+            rightLegDy = -1,
+            leftArmDx = 4,
+            leftArmDy = -3,
+            rightArmDx = -4,
+            rightArmDy = 1,
+            isSprint = true
+        )
+    }
+
+    private fun buildLokaMotionFrame(
+        bodyDx: Int,
+        headDy: Int,
+        leftLegDx: Int,
+        leftLegDy: Int,
+        rightLegDx: Int,
+        rightLegDy: Int,
+        leftArmDx: Int,
+        leftArmDy: Int,
+        rightArmDx: Int,
+        rightArmDy: Int,
+        isSprint: Boolean
+    ): List<String> {
+        val h = lokaOverworldGrid.size
+        val w = lokaOverworldGrid.first().length
+        val canvas = Array(h) { CharArray(w) { '.' } }
+
+        fun plot(x: Int, y: Int, ch: Char) {
+            if (x in 0 until w && y in 0 until h && ch != '.') {
+                canvas[y][x] = ch
+            }
+        }
+
+        // 1. Legs & Boots (rows 42..57)
+        for (y in 42..57) {
+            val row = lokaOverworldGrid[y]
+            for (x in 0 until w) {
+                val ch = row[x]
+                if (ch == '.') continue
+                if (x < 32) {
+                    plot(x + leftLegDx, y + leftLegDy, ch)
+                } else {
+                    plot(x + rightLegDx, y + rightLegDy, ch)
+                }
+            }
+        }
+
+        // 2. Torso & Arms (rows 29..41)
+        for (y in 29..41) {
+            val row = lokaOverworldGrid[y]
+            for (x in 0 until w) {
+                val ch = row[x]
+                if (ch == '.') continue
+                val torsoDy = if (isSprint) headDy / 2 else headDy
+                when {
+                    x <= 15 -> plot(x + bodyDx / 2 + leftArmDx, y + torsoDy + leftArmDy, ch)
+                    x >= 48 -> plot(x + bodyDx / 2 + rightArmDx, y + torsoDy + rightArmDy, ch)
+                    else -> plot(x + bodyDx / 2, y + torsoDy, ch)
+                }
+            }
+        }
+
+        // 3. Head & Hair (rows 0..28) with wind-swept trailing strands during Sprint!
+        for (y in 0..28) {
+            val row = lokaOverworldGrid[y]
+            for (x in 0 until w) {
+                val ch = row[x]
+                if (ch == '.') continue
+                val leanX = if (isSprint) bodyDx else 0
+                plot(x + leanX, y + headDy, ch)
+                if (isSprint && ch in setOf('H', 'h', 'O') && x in 10..15 && y in 12..25) {
+                    plot(x + leanX - 2, y + headDy, ch)
+                }
+            }
+        }
+
+        return canvas.map { String(it) }
+    }
 
     // 32x32 Monochrome Undertale Ashen Flower (512x512 @ 16x integer scale):
     // Sculpted 6-petal white/silver Undertale blossom inspired by Flowey art, curved stem, veined leaves, pixel dirt mound.
@@ -1524,7 +1672,7 @@ fun DrawScope.drawDirectionalArrow(
 }
 
 /**
- * Overworld Pixel Art NPC Sprite.
+ * Overworld High-Detail 32x32 Micro-Pixel NPC Sprite (rendered at 512x512).
  */
 fun DrawScope.drawOverworldNpcSprite(
     npc: WorldNpc,
@@ -1532,9 +1680,9 @@ fun DrawScope.drawOverworldNpcSprite(
     unitPx: Float
 ) {
     drawSteppedPixelShadow(
-        center = Offset(center.x, center.y + unitPx * 1.02f),
-        widthPx = unitPx * 1.9f,
-        heightPx = unitPx * 0.55f
+        center = Offset(center.x, center.y + unitPx * 1.05f),
+        widthPx = unitPx * 1.95f,
+        heightPx = unitPx * 0.52f
     )
     val isAngel = npc.race.contains("Angel", ignoreCase = true)
     val isDevil = npc.race.contains("Devil", ignoreCase = true)
@@ -1551,64 +1699,140 @@ fun DrawScope.drawOverworldNpcSprite(
 
     val grid = when {
         isAngel -> listOf(
-            "....YYYYYYYYYYYY....",
-            "...OOOWWWWWWWWO0O...",
-            "..OSSSSSSSSSSSSSSO..",
-            "..OSWWBSSSSSSBWWSSO.",
-            "..OSSBBSSSSSSBBSSSO.",
-            "...OOSSSSSSSSSSSOO..",
-            "..OOWWAAAAAAAAWWOO..",
-            ".OWWAAAAAAAAAAAAWWO.",
-            ".OWAAAAYYYYYYAAAAWO.",
-            "..OAAAAAAAAAAAAAAO..",
-            "...OCCCCCCCCCCCCO...",
-            "....OCCOO..OOCCO....",
-            "....OCCO....OCCO....",
-            "....OOOO....OOOO...."
+            "..........OOOOOOOOOOOO..........",
+            ".........OYYYYYYYYYYYYO.........",
+            "........OYYWWWWWWWWWWYYO........",
+            ".........OOOOOOOOOOOOOO.........",
+            ".........OOWWWWWWWWWWO..........",
+            "........OWWWWWWWWWWWWWWO........",
+            ".......OWWWSSSSSSSSSSWWWO.......",
+            ".......OWWSSSSSSSSSSSSWWO.......",
+            ".......OWWSSWWBSSBWWSSWWO.......",
+            ".......OWWSSWWBSSBWWSSWWO.......",
+            ".......OWWSSSSSSSSSSSSWWO.......",
+            "........OWSSSSSSmmSSSSWO........",
+            ".........OSSSSSSSSSSSSO.........",
+            "..........OOSSSSSSSSOO..........",
+            "........OOOWWAAAAAAWWOOO........",
+            ".......OWWWAAAAAAAAAAAAWO.......",
+            "......OWWAAAAYYYYYYAAAAWWO......",
+            "......OWWAAAYYWWWWYYAAAWWO......",
+            "......OWWAAAAYYYYYYAAAAWWO......",
+            ".......OAAAAAAAAAAAAAAAAO.......",
+            ".......OCCCCCCCCCCCCCCCCO.......",
+            "........OCCCCCYYYYCCCCCO........",
+            "........OCCCCCCCCCCCCCCO........",
+            ".........OCCCCCCCCCCCCO.........",
+            ".........OCCCCOOOOCCCCO.........",
+            ".........OCCCCO..OCCCCO.........",
+            ".........OCCCCO..OCCCCO.........",
+            ".........OBBBBO..OBBBBO.........",
+            ".........OOOOOO..OOOOOO.........",
+            "................................",
+            "................................",
+            "................................"
         )
         isDevil -> listOf(
-            ".OO..............OO.",
-            ".OAO............OAO.",
-            "..OAO..OOOOOO..OAO..",
-            "..OOODDDDDDDDDDOOO..",
-            "..ODDDWWDDDDWWDDDO..",
-            "..ODDDDDDDDDDDDDDO..",
-            "...OODDDDDDDDDDOO...",
-            "..OCCCCCCCCCCCCCCOO.",
-            ".OCCAAAAWWWWAAAACCO.",
-            ".OCCAAAAAAAAAAAACCO.",
-            "..OCCCCCCCCCCCCCCOO.",
-            "....ODDDD..DDDDO....",
-            "....ODDD....DDDO....",
-            "....OOOO....OOOO...."
+            "...OO......................OO...",
+            "...OAO....................OAO...",
+            "....OAO..................OAO....",
+            "....OAAO....OOOOOOOO....OAAO....",
+            ".....OOAO..ODDDDDDDDO..OAOO.....",
+            ".....OODDDDDDDDDDDDDDDDDDOO.....",
+            "......ODDDDDDDDDDDDDDDDDDO......",
+            "......ODDDWWDDDDDDDDWWDDDO......",
+            "......ODDDWWADDDDDDAWWDDDO......",
+            "......ODDDDDDDDDDDDDDDDDDO......",
+            ".......ODDDDDDWWWWDDDDDDO.......",
+            "........OODDDDDDDDDDDDOO........",
+            ".......OOCCCCCCCCCCCCCCOO.......",
+            "......OCCCCAAAAWWWWAAAACCO......",
+            ".....OCCCCCAAAAWWWWAAAACCCO.....",
+            ".....OCCCCCAAAAAAAAAAAACCCO.....",
+            "......OCCCCCCCCCCCCCCCCCCO......",
+            "......OCCCCAAAYYYYAAAACCCO......",
+            ".......OCCCCCCCCCCCCCCCCO.......",
+            "........OCCCCCCCCCCCCCCO........",
+            "........OCCCCCCOOCCCCCCO........",
+            ".........ODDDDD..DDDDDO.........",
+            ".........ODDDDD..DDDDDO.........",
+            ".........ODDDDD..DDDDDO.........",
+            ".........ODDDDD..DDDDDO.........",
+            ".........OBBBBB..BBBBBO.........",
+            ".........OOOOOO..OOOOOO.........",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................"
         )
         isMonster -> listOf(
-            "....OOOOOOOOOOOO....",
-            "..OOWWAAAAAAAAWWOO..",
-            ".OAAAAWWAAAAWWAAAAO.",
-            ".OAAAAWBAAAAWBAAAAO.",
-            ".OAAAAAAAAAAAAAAAAO.",
-            "..OAAOOAAAAAAOOAAO..",
-            "..OCCCCCCCCCCCCCCOO.",
-            ".OCCAAAAWWWWAAAACCO.",
-            "..OCCCCCCCCCCCCCCOO.",
-            "....ODDDD..DDDDO....",
-            "....ODDD....DDDO....",
-            "....OOOO....OOOO...."
+            "........OOOOOOOOOOOOOOOO........",
+            "......OOAAAAAAAAAAAAAAAAOO......",
+            ".....OAAWWAAAAAAAAAAAAWWAAO.....",
+            "....OAAWWWWAAOOOOOOAAWWWWAAO....",
+            "....OAAWWWBAAAAAAAAAAAWBBAAO....",
+            "....OAAWWWBAAAAAAAAAAAWBBAAO....",
+            "....OAAAAAAAAAAAAAAAAAAAAAAO....",
+            ".....OAAOOAAAAAAAAAAAAOOAAO.....",
+            ".....OAOOOWWWWWWWWWWWWOOAAO.....",
+            "......OOAAAAAAAAAAAAAAAAOO......",
+            "......OOCCCCCCCCCCCCCCCCOO......",
+            ".....OCCCCCAAAAWWWWAAAACCCO.....",
+            "....OCCCCCCAAAAWWWWAAAACCCCO....",
+            "....OCCCCCCAAAAAAAAAAAACCCCO....",
+            ".....OCCCCCCCCCCCCCCCCCCCCO.....",
+            ".....OCCCCCAAAAAAAAAAACCCCO.....",
+            "......OCCCCCCCCCCCCCCCCCCO......",
+            ".......OCCCCCCOOOOCCCCCCCO......",
+            "........ODDDDD....DDDDDO........",
+            "........ODDDDD....DDDDDO........",
+            "........ODDDDD....DDDDDO........",
+            "........ODDDDD....DDDDDO........",
+            "........OBBBBB....BBBBBO........",
+            "........OOOOOO....OOOOOO........",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................"
         )
         else -> listOf(
-            "....OOOOOOOOOOOO....",
-            "..OOHHHHHHHHHHHHOO..",
-            ".OHHHHHHHHHHHHHHHHO.",
-            ".OHHSSSSSSSSSSSSSHO.",
-            ".OHSSWWBSSSSBWWSSHO.",
-            "..OSSSSSSSSSSSSSSO..",
-            "..OOOWAAAAAAAAWOOO..",
-            ".OSSAAAAAAAAAAAAASSO",
-            "..OOOPPPPPPPPPPOOO..",
-            "....OPPPP..PPPPO....",
-            "....OBBB....BBBO....",
-            "....OOOO....OOOO...."
+            "........OOOOOOOOOOOOOOOO........",
+            "......OOHHHHHHHHHHHHHHHHOO......",
+            ".....OHHHHHHhHHHHHHhHHHHHHO.....",
+            "....OHHHHHHHHHHHHHHHHHHHHHHO....",
+            "....OHHHSSSSSSSSSSSSSSSSHHHO....",
+            "....OHHSSSSSSSSSSSSSSSSSSSHO....",
+            "....OHHSSSWWBSSSSSSBWWSSSHHO....",
+            "....OHHSSSWWBSSSSSSBWWSSSHHO....",
+            ".....OSSSSSSSSSSSSSSSSSSSSO.....",
+            "......OSSSSSSmmmmmmSSSSSSO......",
+            ".......OOSSSSSSSSSSSSSSOO.......",
+            "......OOOWWWAAAAAAAAWWWOOO......",
+            ".....OSSSAAAAAAAAAAAAAAAASSO....",
+            "....OSSSSAAAAYYYYYYAAAAASSSSO...",
+            "....OSSSSAAAAAAAAAAAAAAAASSSO...",
+            ".....OSSSAAAAAAAAAAAAAAAASSO....",
+            "......OOOPPPPPPPPPPPPPPPPOOO....",
+            ".......OPPPPPPYYYYYPPPPPPPO.....",
+            ".......OPPPPPPPPPPPPPPPPPPO.....",
+            "........OPPPPPP..PPPPPPPO.......",
+            "........OPPPPPP..PPPPPPPO.......",
+            "........OBBBBBB..BBBBBBBO.......",
+            "........OBBBBBB..BBBBBBBO.......",
+            "........OOOOOOO..OOOOOOO........",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................",
+            "................................"
         )
     }
     val palette = mapOf(
@@ -1618,17 +1842,19 @@ fun DrawScope.drawOverworldNpcSprite(
         'Y' to MercyYellow,
         'S' to Color(0xFFEBC7A8),
         'H' to Color(0xFF5A3825),
+        'h' to Color(0xFF8C583A),
+        'm' to Color(0xFFC47A68),
         'B' to Color(0xFF1F2937),
         'W' to Color.White,
         'A' to npc.accentColor,
         'C' to npc.accentColor.copy(alpha = 0.72f),
         'P' to Color(0xFF334155)
     )
-    drawPixelMatrix(grid, palette, center, unitPx * 2.75f)
+    drawPixelMatrix(grid, palette, center, unitPx * 2.85f)
 }
 
 /**
- * Overworld High-Detail Micro-Pixel Lost Paradox Kid Sprite with pulsing beacon aura.
+ * Overworld High-Detail 32x32 Micro-Pixel Lost Paradox Kid Sprite with pulsing beacon aura.
  */
 fun DrawScope.drawOverworldKidSprite(
     kid: LostKid,
@@ -1649,31 +1875,51 @@ fun DrawScope.drawOverworldKidSprite(
         heightPx = unitPx * 0.46f
     )
     val grid = listOf(
-        "....OOOOOOOO....",
-        "...OHHHhHhHHHO..",
-        "..OHHhHHHHHhHHO.",
-        "..OHSSSSSSSSSHO.",
-        "..OHSSBBSSBBSSO.",
-        "...OSSSSSSSSSSO.",
-        "..OOWAAAAAAAAWOO",
-        "..OSAAAWWWWAAASO",
-        "...OAAAAAAAAAO..",
-        "....OPPPPPPPPO..",
-        "....OPPP..PPPO..",
-        "....OBBB..BBBO..",
-        "....OOOO..OOOO.."
+        ".........OOOOOOOOOOOOOO.........",
+        ".......OOHHHHhhhhhhHHHHOO.......",
+        "......OHHhhHHHHHHHHHHhhHHO......",
+        ".....OHHHHHHHHHHHHHHHHHHHHO.....",
+        ".....OHHHhHHHHHHHHHHHHhHHHO.....",
+        ".....OHHHSSSSSSSSSSSSSSSHHO.....",
+        ".....OHHSSSSSSSSSSSSSSSSSHO.....",
+        ".....OHHSSWWBBSSSSBBWWSSSHO.....",
+        ".....OHHSSWWBBSSSSBBWWSSSHO.....",
+        "......OSSSSSSrrrrrrSSSSSSO......",
+        "......OSSSSSSSSSSSSSSSSSSO......",
+        ".......OOSSSSSSSSSSSSSSOO.......",
+        "......OOWWWAAAAAAAAAAWWWOO......",
+        ".....OSSAAAAAAAAAAAAAAAAASSO....",
+        ".....OSSAAAAWWWWWWWWAAAAASSO....",
+        ".....OSSAAAAAAAAAAAAAAAAASSO....",
+        "......OAAAAAAAAAAAAAAAAAAAO.....",
+        "......OOOPPPPPPPPPPPPPPOOO......",
+        ".......OPPPPPPPPPPPPPPPPO.......",
+        ".......OPPPPPP....PPPPPPO.......",
+        ".......OPPPPPP....PPPPPPO.......",
+        ".......OBBBBBB....BBBBBBO.......",
+        ".......OBBBBBB....BBBBBBO.......",
+        ".......OOOOOOO....OOOOOOO.......",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
     val palette = mapOf(
         'O' to Color(0xFF120C08),
         'H' to Color(0xFF78350F),
         'h' to Color(0xFFB45309),
         'S' to Color(0xFFEBC7A8),
+        'r' to Color(0xFFE08C7E),
         'B' to Color(0xFF1E293B),
         'W' to Color.White,
         'A' to kid.accentColor,
         'P' to Color(0xFF334155)
     )
-    drawPixelMatrix(grid, palette, center, unitPx * 2.45f)
+    drawPixelMatrix(grid, palette, center, unitPx * 2.55f)
 }
 
 /**

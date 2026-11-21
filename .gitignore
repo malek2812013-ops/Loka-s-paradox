@@ -1,0 +1,26 @@
+# Gradle & Build outputs
+.gradle/
+**/build/
+.build-outputs/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Local configuration & IDE files
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+
+# Signing & Secrets (never commit production keystores or secrets!)
+*.jks
+*.keystore
+!debug.keystore
+keystore.properties
+.env
+*.local

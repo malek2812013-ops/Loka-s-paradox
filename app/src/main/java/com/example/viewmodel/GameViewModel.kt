@@ -4,7 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.example.audio.RetroSoundEngine
 import com.example.data.GameSaveStorage
+import com.example.data.SaveSlotSummary
 import com.example.data.SavedGameSnapshot
+import com.example.engine.LokaComputedStats
+import com.example.engine.LokaStatsCalculator
+import com.example.engine.TimelineManager
+import com.example.engine.TimelineReactiveState
 import com.example.model.AppLanguage
 import com.example.model.AppScreen
 import com.example.model.ArmorCatalog
@@ -13,9 +18,13 @@ import com.example.model.ControlScheme
 import com.example.model.DefaultLoreRepository
 import com.example.model.EnemyId
 import com.example.model.EnemyRoster
+import com.example.model.GameDifficulty
 import com.example.model.GlitchedMemory
 import com.example.model.LoreSlide
+import com.example.model.RelicCatalog
+import com.example.model.RelicEquipment
 import com.example.model.RouteType
+import com.example.model.TimelineEcho
 import com.example.model.WeaponCatalog
 import com.example.model.WeaponEquipment
 import com.example.model.WorldContentCatalog
@@ -52,6 +61,16 @@ data class RoamingMonster(
     val isChasing: Boolean = false
 )
 
+data class StalkerBossState(
+    val enemyId: EnemyId,
+    val worldId: WorldId,
+    val zone: WorldZone,
+    val xNorm: Float,
+    val yNorm: Float,
+    val portalCooldownSec: Float = 5.5f,
+    val isChasing: Boolean = false
+)
+
 data class AppUiState(
     val language: AppLanguage = AppLanguage.EN,
     val currentScreen: AppScreen = AppScreen.LORE_INTRO,
@@ -60,6 +79,10 @@ data class AppUiState(
     val glitchIntensity: Float = 0.90f,
     val controlScheme: ControlScheme = ControlScheme.TOUCH_DRAG,
     val isMuted: Boolean = false,
+    val masterVolume: Float = 1.0f,
+    val difficulty: GameDifficulty = GameDifficulty.NORMAL,
+    val reduceFlash: Boolean = false,
+    val isRunningMode: Boolean = false,
 
     // Ruins Expanded 3-Chamber Opening Area (Flowerbed -> Pillar & Switch Hall -> Dummy & Exit Gate)
     val ruinsRoomIndex: Int = 0,
@@ -85,10 +108,14 @@ data class AppUiState(
     val glitchMemoryCycleSec: Float = 0f,
     val echoLokaPos: Pair<Float, Float> = 0.50f to 0.28f,
     val roamingMonsters: List<RoamingMonster> = emptyList(),
+    val stalkerBosses: List<StalkerBossState> = listOf(
+        StalkerBossState(EnemyId.VEX, WorldId.NORMAL_WORLD, WorldZone.NORTH, 0.72f, 0.36f, portalCooldownSec = 6.0f),
+        StalkerBossState(EnemyId.MALAKOR, WorldId.SPLIT_REALM, WorldZone.EAST, 0.72f, 0.44f, portalCooldownSec = 7.5f)
+    ),
     val roamGraceTimerSec: Float = 2.5f,
     val worldBannerMessage: String? = null,
 
-    // Progression, Friends/Allies, Lost Kids (Escorted until Normal World vs Rescued vs Killed), Quests, Armors & Inventory
+    // Progression, Friends/Allies, Lost Kids (Escorted until Normal World vs Rescued vs Killed), Quests, Armors, Relics & Inventory
     val selectedEnemyId: EnemyId = EnemyId.VEX,
     val battleSessionId: Long = 0L,
     val battleFromRuins: Boolean = false,
@@ -106,26 +133,34 @@ data class AppUiState(
     val equippedArmorId: String = "casual_jacket",
     val unlockedWeaponIds: Set<String> = setOf("worn_stick"),
     val equippedWeaponId: String = "worn_stick",
+    val unlockedRelicIds: Set<String> = setOf("golden_locket"),
+    val equippedRelicId: String = "golden_locket",
     val itemCounts: Map<String, Int> = mapOf(
         "chrono_shard" to 2,
         "sepia_ration" to 1,
         "save_anchor" to 1
     ),
 
-    // 4 Routes & Finale State
+    // 4 Routes, Multiple Timelines & Finale State
     val activeFinaleRoute: RouteType = RouteType.MOST_EXPECTED,
     val unlockedRoutes: Set<RouteType> = emptySet(),
     val isFutureTransformed: Boolean = false,
     val teleportControlMastered: Boolean = false,
     val worldDestroyedEnding: Boolean = false,
     val peaceSacrificeEnding: Boolean = false,
+    val timelineResetCount: Int = 0,
+    val pastTimelines: List<TimelineEcho> = emptyList(),
+    val choiceHistory: List<String> = emptyList(),
 
-    // Hidden Save mystery counter & Persistence flag
+    // Multi-slot Save & Hidden Save mystery counter
+    val activeSaveSlot: Int = 0,
+    val saveSlotSummaries: List<SaveSlotSummary> = emptyList(),
     val saveCounter: Int = 0,
     val hasSavedFile: Boolean = false
 ) {
     val equippedArmor: ArmorEquipment get() = ArmorCatalog.byId(equippedArmorId)
     val equippedWeapon: WeaponEquipment get() = WeaponCatalog.byId(equippedWeaponId)
+    val equippedRelic: RelicEquipment get() = RelicCatalog.byId(equippedRelicId)
 
     // Only kids currently escorted with Loka (before reaching Normal World) actively grant journey buffs!
     val helpedKidsList get() = WorldContentCatalog.lostKids.filter { it.id in escortingKidIds }
@@ -133,6 +168,29 @@ data class AppUiState(
     val kidDefBonus: Int get() = helpedKidsList.sumOf { it.defBonus }
     val kidAtkBonus: Int get() = helpedKidsList.sumOf { it.atkBonus }
     val kidSpeedMultiplier: Float get() = 1f + helpedKidsList.sumOf { it.speedBonus.toDouble() }.toFloat()
+
+    val computedStats: LokaComputedStats
+        get() = LokaStatsCalculator.compute(
+            armor = equippedArmor,
+            weapon = equippedWeapon,
+            relic = equippedRelic,
+            allies = friendAllies,
+            helpedKidIds = escortingKidIds,
+            difficulty = difficulty,
+            worldId = activeWorld
+        )
+
+    val timelineMemory: TimelineReactiveState
+        get() = TimelineManager.evaluateReactiveMemory(
+            timelineResetCount = timelineResetCount,
+            pastTimelines = pastTimelines,
+            currentKills = defeatedEnemies.size + killedKidIds.size,
+            currentFriends = friendAllies.size,
+            lang = language
+        )
+
+    val isParadoxTrialUnlocked: Boolean
+        get() = TimelineManager.resolveBossUnlockByDecision(choiceHistory, timelineResetCount)
 
     val secretTapesFound: Int
         get() = WorldContentCatalog.landmarks.count { it.isSecret && it.id in completedLandmarkIds }
@@ -167,6 +225,57 @@ data class AppUiState(
     val isJourneyCompleteForEcho: Boolean
         get() = resolvedBossCount >= totalStandardBosses || teleportControlMastered || unlockedRoutes.isNotEmpty()
 
+    fun isWorldCompletedForLock(worldId: WorldId): Boolean {
+        val wLandmarks = WorldContentCatalog.landmarks.filter { it.worldId == worldId }
+        val wChests = WorldContentCatalog.chests.filter { it.worldId == worldId }
+        val wKids = WorldContentCatalog.lostKids.filter { it.worldId == worldId }
+        val wImmediateBosses = EnemyRoster.forWorld(worldId).filter { it.bossBehavior == com.example.model.BossBehavior.IMMEDIATE }
+        val questsOk = wLandmarks.all { it.id in completedLandmarkIds }
+        val chestsOk = wChests.all { it.id in openedChestIds }
+        val kidsOk = wKids.all { it.id in escortingKidIds || it.id in rescuedToNormalKidIds || it.id in killedKidIds }
+        val bossesOk = wImmediateBosses.all { it.id in friendAllies || it.id in stoppedEnemies || it.id in defeatedEnemies }
+        val angelOk = worldId != WorldId.GOVERNMENT_HQ || angelAidClaimed
+        return questsOk && chestsOk && kidsOk && bossesOk && angelOk
+    }
+
+    fun isBossUnlocked(enemyId: EnemyId): Boolean {
+        if (enemyId == EnemyId.ECHO_LOKA) return isJourneyCompleteForEcho
+        val profile = EnemyRoster.byId(enemyId)
+        return when (profile.bossBehavior) {
+            com.example.model.BossBehavior.IMMEDIATE,
+            com.example.model.BossBehavior.CROSS_WORLD_CHASER -> true
+            com.example.model.BossBehavior.WORLD_COMPLETION -> isWorldCompletedForLock(profile.worldId)
+        }
+    }
+
+    fun bossLockProgressText(enemyId: EnemyId, lang: AppLanguage): String {
+        if (enemyId == EnemyId.ECHO_LOKA) {
+            return if (lang == AppLanguage.AR) {
+                "الرحلة: $resolvedBossCount/$totalStandardBosses زعماء"
+            } else {
+                "Journey: $resolvedBossCount/$totalStandardBosses bosses"
+            }
+        }
+        val worldId = EnemyRoster.byId(enemyId).worldId
+        val wLandmarks = WorldContentCatalog.landmarks.filter { it.worldId == worldId }
+        val wChests = WorldContentCatalog.chests.filter { it.worldId == worldId }
+        val wKids = WorldContentCatalog.lostKids.filter { it.worldId == worldId }
+        val wImm = EnemyRoster.forWorld(worldId).filter { it.bossBehavior == com.example.model.BossBehavior.IMMEDIATE }
+        val qDone = wLandmarks.count { it.id in completedLandmarkIds }
+        val cDone = wChests.count { it.id in openedChestIds }
+        val kDone = wKids.count { it.id in escortingKidIds || it.id in rescuedToNormalKidIds || it.id in killedKidIds }
+        val bDone = wImm.count { it.id in friendAllies || it.id in stoppedEnemies || it.id in defeatedEnemies }
+        val parts = mutableListOf<String>()
+        if (wLandmarks.isNotEmpty()) parts += if (lang == AppLanguage.AR) "مهام $qDone/${wLandmarks.size}" else "Quests $qDone/${wLandmarks.size}"
+        if (wChests.isNotEmpty()) parts += if (lang == AppLanguage.AR) "صناديق $cDone/${wChests.size}" else "Chests $cDone/${wChests.size}"
+        if (wKids.isNotEmpty()) parts += if (lang == AppLanguage.AR) "أطفال $kDone/${wKids.size}" else "Kids $kDone/${wKids.size}"
+        if (wImm.isNotEmpty()) parts += if (lang == AppLanguage.AR) "زعيم $bDone/${wImm.size}" else "Boss $bDone/${wImm.size}"
+        if (worldId == WorldId.GOVERNMENT_HQ) {
+            parts += if (lang == AppLanguage.AR) "الملاك ${if (angelAidClaimed) "✓" else "✕"}" else "Angel ${if (angelAidClaimed) "✓" else "✕"}"
+        }
+        return parts.joinToString(" · ")
+    }
+
     val eligibleRoute: RouteType?
         get() {
             val standardIds = EnemyRoster.standardPlayableRoster().map { it.id }.toSet()
@@ -194,48 +303,77 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var ghostIdSeq = 1
 
     init {
-        val snap = saveStorage.load()
+        val activeSlot = saveStorage.getActiveSlot()
+        val snap = saveStorage.load(activeSlot)
+        RetroSoundEngine.isMuted = snap.isMuted
+        RetroSoundEngine.masterVolume = snap.masterVolume
+        val summaries = saveStorage.listSlotSummaries()
         if (snap.hasSavedProgress) {
-            RetroSoundEngine.isMuted = snap.isMuted
+            _uiState.value = stateFromSnapshot(snap, activeSlot, summaries)
+        } else {
             _uiState.value = AppUiState(
-                language = snap.language,
-                controlScheme = snap.controlScheme,
-                isMuted = snap.isMuted,
-                currentScreen = snap.resumeScreen,
-                ruinsSwitchActivated = snap.ruinsSwitchActivated,
-                ruinsDummyPracticed = snap.ruinsDummyPracticed,
-                activeWorld = snap.activeWorld,
-                activeZone = snap.activeZone,
-                playerMapX = snap.playerMapX,
-                playerMapY = snap.playerMapY,
-                randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
-                defeatedEnemies = snap.defeatedEnemies,
-                friendAllies = snap.friendAllies,
-                stoppedEnemies = snap.stoppedEnemies,
-                angelAidClaimed = snap.angelAidClaimed,
-                escortingKidIds = snap.escortingKidIds,
-                rescuedToNormalKidIds = snap.rescuedToNormalKidIds,
-                killedKidIds = snap.killedKidIds,
-                completedLandmarkIds = snap.completedLandmarkIds,
-                claimedNpcEvents = snap.claimedNpcEvents,
-                openedChestIds = snap.openedChestIds,
-                unlockedArmorIds = snap.unlockedArmorIds,
-                equippedArmorId = snap.equippedArmorId,
-                unlockedWeaponIds = snap.unlockedWeaponIds,
-                equippedWeaponId = snap.equippedWeaponId,
-                itemCounts = snap.itemCounts,
-                unlockedRoutes = snap.unlockedRoutes,
-                activeFinaleRoute = snap.activeFinaleRoute,
-                isFutureTransformed = snap.isFutureTransformed,
-                teleportControlMastered = snap.teleportControlMastered,
-                worldDestroyedEnding = snap.worldDestroyedEnding,
-                peaceSacrificeEnding = snap.peaceSacrificeEnding,
-                saveCounter = snap.saveCounter,
-                roamingMonsters = roamingForWorld(snap.activeWorld),
-                roamGraceTimerSec = 2.5f,
-                hasSavedFile = true
+                masterVolume = snap.masterVolume,
+                difficulty = snap.difficulty,
+                reduceFlash = snap.reduceFlash,
+                activeSaveSlot = activeSlot,
+                saveSlotSummaries = summaries
             )
         }
+    }
+
+    private fun stateFromSnapshot(
+        snap: SavedGameSnapshot,
+        slotIndex: Int,
+        summaries: List<SaveSlotSummary>
+    ): AppUiState {
+        return AppUiState(
+            language = snap.language,
+            controlScheme = snap.controlScheme,
+            isMuted = snap.isMuted,
+            masterVolume = snap.masterVolume,
+            difficulty = snap.difficulty,
+            reduceFlash = snap.reduceFlash,
+            currentScreen = snap.resumeScreen,
+            ruinsSwitchActivated = snap.ruinsSwitchActivated,
+            ruinsDummyPracticed = snap.ruinsDummyPracticed,
+            activeWorld = snap.activeWorld,
+            activeZone = snap.activeZone,
+            playerMapX = snap.playerMapX,
+            playerMapY = snap.playerMapY,
+            randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
+            defeatedEnemies = snap.defeatedEnemies,
+            friendAllies = snap.friendAllies,
+            stoppedEnemies = snap.stoppedEnemies,
+            angelAidClaimed = snap.angelAidClaimed,
+            escortingKidIds = snap.escortingKidIds,
+            rescuedToNormalKidIds = snap.rescuedToNormalKidIds,
+            killedKidIds = snap.killedKidIds,
+            completedLandmarkIds = snap.completedLandmarkIds,
+            claimedNpcEvents = snap.claimedNpcEvents,
+            openedChestIds = snap.openedChestIds,
+            unlockedArmorIds = snap.unlockedArmorIds,
+            equippedArmorId = snap.equippedArmorId,
+            unlockedWeaponIds = snap.unlockedWeaponIds,
+            equippedWeaponId = snap.equippedWeaponId,
+            unlockedRelicIds = snap.unlockedRelicIds,
+            equippedRelicId = snap.equippedRelicId,
+            itemCounts = snap.itemCounts,
+            unlockedRoutes = snap.unlockedRoutes,
+            activeFinaleRoute = snap.activeFinaleRoute,
+            isFutureTransformed = snap.isFutureTransformed,
+            teleportControlMastered = snap.teleportControlMastered,
+            worldDestroyedEnding = snap.worldDestroyedEnding,
+            peaceSacrificeEnding = snap.peaceSacrificeEnding,
+            timelineResetCount = snap.timelineResetCount,
+            pastTimelines = snap.pastTimelines,
+            choiceHistory = snap.choiceHistory,
+            activeSaveSlot = slotIndex,
+            saveSlotSummaries = summaries,
+            saveCounter = snap.saveCounter,
+            roamingMonsters = roamingForWorld(snap.activeWorld),
+            roamGraceTimerSec = 2.5f,
+            hasSavedFile = snap.hasSavedProgress
+        )
     }
 
     private fun roamingForWorld(worldId: WorldId): List<RoamingMonster> {
@@ -253,44 +391,54 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun toSnapshot(state: AppUiState): SavedGameSnapshot = SavedGameSnapshot(
+        hasSavedProgress = true,
+        language = state.language,
+        controlScheme = state.controlScheme,
+        isMuted = state.isMuted,
+        masterVolume = state.masterVolume,
+        difficulty = state.difficulty,
+        reduceFlash = state.reduceFlash,
+        resumeScreen = state.currentScreen,
+        ruinsSwitchActivated = state.ruinsSwitchActivated,
+        ruinsDummyPracticed = state.ruinsDummyPracticed,
+        activeWorld = state.activeWorld,
+        activeZone = state.activeZone,
+        playerMapX = state.playerMapX,
+        playerMapY = state.playerMapY,
+        defeatedEnemies = state.defeatedEnemies,
+        friendAllies = state.friendAllies,
+        stoppedEnemies = state.stoppedEnemies,
+        angelAidClaimed = state.angelAidClaimed,
+        escortingKidIds = state.escortingKidIds,
+        rescuedToNormalKidIds = state.rescuedToNormalKidIds,
+        killedKidIds = state.killedKidIds,
+        completedLandmarkIds = state.completedLandmarkIds,
+        claimedNpcEvents = state.claimedNpcEvents,
+        openedChestIds = state.openedChestIds,
+        unlockedArmorIds = state.unlockedArmorIds,
+        equippedArmorId = state.equippedArmorId,
+        unlockedWeaponIds = state.unlockedWeaponIds,
+        equippedWeaponId = state.equippedWeaponId,
+        unlockedRelicIds = state.unlockedRelicIds,
+        equippedRelicId = state.equippedRelicId,
+        itemCounts = state.itemCounts,
+        unlockedRoutes = state.unlockedRoutes,
+        activeFinaleRoute = state.activeFinaleRoute,
+        isFutureTransformed = state.isFutureTransformed,
+        teleportControlMastered = state.teleportControlMastered,
+        worldDestroyedEnding = state.worldDestroyedEnding,
+        peaceSacrificeEnding = state.peaceSacrificeEnding,
+        saveCounter = state.saveCounter,
+        timelineResetCount = state.timelineResetCount,
+        pastTimelines = state.pastTimelines,
+        choiceHistory = state.choiceHistory,
+        savedAtMs = System.currentTimeMillis()
+    )
+
     private fun persist(state: AppUiState) {
-        saveStorage.save(
-            SavedGameSnapshot(
-                hasSavedProgress = true,
-                language = state.language,
-                controlScheme = state.controlScheme,
-                isMuted = state.isMuted,
-                resumeScreen = state.currentScreen,
-                ruinsSwitchActivated = state.ruinsSwitchActivated,
-                ruinsDummyPracticed = state.ruinsDummyPracticed,
-                activeWorld = state.activeWorld,
-                activeZone = state.activeZone,
-                playerMapX = state.playerMapX,
-                playerMapY = state.playerMapY,
-                defeatedEnemies = state.defeatedEnemies,
-                friendAllies = state.friendAllies,
-                stoppedEnemies = state.stoppedEnemies,
-                angelAidClaimed = state.angelAidClaimed,
-                escortingKidIds = state.escortingKidIds,
-                rescuedToNormalKidIds = state.rescuedToNormalKidIds,
-                killedKidIds = state.killedKidIds,
-                completedLandmarkIds = state.completedLandmarkIds,
-                claimedNpcEvents = state.claimedNpcEvents,
-                openedChestIds = state.openedChestIds,
-                unlockedArmorIds = state.unlockedArmorIds,
-                equippedArmorId = state.equippedArmorId,
-                unlockedWeaponIds = state.unlockedWeaponIds,
-                equippedWeaponId = state.equippedWeaponId,
-                itemCounts = state.itemCounts,
-                unlockedRoutes = state.unlockedRoutes,
-                activeFinaleRoute = state.activeFinaleRoute,
-                isFutureTransformed = state.isFutureTransformed,
-                teleportControlMastered = state.teleportControlMastered,
-                worldDestroyedEnding = state.worldDestroyedEnding,
-                peaceSacrificeEnding = state.peaceSacrificeEnding,
-                saveCounter = state.saveCounter
-            )
-        )
+        saveStorage.save(toSnapshot(state), state.activeSaveSlot)
+        _uiState.update { it.copy(saveSlotSummaries = saveStorage.listSlotSummaries()) }
     }
 
     fun toggleLanguage() {
@@ -313,8 +461,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun moveRuinsPlayer(dx: Float, dy: Float) {
         _uiState.update { state ->
             if (state.currentScreen != AppScreen.RUINS_TUTORIAL) return@update state
-            val rawX = state.ruinsPlayerX + dx * state.kidSpeedMultiplier
-            val ny = (state.ruinsPlayerY + dy * state.kidSpeedMultiplier).coerceIn(0.27f, 0.85f)
+            val runMult = if (state.isRunningMode) 1.60f else 1.0f
+            val rawX = state.ruinsPlayerX + dx * state.kidSpeedMultiplier * runMult
+            val ny = (state.ruinsPlayerY + dy * state.kidSpeedMultiplier * runMult).coerceIn(0.27f, 0.85f)
 
             // Smooth doorway transitions across the 3 Ruins chambers along the doorway corridor Y-band
             if (rawX >= 0.92f && state.ruinsRoomIndex < 2 && ny in 0.36f..0.74f) {
@@ -465,22 +614,83 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun resetAllProgress() {
-        saveStorage.clear()
+        saveStorage.clear(_uiState.value.activeSaveSlot)
         RetroSoundEngine.playGlitchNoise(110)
         _uiState.update { current ->
             AppUiState(
                 language = current.language,
                 controlScheme = current.controlScheme,
                 isMuted = current.isMuted,
+                masterVolume = current.masterVolume,
+                difficulty = current.difficulty,
+                reduceFlash = current.reduceFlash,
+                activeSaveSlot = current.activeSaveSlot,
+                saveSlotSummaries = saveStorage.listSlotSummaries(),
                 currentScreen = AppScreen.LORE_INTRO
             )
+        }
+    }
+
+    fun startNewTimelinePreservingEchoes() {
+        _uiState.update { state ->
+            RetroSoundEngine.playSoulSwitch(3)
+            val echo = TimelineManager.summarizeCurrentTimeline(
+                timelineResetCount = state.timelineResetCount,
+                friendAllies = state.friendAllies,
+                stoppedEnemies = state.stoppedEnemies,
+                defeatedEnemies = state.defeatedEnemies,
+                rescuedKids = state.rescuedToNormalKidIds,
+                killedKids = state.killedKidIds,
+                eligibleRoute = state.eligibleRoute
+            )
+            val nextRelics = if (!state.unlockedRelicIds.contains("echo_prism")) {
+                state.unlockedRelicIds + "echo_prism"
+            } else state.unlockedRelicIds
+            val nextResets = state.timelineResetCount + 1
+            val nextHistory = (state.choiceHistory + "Timeline #$nextResets Started (${echo.routeLabel})").takeLast(25)
+            state.copy(
+                timelineResetCount = nextResets,
+                pastTimelines = (state.pastTimelines + echo).takeLast(10),
+                choiceHistory = nextHistory,
+                unlockedRelicIds = nextRelics,
+                activeWorld = WorldId.NORMAL_WORLD,
+                activeZone = WorldZone.CENTER,
+                zoneCooldownSec = 0.65f,
+                playerMapX = 0.50f,
+                playerMapY = 0.54f,
+                defeatedEnemies = emptySet(),
+                friendAllies = emptySet(),
+                stoppedEnemies = emptySet(),
+                angelAidClaimed = false,
+                escortingKidIds = emptySet(),
+                rescuedToNormalKidIds = emptySet(),
+                killedKidIds = emptySet(),
+                completedLandmarkIds = emptySet(),
+                claimedNpcEvents = emptySet(),
+                openedChestIds = emptySet(),
+                saveCounter = 0,
+                ashenHiddenTimerSec = 0f,
+                roamingMonsters = roamingForWorld(WorldId.NORMAL_WORLD),
+                stalkerBosses = listOf(
+                    StalkerBossState(EnemyId.VEX, WorldId.NORMAL_WORLD, WorldZone.NORTH, 0.72f, 0.36f, portalCooldownSec = 6.0f),
+                    StalkerBossState(EnemyId.MALAKOR, WorldId.SPLIT_REALM, WorldZone.EAST, 0.72f, 0.44f, portalCooldownSec = 7.5f)
+                ),
+                currentScreen = AppScreen.WORLD_EXPLORE,
+                worldBannerMessage = if (state.language == AppLanguage.AR) {
+                    "⟳ خط زمني جديد (#${nextResets + 1})! احتفظت بأصداء الماضي وفتحت منشور الصدى."
+                } else {
+                    "⟳ New Timeline (#${nextResets + 1})! Past echoes preserved & Echo Prism unlocked!"
+                }
+            ).also(::persist)
         }
     }
 
     fun moveOverworldPlayer(dx: Float, dy: Float) {
         _uiState.update { state ->
             if (state.currentScreen != AppScreen.WORLD_EXPLORE) return@update state
-            val speed = if (state.activeWorld == WorldId.GLITCHED_WORLD) 1f else state.kidSpeedMultiplier
+            val runMult = if (state.isRunningMode) 1.62f else 1.0f
+            val baseSpeed = if (state.activeWorld == WorldId.GLITCHED_WORLD) 1f else state.computedStats.speedMultiplier
+            val speed = baseSpeed * runMult
             val nx = (state.playerMapX + dx * speed).coerceIn(0.03f, 0.97f)
             val ny = (state.playerMapY + dy * speed).coerceIn(0.04f, 0.96f)
 
@@ -670,13 +880,98 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
 
+                // Cross-World Stalker Bosses (Vex & Malakor literally hunt Loka across ALL 4 physical worlds!)
+                var caughtByStalker: EnemyId? = null
+                var stalkerNotice = returnNotice
+                val updatedStalkers = state.stalkerBosses.map { sb ->
+                    val resolved = sb.enemyId in state.friendAllies ||
+                        sb.enemyId in state.stoppedEnemies ||
+                        sb.enemyId in state.defeatedEnemies
+                    if (resolved) {
+                        return@map sb.copy(isChasing = false)
+                    }
+                    val sameWorld = sb.worldId == state.activeWorld
+                    val sameZone = sameWorld && sb.zone == state.activeZone
+                    if (sameZone) {
+                        val dx = px - sb.xNorm
+                        val dy = py - sb.yNorm
+                        val dist = hypot(dx, dy)
+                        if (nextGrace <= 0f && dist < 0.060f && caughtByStalker == null) {
+                            caughtByStalker = sb.enemyId
+                            sb.copy(isChasing = true)
+                        } else if (dist > 0.001f) {
+                            val spd = if (sb.enemyId == EnemyId.VEX) 0.165f else 0.175f
+                            val nx = (sb.xNorm + (dx / dist) * spd * dt).coerceIn(0.08f, 0.92f)
+                            val ny = (sb.yNorm + (dy / dist) * spd * dt).coerceIn(0.12f, 0.88f)
+                            sb.copy(xNorm = nx, yNorm = ny, isChasing = true)
+                        } else {
+                            sb.copy(isChasing = true)
+                        }
+                    } else {
+                        val cd = sb.portalCooldownSec - dt
+                        if (cd <= 0f) {
+                            val profile = EnemyRoster.byId(sb.enemyId)
+                            val spawnX = if (px < 0.5f) 0.84f else 0.16f
+                            val spawnY = if (py < 0.5f) 0.82f else 0.18f
+                            if (sameWorld) {
+                                stalkerNotice = if (state.language == AppLanguage.AR) {
+                                    "⚠ ${profile.name} اقتحم ${state.activeZone.titleAr} يطاردك!"
+                                } else {
+                                    "⚠ ${profile.name} burst into ${state.activeZone.titleEn} chasing you!"
+                                }
+                                sb.copy(
+                                    zone = state.activeZone,
+                                    xNorm = spawnX,
+                                    yNorm = spawnY,
+                                    portalCooldownSec = 6.0f,
+                                    isChasing = true
+                                )
+                            } else {
+                                stalkerNotice = if (state.language == AppLanguage.AR) {
+                                    "⚠ ${profile.name} عبر البوابة ووصل إلى ${state.activeWorld.title} ليطاردك!"
+                                } else {
+                                    "⚠ ${profile.name} crossed the World Gate into ${state.activeWorld.title} after you!"
+                                }
+                                sb.copy(
+                                    worldId = state.activeWorld,
+                                    zone = state.activeZone,
+                                    xNorm = spawnX,
+                                    yNorm = spawnY,
+                                    portalCooldownSec = 6.5f,
+                                    isChasing = true
+                                )
+                            }
+                        } else {
+                            sb.copy(portalCooldownSec = cd, isChasing = !sameWorld || sb.zone != state.activeZone)
+                        }
+                    }
+                }
+
+                if (caughtByStalker != null) {
+                    val hunter = caughtByStalker!!
+                    RetroSoundEngine.playGlitchNoise(75)
+                    return@update state.copy(
+                        zoneCooldownSec = nextZoneCooldown,
+                        ashenHiddenTimerSec = nextHidden,
+                        roamGraceTimerSec = 3.2f,
+                        roamingMonsters = movedRoamers,
+                        stalkerBosses = updatedStalkers,
+                        selectedEnemyId = hunter,
+                        battleSessionId = state.battleSessionId + 1L,
+                        battleFromRuins = false,
+                        currentScreen = AppScreen.BATTLE,
+                        worldBannerMessage = stalkerNotice
+                    )
+                }
+
                 // Physical worlds stay connected via World Gates — no forced 10-minute random warp!
                 return@update state.copy(
                     zoneCooldownSec = nextZoneCooldown,
                     ashenHiddenTimerSec = nextHidden,
                     roamGraceTimerSec = nextGrace,
                     roamingMonsters = movedRoamers,
-                    worldBannerMessage = returnNotice
+                    stalkerBosses = updatedStalkers,
+                    worldBannerMessage = stalkerNotice
                 )
             }
         }
@@ -742,6 +1037,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             RetroSoundEngine.playHealChime()
             state.copy(
                 escortingKidIds = state.escortingKidIds + kidId,
+                choiceHistory = (state.choiceHistory + "Helped ${kid.name}").takeLast(25),
                 worldBannerMessage = if (state.language == AppLanguage.AR) {
                     "ساعدت ${kid.nameAr}! سيبقى معك ويدعمك حتى تصل للعالم الطبيعي فقط."
                 } else {
@@ -761,6 +1057,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             RetroSoundEngine.playHurt()
             state.copy(
                 killedKidIds = state.killedKidIds + kidId,
+                unlockedRelicIds = state.unlockedRelicIds + "infernal_core",
+                choiceHistory = (state.choiceHistory + "Killed ${kid.name}").takeLast(25),
                 worldBannerMessage = if (state.language == AppLanguage.AR) {
                     "قتلت ${kid.nameAr}... الصمت يزداد برودة حول قلادتك."
                 } else {
@@ -785,6 +1083,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val newWeapons = if (landmark.rewardWeaponId != null) {
                 state.unlockedWeaponIds + landmark.rewardWeaponId
             } else state.unlockedWeaponIds
+            val grantedRelic = when (landmark.id) {
+                "nw_lab", "tr_lab" -> "chrono_pendulum"
+                "sr_cave" -> "infernal_core"
+                else -> null
+            }
+            val newRelics = if (grantedRelic != null) state.unlockedRelicIds + grantedRelic else state.unlockedRelicIds
 
             state.copy(
                 completedLandmarkIds = state.completedLandmarkIds + landmarkId,
@@ -793,6 +1097,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 equippedArmorId = landmark.rewardArmorId ?: state.equippedArmorId,
                 unlockedWeaponIds = newWeapons,
                 equippedWeaponId = landmark.rewardWeaponId ?: state.equippedWeaponId,
+                unlockedRelicIds = newRelics,
+                choiceHistory = (state.choiceHistory + "Quest: ${landmark.questTitle}").takeLast(25),
                 worldBannerMessage = "Completed ${landmark.questTitle}! Earned ${landmark.rewardLabel}."
             ).also(::persist)
         }
@@ -813,11 +1119,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     angelAidClaimed = true,
                     unlockedArmorIds = state.unlockedArmorIds + "angel_seal_mail",
                     equippedArmorId = "angel_seal_mail",
+                    unlockedRelicIds = state.unlockedRelicIds + "seraph_feather",
+                    equippedRelicId = "seraph_feather",
                     itemCounts = newItems,
+                    choiceHistory = (state.choiceHistory + "Received Cassiel's Angel Aid").takeLast(25),
                     worldBannerMessage = if (state.language == AppLanguage.AR) {
-                        "★ زعيم الملائكة كاسييل ساعدك! لبست درع الختم (+3 دفاع، +8 دم) وحصلت على +2 شفاء و+2 شظية!"
+                        "★ زعيم الملائكة كاسييل ساعدك! لبست درع الختم وريشة كاسييل (+3 دفاع، +8 دم)!"
                     } else {
-                        "★ Angel Leader Cassiel aids you! Equipped Angel Leader's Seal (+3 DEF, +8 HP) & +2 Rations, +2 Shards!"
+                        "★ Angel Leader Cassiel aids you! Equipped Seal Armor + Choir Feather Relic!"
                     }
                 ).also(::persist)
             }
@@ -872,15 +1181,33 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun equipRelic(relicId: String) {
+        _uiState.update { state ->
+            if (relicId !in state.unlockedRelicIds) return@update state
+            RetroSoundEngine.playSoulSwitch(1)
+            state.copy(equippedRelicId = relicId).also(::persist)
+        }
+    }
+
     fun startBattle(enemyId: EnemyId, worldOverride: WorldId? = null) {
         _uiState.update { state ->
-            if (enemyId == EnemyId.ECHO_LOKA && !state.isJourneyCompleteForEcho) {
+            if (!state.isBossUnlocked(enemyId)) {
                 RetroSoundEngine.playGlitchNoise(85)
+                val profile = EnemyRoster.byId(enemyId)
+                val reqs = state.bossLockProgressText(enemyId, state.language)
                 return@update state.copy(
-                    worldBannerMessage = if (state.language == AppLanguage.AR) {
-                        "Echo-Loka هو العدو الأخير! أنهِ رحلتك عبر العوالم أولاً (${state.resolvedBossCount}/${state.totalStandardBosses} زعماء)."
+                    worldBannerMessage = if (enemyId == EnemyId.ECHO_LOKA) {
+                        if (state.language == AppLanguage.AR) {
+                            "Echo-Loka هو العدو الأخير! أنهِ رحلتك عبر العوالم أولاً ($reqs)."
+                        } else {
+                            "Echo-Loka is your FINAL battle! Finish your journey first ($reqs)."
+                        }
                     } else {
-                        "Echo-Loka is your FINAL battle! Finish your journey across the realms first (${state.resolvedBossCount}/${state.totalStandardBosses} bosses)."
+                        if (state.language == AppLanguage.AR) {
+                            "🔒 ${profile.name} مقفل! يجب إنهاء كل شيء في هذا العالم أولاً: $reqs"
+                        } else {
+                            "🔒 ${profile.name} is LOCKED! Finish everything in this realm first: $reqs"
+                        }
                     }
                 )
             }
@@ -890,7 +1217,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 selectedEnemyId = enemyId,
                 battleSessionId = state.battleSessionId + 1L,
                 battleFromRuins = enemyId == EnemyId.RUINS_DUMMY,
-                roamGraceTimerSec = 2.8f,
+                roamGraceTimerSec = 3.0f,
                 currentScreen = AppScreen.BATTLE
             )
         }
@@ -914,7 +1241,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     playerMapY = 0.54f,
                     randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
                     roamingMonsters = roamingForWorld(safeWorld),
-                    roamGraceTimerSec = 2.6f,
+                    roamGraceTimerSec = 3.0f,
                     currentScreen = AppScreen.WORLD_EXPLORE,
                     worldBannerMessage = if (state.language == AppLanguage.AR) {
                         "عدت من العالم المقلتش إلى ${safeWorld.title}."
@@ -924,8 +1251,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 return@update applyNormalWorldDropOff(nextState)
             }
+            // Push any active stalker boss away to the opposite corner with grace period after fleeing/exiting battle
+            val px = state.playerMapX
+            val py = state.playerMapY
+            val pushedStalkers = state.stalkerBosses.map { sb ->
+                if (sb.worldId == state.activeWorld && sb.zone == state.activeZone) {
+                    sb.copy(
+                        xNorm = if (px < 0.5f) 0.85f else 0.15f,
+                        yNorm = if (py < 0.5f) 0.82f else 0.18f,
+                        portalCooldownSec = 5.0f
+                    )
+                } else sb
+            }
             state.copy(
-                roamGraceTimerSec = 2.6f,
+                roamGraceTimerSec = 3.2f,
+                stalkerBosses = pushedStalkers,
                 currentScreen = AppScreen.WORLD_EXPLORE
             )
         }
@@ -952,10 +1292,19 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             }
             val profile = EnemyRoster.byId(enemyId)
             val isNonFriendStop = spared && !profile.canBefriend && profile.canStopWithoutKilling
+            val outcomeLabel = when {
+                isNonFriendStop -> "Stopped ${profile.name} (No Kill)"
+                spared && profile.canBefriend -> "Befriended ${profile.name}"
+                else -> "Defeated ${profile.name}"
+            }
+            val bonusRelic = if (enemyId == EnemyId.ECHO_LOKA) "echo_prism" else null
+            val nextRelics = if (bonusRelic != null) state.unlockedRelicIds + bonusRelic else state.unlockedRelicIds
             state.copy(
                 friendAllies = if (spared && !isNonFriendStop) state.friendAllies + enemyId else state.friendAllies,
                 stoppedEnemies = if (isNonFriendStop) state.stoppedEnemies + enemyId else state.stoppedEnemies,
                 defeatedEnemies = if (!spared) state.defeatedEnemies + enemyId else state.defeatedEnemies,
+                unlockedRelicIds = nextRelics,
+                choiceHistory = (state.choiceHistory + outcomeLabel).takeLast(25),
                 itemCounts = remainingItems
             ).also(::persist)
         }
@@ -1046,6 +1395,122 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val values = ControlScheme.entries
             val next = values[(state.controlScheme.ordinal + 1) % values.size]
             state.copy(controlScheme = next).also(::persist)
+        }
+    }
+
+    fun toggleRunMode() {
+        _uiState.update { state ->
+            RetroSoundEngine.playTypeBlip(if (!state.isRunningMode) 480f else 310f)
+            state.copy(isRunningMode = !state.isRunningMode)
+        }
+    }
+
+    fun setMasterVolume(volume: Float) {
+        val clamped = volume.coerceIn(0f, 1f)
+        RetroSoundEngine.masterVolume = clamped
+        saveStorage.saveGlobalVolume(clamped)
+        _uiState.update { state ->
+            state.copy(masterVolume = clamped, isMuted = clamped <= 0.01f).also {
+                RetroSoundEngine.isMuted = it.isMuted
+                persist(it)
+            }
+        }
+    }
+
+    fun setDifficulty(difficulty: GameDifficulty) {
+        saveStorage.saveGlobalDifficulty(difficulty)
+        RetroSoundEngine.playSoulSwitch(difficulty.ordinal)
+        _uiState.update { state ->
+            state.copy(difficulty = difficulty).also(::persist)
+        }
+    }
+
+    fun toggleReduceFlash() {
+        _uiState.update { state ->
+            val next = !state.reduceFlash
+            saveStorage.saveReduceFlash(next)
+            state.copy(reduceFlash = next).also(::persist)
+        }
+    }
+
+    fun saveCurrentToSlot(slotIndex: Int) {
+        val safeSlot = slotIndex.coerceIn(0, GameSaveStorage.SLOT_COUNT - 1)
+        saveStorage.setActiveSlot(safeSlot)
+        RetroSoundEngine.playSaveChime()
+        _uiState.update { state ->
+            val updated = state.copy(activeSaveSlot = safeSlot, hasSavedFile = true)
+            saveStorage.save(toSnapshot(updated), safeSlot)
+            updated.copy(
+                saveSlotSummaries = saveStorage.listSlotSummaries(),
+                worldBannerMessage = if (state.language == AppLanguage.AR) {
+                    "★ تم حفظ التقدم في الخانة ${safeSlot + 1}!"
+                } else {
+                    "★ Saved current timeline into Slot ${safeSlot + 1}!"
+                }
+            )
+        }
+    }
+
+    fun switchToSaveSlot(slotIndex: Int) {
+        val safeSlot = slotIndex.coerceIn(0, GameSaveStorage.SLOT_COUNT - 1)
+        saveStorage.setActiveSlot(safeSlot)
+        val snap = saveStorage.load(safeSlot)
+        val summaries = saveStorage.listSlotSummaries()
+        RetroSoundEngine.playSoulSwitch(safeSlot)
+        if (snap.hasSavedProgress) {
+            RetroSoundEngine.isMuted = snap.isMuted
+            RetroSoundEngine.masterVolume = snap.masterVolume
+            _uiState.value = stateFromSnapshot(snap, safeSlot, summaries).copy(
+                worldBannerMessage = if (snap.language == AppLanguage.AR) {
+                    "تم تحميل الخانة ${safeSlot + 1}!"
+                } else {
+                    "Loaded Save Slot ${safeSlot + 1}!"
+                }
+            )
+        } else {
+            _uiState.update { current ->
+                AppUiState(
+                    language = current.language,
+                    controlScheme = current.controlScheme,
+                    isMuted = current.isMuted,
+                    masterVolume = current.masterVolume,
+                    difficulty = current.difficulty,
+                    reduceFlash = current.reduceFlash,
+                    activeSaveSlot = safeSlot,
+                    saveSlotSummaries = summaries,
+                    currentScreen = AppScreen.WORLD_EXPLORE,
+                    roamingMonsters = roamingForWorld(WorldId.NORMAL_WORLD),
+                    worldBannerMessage = if (current.language == AppLanguage.AR) {
+                        "بدأت خانة حفظ جديدة (${safeSlot + 1})!"
+                    } else {
+                        "Started fresh Save Slot ${safeSlot + 1}!"
+                    }
+                ).also { saveStorage.save(toSnapshot(it), safeSlot) }
+                    .let { it.copy(saveSlotSummaries = saveStorage.listSlotSummaries()) }
+            }
+        }
+    }
+
+    fun clearSaveSlot(slotIndex: Int) {
+        val safeSlot = slotIndex.coerceIn(0, GameSaveStorage.SLOT_COUNT - 1)
+        saveStorage.clear(safeSlot)
+        RetroSoundEngine.playGlitchNoise(80)
+        _uiState.update { state ->
+            if (safeSlot == state.activeSaveSlot) {
+                AppUiState(
+                    language = state.language,
+                    controlScheme = state.controlScheme,
+                    isMuted = state.isMuted,
+                    masterVolume = state.masterVolume,
+                    difficulty = state.difficulty,
+                    reduceFlash = state.reduceFlash,
+                    activeSaveSlot = safeSlot,
+                    saveSlotSummaries = saveStorage.listSlotSummaries(),
+                    currentScreen = AppScreen.LORE_INTRO
+                )
+            } else {
+                state.copy(saveSlotSummaries = saveStorage.listSlotSummaries())
+            }
         }
     }
 

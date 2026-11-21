@@ -8,8 +8,6 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,19 +20,18 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Backpack
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -64,15 +62,15 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.model.AppLanguage
-import com.example.model.ArmorCatalog
+import com.example.model.BossBehavior
 import com.example.model.ControlScheme
 import com.example.model.EnemyId
 import com.example.model.EnemyProfile
 import com.example.model.EnemyRoster
+import com.example.model.GameDifficulty
 import com.example.model.LostKid
 import com.example.model.PortraitExpression
 import com.example.model.RouteType
-import com.example.model.WeaponCatalog
 import com.example.model.WorldChest
 import com.example.model.WorldContentCatalog
 import com.example.model.WorldId
@@ -83,6 +81,7 @@ import com.example.model.WorldZoneMap
 import com.example.model.ZoneDoorInfo
 import com.example.model.ZoneEdge
 import com.example.model.tr
+import com.example.ui.components.CodexAndSettingsDialog
 import com.example.ui.components.ControllerPadOverlay
 import com.example.ui.components.LokaPortraitCanvas
 import com.example.ui.components.drawLokaOverworldSprite
@@ -117,7 +116,6 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.random.Random
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WorldExploreScreen(
     state: AppUiState,
@@ -131,11 +129,20 @@ fun WorldExploreScreen(
     onEngageBoss: (EnemyId) -> Unit,
     onEquipArmor: (String) -> Unit,
     onEquipWeapon: (String) -> Unit,
+    onEquipRelic: (String) -> Unit,
     onSaveGame: () -> Unit,
     onManualRiftJump: () -> Unit,
     onResetSave: () -> Unit,
     onOpenRouteFinale: (RouteType) -> Unit,
     onWatchStoryIntro: () -> Unit,
+    onToggleRunMode: () -> Unit,
+    onSetVolume: (Float) -> Unit,
+    onSetDifficulty: (GameDifficulty) -> Unit,
+    onToggleReduceFlash: () -> Unit,
+    onSaveToSlot: (Int) -> Unit,
+    onSwitchSlot: (Int) -> Unit,
+    onClearSlot: (Int) -> Unit,
+    onStartNewTimeline: () -> Unit,
     onToggleControls: () -> Unit,
     onToggleLanguage: () -> Unit,
     onToggleMute: () -> Unit
@@ -143,18 +150,21 @@ fun WorldExploreScreen(
     var activeLandmarkDialog by remember { mutableStateOf<WorldLandmark?>(null) }
     var activeNpcDialog by remember { mutableStateOf<WorldNpc?>(null) }
     var activeKidDialog by remember { mutableStateOf<LostKid?>(null) }
-    var showBagDialog by remember { mutableStateOf(false) }
+    var showCodexDialog by remember { mutableStateOf(false) }
+    var codexInitialTab by remember { mutableIntStateOf(0) }
     var confirmResetDialog by remember { mutableStateOf(false) }
     var padDirX by remember { mutableFloatStateOf(0f) }
     var padDirY by remember { mutableFloatStateOf(0f) }
     var ambientClock by remember { mutableFloatStateOf(0f) }
+    var moveAnimHoldSec by remember { mutableFloatStateOf(0f) }
+    var facingRight by remember { mutableStateOf(true) }
 
-    BackHandler(enabled = confirmResetDialog || showBagDialog || activeLandmarkDialog != null || activeNpcDialog != null || activeKidDialog != null) {
+    BackHandler(enabled = confirmResetDialog || showCodexDialog || activeLandmarkDialog != null || activeNpcDialog != null || activeKidDialog != null) {
         confirmResetDialog = false
         activeLandmarkDialog = null
         activeNpcDialog = null
         activeKidDialog = null
-        showBagDialog = false
+        showCodexDialog = false
     }
 
     LaunchedEffect(state.activeWorld, state.teleportControlMastered) {
@@ -164,8 +174,15 @@ fun WorldExploreScreen(
                 if (lastNanos != 0L) {
                     val dt = ((nanos - lastNanos) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
                     ambientClock = (ambientClock + dt) % 600f
+                    if (moveAnimHoldSec > 0f) {
+                        moveAnimHoldSec = (moveAnimHoldSec - dt).coerceAtLeast(0f)
+                    }
                     onTickOverworld(dt)
                     if (padDirX != 0f || padDirY != 0f) {
+                        if (kotlin.math.abs(padDirX) > 0.05f) {
+                            facingRight = padDirX > 0f
+                        }
+                        moveAnimHoldSec = 0.18f
                         val walkSpeed = if (state.activeWorld == WorldId.GLITCHED_WORLD) 0.24f else 0.42f
                         onMovePlayer(padDirX * walkSpeed * dt, padDirY * walkSpeed * dt)
                     }
@@ -199,7 +216,16 @@ fun WorldExploreScreen(
         } else emptyList()
     }
     val worldBosses = remember(world) { EnemyRoster.forWorld(world) }
-    val bosses = remember(world, zone, worldBosses) { worldBosses.filter { it.zone == zone } }
+    val staticBosses = remember(world, zone, worldBosses) {
+        worldBosses.filter { it.zone == zone && it.bossBehavior != BossBehavior.CROSS_WORLD_CHASER }
+    }
+    val activeStalkers = state.stalkerBosses.filter {
+        it.worldId == world &&
+            it.zone == zone &&
+            it.enemyId !in state.friendAllies &&
+            it.enemyId !in state.stoppedEnemies &&
+            it.enemyId !in state.defeatedEnemies
+    }
 
     val px = state.playerMapX
     val py = state.playerMapY
@@ -223,11 +249,14 @@ fun WorldExploreScreen(
     val nearRift = world.hasLandmarks && zone == WorldZone.CENTER && !state.teleportControlMastered &&
         hypot(state.paradoxRiftPos.first - px, state.paradoxRiftPos.second - py) < 0.12f
     val worldRoamers = state.roamingMonsters.filter { it.worldId == world && it.zone == zone }
+    val nearStalker: EnemyProfile? = activeStalkers.minByOrNull { hypot(it.xNorm - px, it.yNorm - py) }
+        ?.takeIf { hypot(it.xNorm - px, it.yNorm - py) < 0.14f }
+        ?.let { EnemyRoster.byId(it.enemyId) }
     val nearBoss: EnemyProfile? = if (world == WorldId.GLITCHED_WORLD) {
         val (ex, ey) = state.echoLokaPos
         if (hypot(ex - px, ey - py) < 0.15f) EnemyRoster.byId(EnemyId.ECHO_LOKA) else null
     } else {
-        bosses.minByOrNull { hypot(it.xNorm - px, it.yNorm - py) }
+        nearStalker ?: staticBosses.minByOrNull { hypot(it.xNorm - px, it.yNorm - py) }
             ?.takeIf { hypot(it.xNorm - px, it.yNorm - py) < 0.14f }
     }
 
@@ -254,6 +283,10 @@ fun WorldExploreScreen(
                             val speedMult = if (world == WorldId.GLITCHED_WORLD) 0.55f else 1f
                             val dx = (dragAmount.x / size.width.toFloat()) * speedMult
                             val dy = (dragAmount.y / size.height.toFloat()) * speedMult
+                            if (kotlin.math.abs(dx) > 0.001f) {
+                                facingRight = dx > 0f
+                            }
+                            moveAnimHoldSec = 0.22f
                             onMovePlayer(dx, dy)
                         }
                     }
@@ -279,13 +312,23 @@ fun WorldExploreScreen(
                 if (world.hasLandmarks) {
                     // Render all active doorways in the current zone
                     activeDoors.forEach { door ->
-                        val targetRoster = if (door.targetWorld != null) EnemyRoster.forWorld(door.targetWorld) else worldBosses
-                        val doorHasBoss = targetRoster.any {
-                            it.zone == door.targetZone &&
+                        val doorWorld = door.targetWorld ?: world
+                        val targetRoster = EnemyRoster.forWorld(doorWorld)
+                        val doorHasStaticBoss = targetRoster.any {
+                            it.bossBehavior != BossBehavior.CROSS_WORLD_CHASER &&
+                                it.zone == door.targetZone &&
                                 it.id !in state.friendAllies &&
                                 it.id !in state.stoppedEnemies &&
                                 it.id !in state.defeatedEnemies
                         }
+                        val doorHasStalker = state.stalkerBosses.any { sb ->
+                            sb.worldId == doorWorld &&
+                                sb.zone == door.targetZone &&
+                                sb.enemyId !in state.friendAllies &&
+                                sb.enemyId !in state.stoppedEnemies &&
+                                sb.enemyId !in state.defeatedEnemies
+                        }
+                        val doorHasBoss = doorHasStaticBoss || doorHasStalker
                         drawZoneDoorway(
                             door = door,
                             world = world,
@@ -384,13 +427,14 @@ fun WorldExploreScreen(
                         drawOverworldKidSprite(kid = kid, center = c, unitPx = 9.5.dp.toPx(), isRescued = true)
                     }
 
-                    // Crisp Pixel Boss Sprites in the Overworld with unmistakable Boss Arena Frame
-                    bosses.forEach { boss ->
+                    // Crisp Pixel Static Boss Sprites in the Overworld (Immediate or World-Completion Locked)
+                    staticBosses.forEach { boss ->
                         val bobY = sin(ambientClock * 2.4f + boss.yNorm * 7f) * 2.dp.toPx()
                         val c = Offset(boss.xNorm * size.width, boss.yNorm * size.height + bobY)
                         val isFriend = boss.id in state.friendAllies
                         val isStopped = boss.id in state.stoppedEnemies
                         val isSlain = boss.id in state.defeatedEnemies
+                        val isLockedBoss = !state.isBossUnlocked(boss.id)
                         val isActiveBoss = !isFriend && !isStopped && !isSlain
                         val frameSize = 44.dp.toPx()
                         val halfFrame = frameSize * 0.5f
@@ -398,6 +442,7 @@ fun WorldExploreScreen(
                             isFriend -> HpBarGreen
                             isStopped -> GlitchCyan
                             isSlain -> MutedSepiaInk.copy(alpha = 0.55f)
+                            isLockedBoss -> DangerRed
                             else -> MercyYellow
                         }
                         drawRect(
@@ -410,7 +455,7 @@ fun WorldExploreScreen(
                             center = Offset(c.x, c.y + 13.dp.toPx()),
                             widthPx = 36.dp.toPx(),
                             heightPx = 10.dp.toPx(),
-                            color = (if (isFriend) HpBarGreen else if (isStopped) GlitchCyan else boss.accentColor).copy(alpha = 0.30f)
+                            color = (if (isFriend) HpBarGreen else if (isStopped) GlitchCyan else if (isLockedBoss) DangerRed else boss.accentColor).copy(alpha = 0.30f)
                         )
                         drawUndertaleBossPixelSprite(
                             enemyId = boss.id,
@@ -420,6 +465,15 @@ fun WorldExploreScreen(
                             isSpareReady = isFriend || isStopped
                         )
                         when {
+                            isLockedBoss -> {
+                                // Stepped pixel padlock crest above locked WORLD_COMPLETION boss
+                                val lx = c.x
+                                val ly = c.y - halfFrame - 7.dp.toPx()
+                                drawRect(DangerRed, Offset(lx - 4.dp.toPx(), ly - 7.dp.toPx()), Size(8.dp.toPx(), 5.dp.toPx()), style = Stroke(1.8f))
+                                drawRect(Color.Black, Offset(lx - 5.dp.toPx(), ly - 2.dp.toPx()), Size(10.dp.toPx(), 7.dp.toPx()))
+                                drawRect(DangerRed, Offset(lx - 5.dp.toPx(), ly - 2.dp.toPx()), Size(10.dp.toPx(), 7.dp.toPx()), style = Stroke(1.8f))
+                                drawRect(MercyYellow, Offset(lx - 1.dp.toPx(), ly), Size(2.dp.toPx(), 3.dp.toPx()))
+                            }
                             isActiveBoss -> drawPixelSaveStar(
                                 center = Offset(c.x, c.y - halfFrame - 6.dp.toPx() + sin(ambientClock * 4f) * 1.5.dp.toPx()),
                                 sizePx = 5.5.dp.toPx(),
@@ -450,6 +504,41 @@ fun WorldExploreScreen(
                                 )
                             }
                         }
+                    }
+
+                    // Live Cross-World Stalker Bosses (Vex & Malakor literally hunt Loka across worlds!)
+                    activeStalkers.forEach { stalker ->
+                        val boss = EnemyRoster.byId(stalker.enemyId)
+                        val bobY = sin(ambientClock * 6.5f + stalker.xNorm * 8f) * 2.5.dp.toPx()
+                        val c = Offset(stalker.xNorm * size.width, stalker.yNorm * size.height + bobY)
+                        val frameSize = 46.dp.toPx()
+                        val halfFrame = frameSize * 0.5f
+                        val pulseAlpha = 0.60f + 0.40f * kotlin.math.abs(sin(ambientClock * 6f))
+                        drawRect(
+                            color = DangerRed.copy(alpha = pulseAlpha),
+                            topLeft = Offset(c.x - halfFrame, c.y - halfFrame),
+                            size = Size(frameSize, frameSize),
+                            style = Stroke(2.8f)
+                        )
+                        drawSteppedPixelShadow(
+                            center = Offset(c.x, c.y + 14.dp.toPx()),
+                            widthPx = 38.dp.toPx(),
+                            heightPx = 11.dp.toPx(),
+                            color = DangerRed.copy(alpha = 0.38f)
+                        )
+                        drawUndertaleBossPixelSprite(
+                            enemyId = boss.id,
+                            center = c,
+                            sizePx = 36.dp.toPx(),
+                            isHitFlash = false,
+                            isSpareReady = false
+                        )
+                        // Pixel chasing alert [!] badge above stalker boss
+                        val by = c.y - halfFrame - 8.dp.toPx() + sin(ambientClock * 11f) * 2.dp.toPx()
+                        drawRect(Color.Black, Offset(c.x - 6.dp.toPx(), by - 11.dp.toPx()), Size(12.dp.toPx(), 15.dp.toPx()))
+                        drawRect(DangerRed, Offset(c.x - 6.dp.toPx(), by - 11.dp.toPx()), Size(12.dp.toPx(), 15.dp.toPx()), style = Stroke(1.8f))
+                        drawRect(MercyYellow, Offset(c.x - 1.5.dp.toPx(), by - 9.dp.toPx()), Size(3.dp.toPx(), 7.dp.toPx()))
+                        drawRect(MercyYellow, Offset(c.x - 1.5.dp.toPx(), by), Size(3.dp.toPx(), 2.5.dp.toPx()))
                     }
 
                     // Overworld Chasing Normal Monsters (Touch = Instant Battle!)
@@ -521,7 +610,11 @@ fun WorldExploreScreen(
                 drawLokaOverworldSprite(
                     center = Offset(px * size.width, py * size.height),
                     unit = 11.dp.toPx(),
-                    isGlitched = world == WorldId.GLITCHED_WORLD
+                    isGlitched = world == WorldId.GLITCHED_WORLD,
+                    isMoving = moveAnimHoldSec > 0f,
+                    isRunning = state.isRunningMode,
+                    animClock = ambientClock,
+                    facingRight = facingRight
                 )
             }
 
@@ -578,13 +671,23 @@ fun WorldExploreScreen(
 
                 // Clear Door Badges aligned along active edges, Bridge World Gates & Door V
                 activeDoors.forEach { door ->
-                    val targetRoster = if (door.targetWorld != null) EnemyRoster.forWorld(door.targetWorld) else worldBosses
-                    val doorBoss = targetRoster.firstOrNull {
-                        it.zone == door.targetZone &&
+                    val doorWorld = door.targetWorld ?: world
+                    val targetRoster = EnemyRoster.forWorld(doorWorld)
+                    val staticDoorBoss = targetRoster.firstOrNull {
+                        it.bossBehavior != BossBehavior.CROSS_WORLD_CHASER &&
+                            it.zone == door.targetZone &&
                             it.id !in state.friendAllies &&
                             it.id !in state.stoppedEnemies &&
                             it.id !in state.defeatedEnemies
                     }
+                    val stalkerDoorBoss = state.stalkerBosses.firstOrNull { sb ->
+                        sb.worldId == doorWorld &&
+                            sb.zone == door.targetZone &&
+                            sb.enemyId !in state.friendAllies &&
+                            sb.enemyId !in state.stoppedEnemies &&
+                            sb.enemyId !in state.defeatedEnemies
+                    }?.let { EnemyRoster.byId(it.enemyId) }
+                    val doorBoss = stalkerDoorBoss ?: staticDoorBoss
                     val badgeAlignment = when (door.edge) {
                         ZoneEdge.TOP -> Alignment.TopCenter
                         ZoneEdge.BOTTOM -> Alignment.BottomCenter
@@ -771,26 +874,36 @@ fun WorldExploreScreen(
                         val isFriend = wb.id in state.friendAllies
                         val isStopped = wb.id in state.stoppedEnemies
                         val isSlain = wb.id in state.defeatedEnemies
-                        val isLockedEcho = wb.id == EnemyId.ECHO_LOKA && !state.isJourneyCompleteForEcho
-                        val dirHint = when (wb.zone) {
-                            WorldZone.NORTH -> tr(lang, "↑North", "↑شمال")
-                            WorldZone.SOUTH -> tr(lang, "↓South", "↓جنوب")
-                            WorldZone.WEST -> tr(lang, "←West", "←غرب")
-                            WorldZone.EAST -> tr(lang, "→East", "→شرق")
-                            WorldZone.SANCTUM -> tr(lang, "✦DoorV", "✦باب5")
-                            WorldZone.CENTER -> tr(lang, "★Center", "★الوسط")
+                        val isResolved = isFriend || isStopped || isSlain
+                        val isLockedBoss = !state.isBossUnlocked(wb.id)
+                        val liveStalker = if (wb.bossBehavior == BossBehavior.CROSS_WORLD_CHASER) {
+                            state.stalkerBosses.firstOrNull { it.enemyId == wb.id }
+                        } else null
+                        val dirHint = when {
+                            liveStalker != null -> if (liveStalker.worldId == world && liveStalker.zone == zone) {
+                                tr(lang, "⚡HERE!", "⚡هنا!")
+                            } else {
+                                "⚡${liveStalker.worldId.title.take(10)}"
+                            }
+                            wb.zone == WorldZone.NORTH -> tr(lang, "↑North", "↑شمال")
+                            wb.zone == WorldZone.SOUTH -> tr(lang, "↓South", "↓جنوب")
+                            wb.zone == WorldZone.WEST -> tr(lang, "←West", "←غرب")
+                            wb.zone == WorldZone.EAST -> tr(lang, "→East", "→شرق")
+                            wb.zone == WorldZone.SANCTUM -> tr(lang, "✦DoorV", "✦باب5")
+                            else -> tr(lang, "★Center", "★الوسط")
                         }
                         val roleTag = when (wb.id) {
-                            EnemyId.GOV_MONSTER_CHIEF -> tr(lang, " [Friendable]", " [صداقة]")
-                            EnemyId.GOV_DIRECTOR -> tr(lang, " [Stop/Kill]", " [إيقاف/قتل]")
+                            EnemyId.GOV_MONSTER_CHIEF -> tr(lang, " [Friend]", " [صداقة]")
+                            EnemyId.GOV_DIRECTOR -> tr(lang, " [Stop]", " [إيقاف]")
                             else -> ""
                         }
                         val (statusText, statusColor) = when {
-                            isLockedEcho -> tr(lang, "LOCKED", "مقفل") to DangerRed
                             isFriend -> tr(lang, "♥FRIEND", "♥صديق") to HpBarGreen
                             isStopped -> tr(lang, "⚖STOPPED", "⚖مُوقَف") to GlitchCyan
                             isSlain -> tr(lang, "✕SLAIN", "✕مقتول") to MutedSepiaInk
-                            else -> tr(lang, "ACTIVE", "موجود") to MercyYellow
+                            isLockedBoss -> tr(lang, "🔒LOCKED", "🔒مقفل") to DangerRed
+                            wb.bossBehavior == BossBehavior.CROSS_WORLD_CHASER -> tr(lang, "⚡CHASING", "⚡يطاردك") to DangerRed
+                            else -> tr(lang, "READY", "جاهز") to MercyYellow
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -809,6 +922,34 @@ fun WorldExploreScreen(
                                 color = statusColor
                             )
                         }
+                        if (isLockedBoss && !isResolved) {
+                            Text(
+                                text = "  └ ${state.bossLockProgressText(wb.id, lang)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DangerRed.copy(alpha = 0.88f),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    // Alert if an active stalker from another home world is currently inside this world!
+                    val visitingStalkers = state.stalkerBosses.filter { sb ->
+                        sb.worldId == world &&
+                            worldBosses.none { it.id == sb.enemyId } &&
+                            sb.enemyId !in state.friendAllies &&
+                            sb.enemyId !in state.stoppedEnemies &&
+                            sb.enemyId !in state.defeatedEnemies
+                    }
+                    visitingStalkers.forEach { vs ->
+                        val profile = EnemyRoster.byId(vs.enemyId)
+                        Text(
+                            text = tr(
+                                lang,
+                                "⚡ ${profile.name} followed you here (${if (lang == AppLanguage.AR) vs.zone.titleAr else vs.zone.titleEn})!",
+                                "⚡ ${profile.name} يتبعك داخل هذا العالم (${vs.zone.titleAr})!"
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = DangerRed
+                        )
                     }
                     if (state.isJourneyCompleteForEcho && world != WorldId.GLITCHED_WORLD) {
                         Text(
@@ -890,31 +1031,43 @@ fun WorldExploreScreen(
                     }
 
                     nearBoss != null -> {
-                        val isEchoLocked = nearBoss.id == EnemyId.ECHO_LOKA && !state.isJourneyCompleteForEcho
+                        val isBossLocked = !state.isBossUnlocked(nearBoss.id)
                         val isBossFriend = nearBoss.id in state.friendAllies
                         val isBossStopped = nearBoss.id in state.stoppedEnemies
                         val isBossSlain = nearBoss.id in state.defeatedEnemies
+                        val isChaserBoss = nearBoss.bossBehavior == BossBehavior.CROSS_WORLD_CHASER
                         val bossBadge = when {
                             nearBoss.id == EnemyId.ECHO_LOKA -> tr(lang, "★ FINAL BOSS", "★ الزعيم الأخير")
                             isBossFriend -> tr(lang, "♥ FRIEND BOSS", "♥ زعيم صديق")
                             isBossStopped -> tr(lang, "⚖ STOPPED (NO KILL)", "⚖ مُوقَف بدون قتل")
                             isBossSlain -> tr(lang, "✕ SLAIN BOSS", "✕ زعيم مهزوم")
+                            isChaserBoss -> tr(lang, "⚡ CROSS-WORLD STALKER", "⚡ زعيم يطاردك عبر العوالم")
+                            nearBoss.bossBehavior == BossBehavior.WORLD_COMPLETION -> tr(lang, "🔒 COMPLETION BOSS", "🔒 زعيم إتمام العالم")
                             nearBoss.id == EnemyId.GOV_MONSTER_CHIEF -> tr(lang, "★ GOV BOSS (FRIENDABLE)", "★ زعيم الحكومة (صداقة)")
-                            nearBoss.id == EnemyId.GOV_DIRECTOR -> tr(lang, "★ GOV LEADER (NO FRIEND)", "★ رئيس الحكومة (بلا صداقة)")
-                            else -> tr(lang, "★ WORLD BOSS", "★ زعيم العالم")
+                            else -> tr(lang, "★ IMMEDIATE BOSS", "★ زعيم قتال فوري")
                         }
                         Text(
                             text = "$bossBadge · HP ${nearBoss.maxHp}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isEchoLocked) DangerRed else if (isBossFriend) HpBarGreen else if (isBossStopped) GlitchCyan else MercyYellow
+                            color = when {
+                                isBossLocked || isChaserBoss -> DangerRed
+                                isBossFriend -> HpBarGreen
+                                isBossStopped -> GlitchCyan
+                                else -> MercyYellow
+                            }
                         )
-                        Text(nearBoss.name, style = MaterialTheme.typography.titleMedium, color = if (isEchoLocked) DangerRed else nearBoss.accentColor)
+                        Text(nearBoss.name, style = MaterialTheme.typography.titleMedium, color = if (isBossLocked) DangerRed else nearBoss.accentColor)
                         Text(
                             text = when {
-                                isEchoLocked -> tr(
+                                nearBoss.id == EnemyId.ECHO_LOKA && isBossLocked -> tr(
                                     lang,
-                                    "LOCKED FINAL ENEMY (${state.resolvedBossCount}/${state.totalStandardBosses} bosses) — Finish your journey first!",
-                                    "عدو أخير مقفل (${state.resolvedBossCount}/${state.totalStandardBosses} زعماء) — أنهِ رحلتك أولاً!"
+                                    "LOCKED FINAL ENEMY (${state.bossLockProgressText(nearBoss.id, lang)}) — Finish your journey first!",
+                                    "عدو أخير مقفل (${state.bossLockProgressText(nearBoss.id, lang)}) — أنهِ رحلتك أولاً!"
+                                )
+                                isBossLocked -> tr(
+                                    lang,
+                                    "LOCKED: Finish ALL quests, chests, kids & bosses in ${nearBoss.worldId.title} first! (${state.bossLockProgressText(nearBoss.id, lang)})",
+                                    "مقفل: أنهِ كل المهام والصناديق والأطفال والزعيم الفوري في هذا العالم أولاً! (${state.bossLockProgressText(nearBoss.id, lang)})"
                                 )
                                 isBossFriend -> tr(
                                     lang,
@@ -926,31 +1079,16 @@ fun WorldExploreScreen(
                                     "${nearBoss.raceTitle} · Stopped peacefully without killing!",
                                     "${nearBoss.raceTitle} · تم إيقافه سلمياً بدون قتل!"
                                 )
-                                nearBoss.id == EnemyId.GOV_MONSTER_CHIEF -> tr(
-                                    lang,
-                                    "The ONLY Government official you can befriend (ACT+SPARE) or FIGHT!",
-                                    "الشخص الوحيد في الحكومة الذي يمكنك مصادقته (ACT ثم SPARE) أو قتاله!"
-                                )
-                                nearBoss.id == EnemyId.GOV_DIRECTOR -> tr(
-                                    lang,
-                                    "Cannot become a friend! Stop without killing (ACT+STOP) or kill (FIGHT).",
-                                    "لا يمكن مصادقته! أوقفه بدون قتل (ACT ثم STOP) أو اقتله (FIGHT)."
-                                )
-                                nearBoss.canBefriend -> tr(
-                                    lang,
-                                    "${nearBoss.raceTitle} · Use ACT + SPARE to befriend or FIGHT!",
-                                    "${nearBoss.raceTitle} · استخدم ACT ثم SPARE لمصادقته أو FIGHT لهزيمته!"
-                                )
-                                else -> nearBoss.raceTitle
+                                else -> if (lang == AppLanguage.AR) nearBoss.spareMethodHintAr else nearBoss.spareMethodHintEn
                             },
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isEchoLocked) DangerRed else MutedSepiaInk
+                            color = if (isBossLocked) DangerRed else MutedSepiaInk
                         )
                         Button(
                             onClick = { onEngageBoss(nearBoss.id) },
-                            enabled = !isEchoLocked,
+                            enabled = !isBossLocked,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isEchoLocked) Color(0xFF27272A) else nearBoss.accentColor,
+                                containerColor = if (isBossLocked) Color(0xFF27272A) else nearBoss.accentColor,
                                 contentColor = ObsidianBg,
                                 disabledContainerColor = Color(0xFF1F1F26),
                                 disabledContentColor = Color(0xFF9CA3AF)
@@ -962,7 +1100,8 @@ fun WorldExploreScreen(
                         ) {
                             Text(
                                 text = when {
-                                    isEchoLocked -> tr(lang, "LOCKED UNTIL JOURNEY ENDS", "مقفل حتى تنتهي رحلتك")
+                                    isBossLocked && nearBoss.id == EnemyId.ECHO_LOKA -> tr(lang, "LOCKED UNTIL JOURNEY ENDS", "مقفل حتى تنتهي رحلتك")
+                                    isBossLocked -> tr(lang, "FINISH THIS WORLD TO UNLOCK", "أنهِ كل شيء بهذا العالم لفتحه")
                                     nearBoss.id == EnemyId.ECHO_LOKA -> tr(lang, "FINAL BATTLE: ECHO-LOKA", "المعركة الأخيرة: ECHO-LOKA")
                                     isBossFriend -> tr(lang, "SPAR / VISIT", "تدريب / زيارة")
                                     isBossStopped -> tr(lang, "RE-CHALLENGE", "إعادة المواجهة")
@@ -1131,36 +1270,86 @@ fun WorldExploreScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
-                        onClick = { showBagDialog = true },
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SepiaAmber),
+                        onClick = onToggleRunMode,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (state.isRunningMode) GlitchCyan else MutedSepiaInk
+                        ),
+                        shape = RoundedCornerShape(0.dp),
                         modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .testTag("explore_bag_button")
+                            .weight(0.95f)
+                            .height(48.dp)
+                            .testTag("explore_run_toggle_button")
                     ) {
-                        Icon(Icons.Default.Backpack, contentDescription = null, tint = SepiaAmber, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(tr(lang, "BAG", "حقيبة"), style = MaterialTheme.typography.labelSmall, color = SepiaAmber)
+                        Icon(
+                            imageVector = if (state.isRunningMode) Icons.Default.DirectionsRun else Icons.Default.DirectionsWalk,
+                            contentDescription = "Walk or Run",
+                            tint = if (state.isRunningMode) GlitchCyan else ParchmentInk,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            text = if (state.isRunningMode) tr(lang, "RUN", "ركض") else tr(lang, "WALK", "مشي"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (state.isRunningMode) GlitchCyan else ParchmentInk,
+                            maxLines = 1
+                        )
                     }
                     OutlinedButton(
-                        onClick = onToggleControls,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MercyYellow),
+                        onClick = {
+                            codexInitialTab = 0
+                            showCodexDialog = true
+                        },
+                        border = androidx.compose.foundation.BorderStroke(1.dp, SepiaAmber),
+                        shape = RoundedCornerShape(0.dp),
                         modifier = Modifier
-                            .height(44.dp)
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("explore_bag_button")
+                    ) {
+                        Icon(Icons.Default.Backpack, contentDescription = null, tint = SepiaAmber, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text(tr(lang, "CODEX", "السجل"), style = MaterialTheme.typography.labelSmall, color = SepiaAmber, maxLines = 1)
+                    }
+                    IconButton(
+                        onClick = {
+                            codexInitialTab = 4
+                            showCodexDialog = true
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.dp, GlitchCyan, RoundedCornerShape(0.dp))
+                            .testTag("explore_settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings and Save Slots",
+                            tint = GlitchCyan
+                        )
+                    }
+                    IconButton(
+                        onClick = onToggleControls,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.dp, MercyYellow, RoundedCornerShape(0.dp))
                             .testTag("explore_controls_button")
                     ) {
-                        Icon(Icons.Default.Gamepad, contentDescription = "Switch controls", tint = MercyYellow, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(3.dp))
-                        Text(if (lang == AppLanguage.AR) state.controlScheme.labelAr else state.controlScheme.label, style = MaterialTheme.typography.labelSmall, color = MercyYellow)
+                        Icon(Icons.Default.Gamepad, contentDescription = "Switch controls", tint = MercyYellow)
                     }
                     OutlinedButton(
                         onClick = onToggleLanguage,
+                        shape = RoundedCornerShape(0.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, SepiaDarkBorder),
-                        modifier = Modifier.height(44.dp).testTag("explore_language_button")
+                        modifier = Modifier
+                            .height(48.dp)
+                            .testTag("explore_language_button")
                     ) {
                         Text(lang.buttonLabel, style = MaterialTheme.typography.labelSmall, color = SepiaGold)
                     }
-                    IconButton(onClick = onToggleMute) {
+                    IconButton(
+                        onClick = onToggleMute,
+                        modifier = Modifier.size(48.dp)
+                    ) {
                         Icon(
                             imageVector = if (state.isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                             contentDescription = "Mute sound",
@@ -1329,107 +1518,34 @@ fun WorldExploreScreen(
         )
     }
 
-    // Bag, Armor, Lost Kid Buffs & Controls Modal
-    if (showBagDialog) {
-        AlertDialog(
-            onDismissRequest = { showBagDialog = false },
-            shape = RoundedCornerShape(0.dp),
-            containerColor = Color.Black,
-            title = { Text(tr(lang, "LOKA'S BAG & STATUS", "حقيبة وحالة لوكا"), style = MaterialTheme.typography.titleMedium, color = SepiaGold) },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = tr(
-                            lang,
-                            "Friends: ${state.friendAllies.size} · Slain: ${state.defeatedEnemies.size} · Escorting: ${state.escortingKidIds.size} · Returned Safe: ${state.rescuedToNormalKidIds.size} · Killed: ${state.killedKidIds.size}",
-                            "الأصدقاء: ${state.friendAllies.size} · المهزومون: ${state.defeatedEnemies.size} · المرافقون الآن: ${state.escortingKidIds.size} · عادوا بأمان: ${state.rescuedToNormalKidIds.size} · قُتلوا: ${state.killedKidIds.size}"
-                        ) + if (state.saveMysteryDiscovered) " · Save: ${state.saveCounter}/8 (${state.secretTapesFound}/${state.totalSecretTapes})" else "",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ParchmentInk
-                    )
-                    if (state.helpedKidsList.isNotEmpty()) {
-                        Text(
-                            text = tr(lang, "Active Escort Buffs (until Normal World):", "دعم المرافقين (حتى العالم الطبيعي):") + " " +
-                                state.helpedKidsList.joinToString(" | ") { if (lang == AppLanguage.AR) it.buffAr else it.buffEn },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = HpBarGreen
-                        )
-                    }
-                    Text(
-                        text = "${tr(lang, "Weapon", "السلاح")}: ${if (lang == AppLanguage.AR) state.equippedWeapon.nameAr else state.equippedWeapon.name} (+${state.equippedWeapon.attackBonus} ATK)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = state.equippedWeapon.accentColor
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        WeaponCatalog.all.filter { it.id in state.unlockedWeaponIds }.forEach { weapon ->
-                            FilterChip(
-                                selected = weapon.id == state.equippedWeaponId,
-                                onClick = { onEquipWeapon(weapon.id) },
-                                shape = RoundedCornerShape(0.dp),
-                                label = { Text(if (lang == AppLanguage.AR) weapon.nameAr else weapon.name, style = MaterialTheme.typography.labelSmall) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = weapon.accentColor.copy(alpha = 0.24f),
-                                    selectedLabelColor = weapon.accentColor,
-                                    labelColor = MutedSepiaInk
-                                )
-                            )
-                        }
-                    }
-                    Text(
-                        text = "${tr(lang, "Armor", "الدرع")}: ${state.equippedArmor.name} (+${state.equippedArmor.defenseBonus + state.kidDefBonus} DEF, +${state.equippedArmor.maxHpBonus + state.kidHpBonus} HP)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SepiaAmber
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ArmorCatalog.all.filter { it.id in state.unlockedArmorIds }.forEach { armor ->
-                            FilterChip(
-                                selected = armor.id == state.equippedArmorId,
-                                onClick = { onEquipArmor(armor.id) },
-                                shape = RoundedCornerShape(0.dp),
-                                label = { Text(armor.name, style = MaterialTheme.typography.labelSmall) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = SepiaAmber.copy(alpha = 0.22f),
-                                    selectedLabelColor = SepiaAmber,
-                                    labelColor = MutedSepiaInk
-                                )
-                            )
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onToggleControls, shape = RoundedCornerShape(0.dp)) {
-                            Text(
-                                text = if (lang == AppLanguage.AR) state.controlScheme.labelAr else state.controlScheme.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = ParchmentInk
-                            )
-                        }
-                        OutlinedButton(onClick = {
-                            showBagDialog = false
-                            onWatchStoryIntro()
-                        }, shape = RoundedCornerShape(0.dp)) {
-                            Text(tr(lang, "Replay Story", "إعادة القصة"), style = MaterialTheme.typography.labelSmall, color = SepiaAmber)
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                showBagDialog = false
-                                confirmResetDialog = true
-                            },
-                            shape = RoundedCornerShape(0.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, DangerRed),
-                            modifier = Modifier.testTag("bag_reset_save_button")
-                        ) {
-                            Text(tr(lang, "New Game", "لعبة جديدة"), style = MaterialTheme.typography.labelSmall, color = DangerRed)
-                        }
-                    }
-                }
+    // Codex, Relics, Multiple Timelines, Lore Encyclopedia, Save Slots & Settings Modal
+    if (showCodexDialog) {
+        CodexAndSettingsDialog(
+            state = state,
+            initialTab = codexInitialTab,
+            onDismiss = { showCodexDialog = false },
+            onEquipArmor = onEquipArmor,
+            onEquipWeapon = onEquipWeapon,
+            onEquipRelic = onEquipRelic,
+            onSetVolume = onSetVolume,
+            onToggleMute = onToggleMute,
+            onSetDifficulty = onSetDifficulty,
+            onToggleReduceFlash = onToggleReduceFlash,
+            onToggleControls = onToggleControls,
+            onSaveToSlot = onSaveToSlot,
+            onSwitchSlot = onSwitchSlot,
+            onClearSlot = onClearSlot,
+            onStartNewTimeline = {
+                showCodexDialog = false
+                onStartNewTimeline()
             },
-            confirmButton = {
-                TextButton(onClick = { showBagDialog = false }, shape = RoundedCornerShape(0.dp)) {
-                    Text(tr(lang, "CLOSE", "إغلاق"), color = SepiaAmber)
-                }
+            onWatchStoryIntro = {
+                showCodexDialog = false
+                onWatchStoryIntro()
+            },
+            onRequestFullReset = {
+                showCodexDialog = false
+                confirmResetDialog = true
             }
         )
     }
@@ -1485,7 +1601,7 @@ private fun DrawScope.drawWorldTerrain(
     doors: List<ZoneDoorInfo>,
     ambientClock: Float
 ) {
-    // 256x144 (36,864 pixels!) crisp cached pixel-art ground texture base
+    // 640x480 (4x denser micro-pixels!) crisp cached pixel-art ground texture base
     val terrainBitmap = UltraPixelArtEngine.getWorldTerrainBitmap(world, zone)
     drawImage(
         image = terrainBitmap,
@@ -1653,11 +1769,14 @@ private fun DrawScope.drawPixelLantern(
     ambientClock: Float
 ) {
     val pulse = 0.85f + 0.15f * sin(ambientClock * 5f + center.x * 0.02f)
-    drawRect(glowColor.copy(alpha = 0.16f * pulse), Offset(center.x - 11.dp.toPx(), center.y - 16.dp.toPx()), Size(22.dp.toPx(), 18.dp.toPx()))
-    drawRect(glowColor.copy(alpha = 0.24f * pulse), Offset(center.x - 7.dp.toPx(), center.y - 13.dp.toPx()), Size(14.dp.toPx(), 12.dp.toPx()))
-    drawRect(Color(0xFF1E293B), Offset(center.x - 1.8.dp.toPx(), center.y - 8.dp.toPx()), Size(3.6.dp.toPx(), 12.dp.toPx()))
-    drawRect(glowColor, Offset(center.x - 3.dp.toPx(), center.y - 10.dp.toPx()), Size(6.dp.toPx(), 5.dp.toPx()))
-    drawRect(Color.White.copy(alpha = 0.8f), Offset(center.x - 1.5.dp.toPx(), center.y - 8.5.dp.toPx()), Size(3.dp.toPx(), 2.5.dp.toPx()))
+    drawRect(glowColor.copy(alpha = 0.14f * pulse), Offset(center.x - 10.dp.toPx(), center.y - 15.dp.toPx()), Size(20.dp.toPx(), 16.dp.toPx()))
+    drawRect(glowColor.copy(alpha = 0.24f * pulse), Offset(center.x - 6.dp.toPx(), center.y - 12.dp.toPx()), Size(12.dp.toPx(), 10.dp.toPx()))
+    // Finer stepped lantern post & cap
+    drawRect(Color(0xFF0F172A), Offset(center.x - 2.dp.toPx(), center.y - 8.dp.toPx()), Size(4.dp.toPx(), 12.dp.toPx()))
+    drawRect(Color(0xFF334155), Offset(center.x - 1.dp.toPx(), center.y - 7.dp.toPx()), Size(2.dp.toPx(), 10.dp.toPx()))
+    drawRect(Color(0xFF0F172A), Offset(center.x - 4.dp.toPx(), center.y - 11.dp.toPx()), Size(8.dp.toPx(), 2.dp.toPx()))
+    drawRect(glowColor, Offset(center.x - 2.5.dp.toPx(), center.y - 9.dp.toPx()), Size(5.dp.toPx(), 4.5.dp.toPx()))
+    drawRect(Color.White.copy(alpha = 0.85f), Offset(center.x - 1.2.dp.toPx(), center.y - 8.dp.toPx()), Size(2.4.dp.toPx(), 2.dp.toPx()))
 }
 
 private fun DrawScope.drawPixelTree(
@@ -1666,14 +1785,24 @@ private fun DrawScope.drawPixelTree(
     canopyLight: Color,
     trunkColor: Color
 ) {
-    val u = 5.2.dp.toPx()
-    drawSteppedPixelShadow(Offset(center.x, center.y + u * 1.45f), u * 3.8f, u * 0.9f, Color.Black.copy(alpha = 0.38f))
-    drawRect(trunkColor, Offset(center.x - u * 0.55f, center.y - u * 0.1f), Size(u * 1.1f, u * 1.55f))
-    drawRect(Color.Black.copy(alpha = 0.25f), Offset(center.x + u * 0.15f, center.y - u * 0.1f), Size(u * 0.4f, u * 1.55f))
-    drawRect(Color(0xFF140E0A), Offset(center.x - u * 2.0f, center.y - u * 1.75f), Size(u * 4.0f, u * 2.25f))
-    drawRect(Color(0xFF140E0A), Offset(center.x - u * 1.4f, center.y - u * 2.45f), Size(u * 2.8f, u * 1.0f))
-    drawRect(canopyDark, Offset(center.x - u * 1.85f, center.y - u * 1.6f), Size(u * 3.7f, u * 1.95f))
-    drawRect(canopyDark, Offset(center.x - u * 1.25f, center.y - u * 2.3f), Size(u * 2.5f, u * 0.9f))
-    drawRect(canopyLight, Offset(center.x - u * 1.25f, center.y - u * 1.95f), Size(u * 2.1f, u * 1.15f))
-    drawRect(canopyLight, Offset(center.x - u * 0.80f, center.y - u * 2.15f), Size(u * 1.4f, u * 0.45f))
+    val u = 3.2.dp.toPx()
+    drawSteppedPixelShadow(Offset(center.x, center.y + u * 2.2f), u * 6.0f, u * 1.4f, Color.Black.copy(alpha = 0.38f))
+    // Textured pixel bark trunk
+    drawRect(Color(0xFF140E0A), Offset(center.x - u * 1.0f, center.y - u * 0.2f), Size(u * 2.0f, u * 2.5f))
+    drawRect(trunkColor, Offset(center.x - u * 0.75f, center.y - u * 0.1f), Size(u * 1.5f, u * 2.25f))
+    drawRect(Color.Black.copy(alpha = 0.28f), Offset(center.x + u * 0.15f, center.y - u * 0.1f), Size(u * 0.55f, u * 2.25f))
+    // Multi-tiered micro-pixel foliage clusters
+    drawRect(Color(0xFF140E0A), Offset(center.x - u * 3.2f, center.y - u * 2.5f), Size(u * 6.4f, u * 3.1f))
+    drawRect(Color(0xFF140E0A), Offset(center.x - u * 2.4f, center.y - u * 3.7f), Size(u * 4.8f, u * 1.6f))
+    drawRect(Color(0xFF140E0A), Offset(center.x - u * 1.4f, center.y - u * 4.4f), Size(u * 2.8f, u * 1.0f))
+
+    drawRect(canopyDark, Offset(center.x - u * 2.95f, center.y - u * 2.3f), Size(u * 5.9f, u * 2.7f))
+    drawRect(canopyDark, Offset(center.x - u * 2.15f, center.y - u * 3.45f), Size(u * 4.3f, u * 1.45f))
+    drawRect(canopyDark, Offset(center.x - u * 1.15f, center.y - u * 4.15f), Size(u * 2.3f, u * 0.9f))
+
+    // Micro leaf highlight pixels
+    drawRect(canopyLight, Offset(center.x - u * 2.2f, center.y - u * 2.9f), Size(u * 3.3f, u * 1.65f))
+    drawRect(canopyLight, Offset(center.x - u * 1.3f, center.y - u * 3.65f), Size(u * 2.1f, u * 0.85f))
+    drawRect(Color.White.copy(alpha = 0.22f), Offset(center.x - u * 0.9f, center.y - u * 3.4f), Size(u * 0.7f, u * 0.45f))
+    drawRect(Color.White.copy(alpha = 0.22f), Offset(center.x - u * 1.8f, center.y - u * 2.1f), Size(u * 0.7f, u * 0.45f))
 }

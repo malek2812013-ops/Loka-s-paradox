@@ -444,7 +444,11 @@ fun LoreIntroScreen(
                                 drawLokaOverworldSprite(
                                     center = Offset(walkX, walkY),
                                     unit = 7.dp.toPx(),
-                                    isGlitched = cyanFlashAlpha > 0.2f
+                                    isGlitched = cyanFlashAlpha > 0.2f,
+                                    isMoving = true,
+                                    isRunning = false,
+                                    animClock = scenePhase * 4.5f,
+                                    facingRight = true
                                 )
                             }
                             3 -> {

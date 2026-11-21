@@ -93,6 +93,7 @@ fun RuinsTutorialScreen(
     onClaimCandy: () -> Unit,
     onActivateSwitch: () -> Unit,
     onPracticeDummy: () -> Unit,
+    onToggleRunMode: () -> Unit,
     onToggleControls: () -> Unit,
     onToggleLanguage: () -> Unit,
     onToggleMute: () -> Unit,
@@ -104,6 +105,8 @@ fun RuinsTutorialScreen(
     var padDirX by remember { mutableFloatStateOf(0f) }
     var padDirY by remember { mutableFloatStateOf(0f) }
     var ambientClock by remember { mutableFloatStateOf(0f) }
+    var moveAnimHoldSec by remember { mutableFloatStateOf(0f) }
+    var facingRight by remember { mutableStateOf(true) }
 
     BackHandler(enabled = exitMonologueStep > 0 || introDialogueStep > 0) {
         if (exitMonologueStep > 0) {
@@ -120,7 +123,11 @@ fun RuinsTutorialScreen(
                 if (lastNanos != 0L) {
                     val dt = ((nanos - lastNanos) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
                     ambientClock = (ambientClock + dt) % 600f
+                    moveAnimHoldSec = (moveAnimHoldSec - dt).coerceAtLeast(0f)
                     if (exitMonologueStep == 0 && (padDirX != 0f || padDirY != 0f)) {
+                        if (padDirX > 0.05f) facingRight = true
+                        else if (padDirX < -0.05f) facingRight = false
+                        moveAnimHoldSec = 0.16f
                         onMovePlayer(padDirX * 0.42f * dt, padDirY * 0.42f * dt)
                     }
                 }
@@ -208,6 +215,12 @@ fun RuinsTutorialScreen(
                             change.consume()
                             val dx = dragAmount.x / size.width.toFloat()
                             val dy = dragAmount.y / size.height.toFloat()
+                            if (kotlin.math.abs(dx) > 0.0008f) {
+                                facingRight = dx >= 0f
+                            }
+                            if (hypot(dx, dy) > 0.0008f) {
+                                moveAnimHoldSec = 0.22f
+                            }
                             onMovePlayer(dx, dy)
                         }
                     }
@@ -230,7 +243,11 @@ fun RuinsTutorialScreen(
                 drawLokaOverworldSprite(
                     center = Offset(px * size.width, py * size.height),
                     unit = 11.5.dp.toPx(),
-                    isGlitched = false
+                    isGlitched = false,
+                    isMoving = moveAnimHoldSec > 0f,
+                    isRunning = state.isRunningMode,
+                    animClock = ambientClock,
+                    facingRight = facingRight
                 )
             }
 
@@ -602,6 +619,18 @@ fun RuinsTutorialScreen(
                                     },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = ParchmentInk
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = onToggleRunMode,
+                                shape = RoundedCornerShape(0.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, if (state.isRunningMode) MercyYellow else SepiaDarkBorder),
+                                modifier = Modifier.height(48.dp).testTag("ruins_run_toggle_button")
+                            ) {
+                                Text(
+                                    text = if (state.isRunningMode) tr(lang, "RUN ⚡", "ركض ⚡") else tr(lang, "WALK", "مشي"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (state.isRunningMode) MercyYellow else MutedSepiaInk
                                 )
                             }
                             OutlinedButton(

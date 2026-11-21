@@ -13,22 +13,22 @@ import kotlin.math.min
 import kotlin.random.Random
 
 /**
- * Undertale-Authentic Pixel Art Engine:
- * - Character / Boss / Monster Sprites: 512x512 crisp nearest-neighbor pixel resolution (32x32 -> 16x integer scale)
- * - Overworld & Ruins Stages: Exact Undertale 320x240 native room resolution (16x12 tiles of 20x20 px)
- * - Battle Encounter Backdrop: Exact Undertale 640x480 native battle resolution
+ * Ultra-Fine Undertale-Authentic Micro-Pixel Engine:
+ * - Character / Boss / Monster Sprites: 512x512 crisp nearest-neighbor pixel resolution (32x32 / 64x64 integer scale)
+ * - Overworld & Ruins Stages: High-density 640x480 micro-pixel resolution (40x30 tiles of 16x16 smaller pixels)
+ * - Battle Encounter Backdrop: High-density 960x720 encounter resolution
  */
 object UltraPixelArtEngine {
 
     const val SPRITE_RES = 512
     const val ICON_RES = 128
-    const val OVERWORLD_W = 320
-    const val OVERWORLD_H = 240
-    const val BATTLE_W = 640
-    const val BATTLE_H = 480
+    const val OVERWORLD_W = 640
+    const val OVERWORLD_H = 480
+    const val BATTLE_W = 960
+    const val BATTLE_H = 720
 
-    private val spriteCache = LruCache<String, ImageBitmap>(40)
-    private val sceneCache = LruCache<String, ImageBitmap>(24)
+    private val spriteCache = LruCache<String, ImageBitmap>(32)
+    private val sceneCache = LruCache<String, ImageBitmap>(16)
 
     fun getHdSpriteBitmap(
         rows: List<String>,
@@ -90,21 +90,20 @@ object UltraPixelArtEngine {
     }
 
     /**
-     * Generates a cached 640x480 Classic Undertale Encounter Backdrop:
-     * Pure #000000 black with the iconic subtle dark-green square encounter grid behind the enemy zone.
+     * Generates a cached 960x720 Classic Undertale Encounter Backdrop with smaller, finer dark-green grid lines.
      */
     fun getUndertaleBattleBgBitmap(): ImageBitmap {
-        val key = "undertale_battle_bg_640x480"
+        val key = "undertale_battle_bg_960x720"
         sceneCache.get(key)?.let { return it }
 
         val w = BATTLE_W
         val h = BATTLE_H
         val pixels = IntArray(w * h)
-        val gridLimitY = 238
-        val borderLeft = 18
-        val borderRight = w - 18
-        val borderTop = 10
-        val cell = 44
+        val gridLimitY = 356
+        val borderLeft = 26
+        val borderRight = w - 26
+        val borderTop = 14
+        val cell = 66
 
         for (y in 0 until h) {
             for (x in 0 until w) {
@@ -133,15 +132,15 @@ object UltraPixelArtEngine {
     }
 
     /**
-     * Generates a cached 320x240 (16x12 Undertale 20x20 tiles) pixel-art terrain backdrop per world and zone.
+     * Generates a cached 640x480 (40x30 fine 16x16 tiles = 307,200 micro-pixels!) terrain backdrop per world and zone.
      */
     fun getWorldTerrainBitmap(world: WorldId, zone: WorldZone): ImageBitmap {
-        val key = "terrain_320x240_${world.name}_${zone.name}"
+        val key = "terrain_640x480_${world.name}_${zone.name}"
         sceneCache.get(key)?.let { return it }
 
         val w = OVERWORLD_W
         val h = OVERWORLD_H
-        val tile = 20
+        val tile = 16
         val pixels = IntArray(w * h)
         val rng = Random(world.ordinal * 997 + zone.ordinal * 313 + 42)
         val isSanctum = zone == WorldZone.SANCTUM
@@ -162,7 +161,8 @@ object UltraPixelArtEngine {
                         if (isSanctum) {
                             when {
                                 isTileEdge -> 0xFF141B26.toInt()
-                                (lx == 10 && ly == 10) -> 0xFF38BDF8.toInt()
+                                (lx == 8 && ly == 8) -> 0xFF38BDF8.toInt()
+                                (lx in 3..12 && ly in 3..12 && (lx == 3 || ly == 3)) -> 0xFF1B2433.toInt()
                                 tileCheck -> 0xFF202937.toInt()
                                 else -> 0xFF263142.toInt()
                             }
@@ -170,7 +170,7 @@ object UltraPixelArtEngine {
                             when {
                                 isTileEdge && (tx + ty) % 3 == 0 -> 0xFF2C5427.toInt()
                                 noise < 5 -> 0xFF254D22.toInt()
-                                noise < 9 -> 0xFF4F8A47.toInt()
+                                noise < 10 -> 0xFF4F8A47.toInt()
                                 tileCheck && bayer == 0 -> 0xFF41753A.toInt()
                                 tileCheck -> 0xFF3B6B35.toInt()
                                 bayer == 3 -> 0xFF30592C.toInt()
@@ -183,11 +183,12 @@ object UltraPixelArtEngine {
                         if (isSanctum) {
                             when {
                                 isTileEdge -> 0xFF1E1A26.toInt()
+                                (lx == 8 && ly == 8) -> 0xFF22D3EE.toInt()
                                 tileCheck -> 0xFF2C2638.toInt()
                                 else -> 0xFF352E44.toInt()
                             }
                         } else {
-                            val ripple = ((x + y * 2) / 8) % 3 == 0
+                            val ripple = ((x + y * 2) / 10) % 3 == 0
                             when {
                                 noise < 4 -> 0xFF9C7B50.toInt()
                                 ripple && bayer < 2 -> 0xFFE3CEA8.toInt()
@@ -211,7 +212,7 @@ object UltraPixelArtEngine {
                                 else -> 0xFF9B4683.toInt()
                             }
                         } else {
-                            val emberCrack = (x * 3 + y * 5) % 41 == 0 && noise < 28
+                            val emberCrack = (x * 3 + y * 5) % 53 == 0 && noise < 30
                             when {
                                 emberCrack -> 0xFFEF4444.toInt()
                                 noise < 6 -> 0xFF32343B.toInt()
@@ -222,12 +223,12 @@ object UltraPixelArtEngine {
                     }
 
                     WorldId.GOVERNMENT_HQ -> {
-                        val isCenterCarpet = (x in (w / 2 - 22)..(w / 2 + 22)) && !isSanctum
-                        val isCarpetTrim = isCenterCarpet && (x <= w / 2 - 20 || x >= w / 2 + 20)
+                        val isCenterCarpet = (x in (w / 2 - 44)..(w / 2 + 44)) && !isSanctum
+                        val isCarpetTrim = isCenterCarpet && (x <= w / 2 - 40 || x >= w / 2 + 40)
                         if (isSanctum) {
                             when {
                                 isTileEdge -> 0xFF0F172A.toInt()
-                                (lx == 10 && ly == 10) -> 0xFF38BDF8.toInt()
+                                (lx == 8 && ly == 8) -> 0xFF38BDF8.toInt()
                                 tileCheck -> 0xFF1E293B.toInt()
                                 else -> 0xFF283548.toInt()
                             }
@@ -246,7 +247,7 @@ object UltraPixelArtEngine {
                             y % tile == 0 && (tx % 3 == 0) -> 0xFF14353D.toInt()
                             noise < 3 -> 0xFF0E7490.toInt()
                             noise == 98 -> 0xFF86198F.toInt()
-                            (x + y) % 20 == 0 -> 0xFF0A0C12.toInt()
+                            (x + y) % 24 == 0 -> 0xFF0A0C12.toInt()
                             else -> 0xFF040407.toInt()
                         }
                     }
@@ -255,11 +256,11 @@ object UltraPixelArtEngine {
             }
         }
 
-        // Sprinkle 320x240 pixel wildflowers, pebbles & shards
+        // Sprinkle 180 micro-pixel wildflowers, pebbles & shards across 640x480
         if (!isSanctum && world != WorldId.GLITCHED_WORLD) {
-            repeat(64) {
-                val fx = rng.nextInt(12, w - 12)
-                val fy = rng.nextInt(12, h - 12)
+            repeat(180) {
+                val fx = rng.nextInt(16, w - 16)
+                val fy = rng.nextInt(16, h - 16)
                 when (world) {
                     WorldId.NORMAL_WORLD -> {
                         setPx(pixels, w, h, fx - 1, fy + 1, 0xFF15803D.toInt())
@@ -304,10 +305,10 @@ object UltraPixelArtEngine {
     }
 
     /**
-     * Generates a cached 320x240 Undertale Ruins Spotlight Stage backdrop for meeting Ashen.
+     * Generates a cached 640x480 Undertale Ruins Spotlight Stage backdrop for meeting Ashen.
      */
     fun getAshenStageBitmap(): ImageBitmap {
-        val key = "ashen_stage_320x240"
+        val key = "ashen_stage_640x480"
         sceneCache.get(key)?.let { return it }
 
         val w = OVERWORLD_W
@@ -326,8 +327,8 @@ object UltraPixelArtEngine {
                 var b = 18
 
                 if (y < floorY) {
-                    val brickH = 15
-                    val brickW = 30
+                    val brickH = 24
+                    val brickW = 48
                     val rowIdx = y / brickH
                     val shift = if (rowIdx % 2 == 1) brickW / 2 else 0
                     val isMortar = (y % brickH == 0) || ((x + shift) % brickW == 0)
@@ -340,19 +341,19 @@ object UltraPixelArtEngine {
                     }
                 } else {
                     val dist = ((x - beamCx) * (x - beamCx) * 0.25f + (y - floorY) * (y - floorY) * 1.2f)
-                    if (dist < 650f) {
+                    if (dist < 2600f) {
                         r = 28; g = 34; b = 26
                     } else {
                         r = 9; g = 8; b = 14
                     }
                 }
 
-                // Ominous Undertale Ruin Archway
+                // Ominous Undertale Ruin Archway (scaled for 640x480)
                 if (abs(x - archCx) < archHalfW && y in archTopY until floorY) {
                     val dx = abs(x - archCx)
-                    val inner = dx < archHalfW - 5 && y > archTopY + 9
-                    val archCurve = dx * dx + (y - (archTopY + 15)).coerceAtMost(0) * (y - (archTopY + 15)).coerceAtMost(0) < 140
-                    if (inner && (y > archTopY + 15 || archCurve)) {
+                    val inner = dx < archHalfW - 10 && y > archTopY + 18
+                    val archCurve = dx * dx + (y - (archTopY + 30)).coerceAtMost(0) * (y - (archTopY + 30)).coerceAtMost(0) < 560
+                    if (inner && (y > archTopY + 30 || archCurve)) {
                         r = 2; g = 2; b = 5
                     } else {
                         r = 42; g = 26; b = 64
@@ -360,9 +361,9 @@ object UltraPixelArtEngine {
                 }
 
                 // 4x4 Bayer-Dithered Diagonal Spotlight Cone
-                if (y <= floorY + 16) {
+                if (y <= floorY + 32) {
                     val t = (y.toFloat() / floorY.toFloat()).coerceIn(0f, 1.15f)
-                    val halfBeam = 12f + t * 48f
+                    val halfBeam = 24f + t * 96f
                     val distFromCenter = abs(x - beamCx)
                     if (distFromCenter < halfBeam) {
                         val normDist = distFromCenter / halfBeam
@@ -381,11 +382,11 @@ object UltraPixelArtEngine {
             }
         }
 
-        // Lush Undertale flower patch around Ashen
-        val flowerOffsets = listOf(-36, -26, -16, -8, 8, 16, 26, 36, -22, 20)
+        // Lush fine-pixel Undertale flower patch around Ashen
+        val flowerOffsets = listOf(-72, -52, -32, -16, 16, 32, 52, 72, -44, 40, -62, 60)
         flowerOffsets.forEachIndexed { idx, ox ->
             val fx = beamCx.toInt() + ox
-            val fy = floorY + (idx % 4) * 4 - 2
+            val fy = floorY + (idx % 4) * 8 - 4
             val petalCol = if (idx % 2 == 0) 0xFFFDE047.toInt() else 0xFFD4D4D8.toInt()
             setPx(pixels, w, h, fx - 1, fy + 2, 0xFF15803D.toInt())
             setPx(pixels, w, h, fx, fy + 2, 0xFF166534.toInt())
@@ -405,18 +406,16 @@ object UltraPixelArtEngine {
     }
 
     /**
-     * Generates cached 320x240 (16x12 Undertale 20x20 tiles!) Purple Ruins Chamber bitmaps for all 3 rooms:
-     *  - Authentic Undertale purple brick walls + 20x20 stone floor tiles + dark plum trim
-     *  - Room 0: 4x4 Bayer spotlight & lush golden Ruins flowerbed
+     * Generates cached 640x480 (32x18 fine 20x20 tiles) Purple Ruins Chamber bitmaps for all 3 rooms.
      */
     fun getRuinsChamberBitmap(roomIndex: Int = 0): ImageBitmap {
-        val key = "ruins_chamber_${roomIndex}_320x240"
+        val key = "ruins_chamber_${roomIndex}_640x480"
         sceneCache.get(key)?.let { return it }
 
         val w = OVERWORLD_W
         val h = OVERWORLD_H
         val pixels = IntArray(w * h)
-        val wallH = 60 // 3 exact 20px rows of Undertale Ruins masonry
+        val wallH = 120
         val tile = 20
         val spotCx = (w * 0.25f)
         val spotFloorY = (h * 0.56f)
@@ -427,13 +426,13 @@ object UltraPixelArtEngine {
                 var g: Int
                 var b: Int
                 if (y < wallH) {
-                    val brickH = 15
-                    val brickW = 32
+                    val brickH = 24
+                    val brickW = 48
                     val rowIdx = y / brickH
                     val shift = if (rowIdx % 2 == 1) brickW / 2 else 0
                     val isMortar = (y % brickH == 0) || ((x + shift) % brickW == 0)
                     when {
-                        y >= wallH - 4 -> { r = 38; g = 11; b = 48 }
+                        y >= wallH - 6 -> { r = 38; g = 11; b = 48 }
                         isMortar -> { r = 48; g = 14; b = 62 }
                         y % brickH == 1 -> { r = 132; g = 60; b = 158 }
                         else -> {
@@ -447,7 +446,7 @@ object UltraPixelArtEngine {
                     val ty = (y - wallH) / tile
                     val lx = x % tile
                     val ly = (y - wallH) % tile
-                    val isBorderTile = ty == 0 || ty == 8 || tx == 0 || tx == 15
+                    val isBorderTile = ty == 0 || ty == 17 || tx == 0 || tx == 31
                     val seam = lx == 0 || ly == 0
                     val innerSquare = lx in 4..15 && ly in 4..15 && (lx == 4 || lx == 15 || ly == 4 || ly == 15)
                     when {
@@ -464,9 +463,9 @@ object UltraPixelArtEngine {
                 }
 
                 // Room 0: Undertale opening golden spotlight beam onto flowerbed
-                if (roomIndex == 0 && y <= spotFloorY + 20) {
+                if (roomIndex == 0 && y <= spotFloorY + 40) {
                     val t = (y.toFloat() / spotFloorY).coerceIn(0f, 1.15f)
-                    val halfBeam = 10f + t * 34f
+                    val halfBeam = 20f + t * 68f
                     val dist = abs(x - spotCx)
                     if (dist < halfBeam) {
                         val intensity = (1f - dist / halfBeam) * (1.0f - 0.25f * t)
@@ -484,14 +483,14 @@ object UltraPixelArtEngine {
             }
         }
 
-        // Room 0: Lush golden Ruins flowerbed directly under spotlight
+        // Room 0: Lush golden Ruins flowerbed directly under spotlight (scaled to 640x480)
         if (roomIndex == 0) {
             val rng = Random(777)
             val cx = spotCx.toInt()
             val cy = spotFloorY.toInt()
-            for (dy in -14..14) {
-                for (dx in -28..28) {
-                    if (dx * dx * 0.22f + dy * dy <= 185f) {
+            for (dy in -28..28) {
+                for (dx in -56..56) {
+                    if (dx * dx * 0.22f + dy * dy <= 740f) {
                         val px = cx + dx
                         val py = cy + dy
                         val shade = if ((dx + dy) % 3 == 0) 0xFF15803D.toInt() else 0xFF22C55E.toInt()
@@ -499,9 +498,9 @@ object UltraPixelArtEngine {
                     }
                 }
             }
-            repeat(24) {
-                val fx = cx + rng.nextInt(-22, 23)
-                val fy = cy + rng.nextInt(-11, 12)
+            repeat(64) {
+                val fx = cx + rng.nextInt(-44, 45)
+                val fy = cy + rng.nextInt(-22, 24)
                 val petal = if (it % 3 == 0) 0xFFFEF08A.toInt() else 0xFFFACC15.toInt()
                 setPx(pixels, w, h, fx, fy - 1, petal)
                 setPx(pixels, w, h, fx - 1, fy, petal)

@@ -53,6 +53,12 @@ object RetroSoundEngine {
         }
 
     @Volatile
+    var masterVolume: Float = 1.0f
+        set(value) {
+            field = value.coerceIn(0f, 1f)
+        }
+
+    @Volatile
     private var currentTrack: BgmTrack = BgmTrack.NONE
 
     private var bgmJob: Job? = null
@@ -189,7 +195,7 @@ object RetroSoundEngine {
                         trackType == BgmTrack.BATTLE_FUTURE -> 0.090f
                         battleMode -> 0.082f
                         else -> 0.070f
-                    }
+                    } * masterVolume.coerceIn(0f, 1f)
                     val mixed = (mainWave * env + harmWave * env + bassWave + drumWave) * vol
                     chunk[i] = (mixed * Short.MAX_VALUE).toInt()
                         .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
@@ -293,7 +299,7 @@ object RetroSoundEngine {
                 val hp = lp - prev * 0.72f
                 prev = lp
                 val eerieTone = sin(2.0 * PI * 310.0 * i / SAMPLE_RATE).toFloat() * 0.08f
-                val mixed = (hp * 0.85f + eerieTone) * env * 0.24f
+                val mixed = (hp * 0.85f + eerieTone) * env * 0.24f * masterVolume.coerceIn(0f, 1f)
                 samples[i] = (mixed * Short.MAX_VALUE).toInt()
                     .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
                     .toShort()
@@ -316,7 +322,7 @@ object RetroSoundEngine {
                 val env = 1f - (i.toFloat() / count)
                 val noise = (Random.nextFloat() * 2f - 1f)
                 val buzz = sin(2.0 * PI * (120 + (i % 7) * 65) * i / SAMPLE_RATE).toFloat()
-                val mixed = (noise * 0.65f + buzz * 0.35f) * env * 0.22f
+                val mixed = (noise * 0.65f + buzz * 0.35f) * env * 0.22f * masterVolume.coerceIn(0f, 1f)
                 samples[i] = (mixed * Short.MAX_VALUE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
             }
             writeAudio(samples)
@@ -402,7 +408,7 @@ object RetroSoundEngine {
             } else {
                 sin(phase).toFloat()
             }
-            val valFloat = raw * env * volume
+            val valFloat = raw * env * volume * masterVolume.coerceIn(0f, 1f)
             samples[i] = (valFloat * Short.MAX_VALUE).toInt()
                 .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
                 .toShort()
@@ -417,6 +423,7 @@ object RetroSoundEngine {
         volume: Float,
         squareWave: Boolean
     ) {
+        if (masterVolume <= 0.01f) return
         scope.launch {
             val count = (SAMPLE_RATE * durationMs) / 1000
             if (count <= 0) return@launch
@@ -432,7 +439,7 @@ object RetroSoundEngine {
                 } else {
                     sin(phase).toFloat()
                 }
-                val valFloat = raw * env * volume
+                val valFloat = raw * env * volume * masterVolume.coerceIn(0f, 1f)
                 samples[i] = (valFloat * Short.MAX_VALUE).toInt()
                     .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
                     .toShort()

@@ -591,11 +591,19 @@ enum class EnemyId {
     FUTURE_LOKA // Final confrontation in Route finales
 }
 
+enum class BossBehavior {
+    IMMEDIATE,
+    WORLD_COMPLETION,
+    CROSS_WORLD_CHASER
+}
+
 data class EnemyActOption(
     val id: String,
     val title: String,
     val response: String,
-    val mercyGain: Int
+    val mercyGain: Int,
+    val requiredPrevActId: String? = null,
+    val outOfOrderReply: String? = null
 )
 
 data class EnemyProfile(
@@ -619,7 +627,10 @@ data class EnemyProfile(
     val isNormalMonster: Boolean = false,
     val canBefriend: Boolean = true,
     val canStopWithoutKilling: Boolean = canBefriend,
-    val zone: WorldZone = WorldZone.CENTER
+    val zone: WorldZone = WorldZone.CENTER,
+    val bossBehavior: BossBehavior = BossBehavior.IMMEDIATE,
+    val spareMethodHintEn: String = "",
+    val spareMethodHintAr: String = ""
 )
 
 object EnemyRoster {
@@ -653,28 +664,31 @@ object EnemyRoster {
             id = EnemyId.VEX,
             worldId = WorldId.NORMAL_WORLD,
             name = "Commander Vex",
-            raceTitle = "Human · Government Paradox Unit",
-            difficultyLabel = "NORMAL WORLD",
+            raceTitle = "Human · Paradox Tracker (Hunts Across Worlds)",
+            difficultyLabel = "CHASER BOSS",
             maxHp = 85,
             attackPower = 3,
             accentColor = SoulAegisAmber,
             xNorm = 0.72f,
             yNorm = 0.36f,
             zone = WorldZone.NORTH,
+            bossBehavior = BossBehavior.CROSS_WORLD_CHASER,
+            spareMethodHintEn = "Hunts you through ALL worlds! Any ACT gives +10% Mercy.",
+            spareMethodHintAr = "يطاردك في كل العوالم! كل ACT يعطي +10% رحمة.",
             allyBonusTitle = "Vex's Tactical Visor",
             allyBonusDesc = "+2 Attack Damage & wider Critical strike zone.",
-            introLine = "Vex locks his visor. \"Loka—wait! Why did the paradox clock spike again?!\"",
+            introLine = "Vex locks his visor. \"Loka—wait! I tracked your paradox signal across the gates!\"",
             attackQuips = listOf(
                 "\"Containment grid online! Stay inside the perimeter!\"",
-                "\"Every 10 minutes you vanish—let me log your coordinates!\"",
+                "\"Wherever you warp, my scanner follows!\"",
                 "\"We just want to find the other missing kids!\""
             ),
             spareLine = "Vex lowers his weapon and becomes your friend! \"Call me whenever the paradox flares up, Loka.\"",
             defeatLine = "Vex's scanner shorts out and he retreats down the street.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "COMMANDER VEX — 85 HP. Searches for paradox kids; secretly wants to help.", 10),
-                EnemyActOption("explain", "Show Necklace", "You show your golden heart necklace. Vex recognizes you and softens!", 10),
-                EnemyActOption("promise", "Team Up", "You promise to share what you find in the labs. Vex smiles!", 10)
+                EnemyActOption("check", "Check", "COMMANDER VEX — 85 HP. Tracks Loka through every realm! (+10% Mercy)", 10),
+                EnemyActOption("explain", "Show Necklace", "You show your golden heart necklace. Vex recognizes you and softens! (+10% Mercy)", 10),
+                EnemyActOption("promise", "Team Up", "You promise to share what you find in the labs. Vex smiles! (+10% Mercy)", 10)
             )
         ),
         EnemyProfile(
@@ -689,6 +703,9 @@ object EnemyRoster {
             xNorm = 0.72f,
             yNorm = 0.66f,
             zone = WorldZone.SOUTH,
+            bossBehavior = BossBehavior.IMMEDIATE,
+            spareMethodHintEn = "Battle immediately · Any ACT +10% Mercy.",
+            spareMethodHintAr = "قتال فوري · أي خيار ACT يعطي +10% رحمة.",
             allyBonusTitle = "Bramble's Moss Guard",
             allyBonusDesc = "+4 Max HP & +1 Defense across every battle.",
             introLine = "Bramble blocks the cave entrance nervously. \"Humans and Monsters... are we still fighting?\"",
@@ -717,20 +734,33 @@ object EnemyRoster {
             xNorm = 0.68f,
             yNorm = 0.66f,
             zone = WorldZone.EAST,
+            bossBehavior = BossBehavior.IMMEDIATE,
+            spareMethodHintEn = "Order: Check -> Bow -> Praise Trees (+10% each).",
+            spareMethodHintAr = "الترتيب: فحص -> انحناء -> مدح الأشجار (+10% لكل خطوة).",
             allyBonusTitle = "Vespera's Cyan Tea",
             allyBonusDesc = "Restores +1 HP at the start of every player turn.",
-            introLine = "Vespera adjusts her cyan-silk fan. \"A Yellow and Blue Soul bearer in my beige courtyard?\"",
+            introLine = "Vespera adjusts her cyan-silk fan. \"Mind your etiquette, traveler, if you seek peace!\"",
             attackQuips = listOf(
                 "\"Show me the speed of your Blue Soul leap!\"",
                 "\"Aim true with your Yellow Soul light!\"",
-                "\"No humans walk here—yet you wear a warm heart.\""
+                "\"Proper manners first, then tea!\""
             ),
             spareLine = "Lady Vespera curtsies warmly and becomes your ally! \"My mansion doors are always open to you, Loka.\"",
             defeatLine = "Vespera vanishes behind a curtain of cyan leaves.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "LADY VESPERA — 105 HP. Tests travelers with elegant rhythmic volleys.", 10),
-                EnemyActOption("bow", "Courteous Bow", "You bow respectfully. Vespera applauds your manners!", 10),
-                EnemyActOption("tea", "Praise Cyan Trees", "You admire the cyan grove around her mansion. She delights!", 10)
+                EnemyActOption("check", "1. Check", "LADY VESPERA — 105 HP. Demands strict royal etiquette before sparing.", 10),
+                EnemyActOption(
+                    "bow", "2. Courteous Bow",
+                    "You bow gracefully. Vespera nods at your manners!", 10,
+                    requiredPrevActId = "check",
+                    outOfOrderReply = "* Vespera taps her fan! \"Check a lady's stature first before bowing!\""
+                ),
+                EnemyActOption(
+                    "tea", "3. Praise Cyan Trees",
+                    "You admire the glowing cyan grove over warm tea. She delights!", 10,
+                    requiredPrevActId = "bow",
+                    outOfOrderReply = "* Vespera frowns! \"Do not speak of my garden before bowing properly!\""
+                )
             )
         ),
         EnemyProfile(
@@ -738,27 +768,40 @@ object EnemyRoster {
             worldId = WorldId.TRI_RACE_REALM,
             name = "Sentinel Orin",
             raceTitle = "Monster-Angel Construct · Brown Caves",
-            difficultyLabel = "OUTLANDS",
+            difficultyLabel = "OUTLANDS SEAL",
             maxHp = 115,
             attackPower = 4,
             accentColor = Color(0xFF3B82F6),
             xNorm = 0.74f,
             yNorm = 0.56f,
             zone = WorldZone.SOUTH,
+            bossBehavior = BossBehavior.WORLD_COMPLETION,
+            spareMethodHintEn = "Unlock by finishing ALL Outlands tasks · Order: Check -> Gold Heart -> Tune (+10%).",
+            spareMethodHintAr = "يفتح بعد إنهاء كل مهام هذا العالم · الترتيب: فحص -> القلب -> ضبط (+10%).",
             allyBonusTitle = "Orin's Anchor Rune",
             allyBonusDesc = "Reduces Soul ability cooldowns by 20%.",
-            introLine = "Orin's carved stone eyes ignite. \"INTRUDER OR FRIEND? PROVE IT IN MOTION.\"",
+            introLine = "Orin's carved stone eyes ignite. \"YOU COMPLETED THE REALM TRIALS. NOW CALIBRATE MY CORE.\"",
             attackQuips = listOf(
                 "\"GRAVITY SHIFTS INSIDE THE BROWN CAVERN!\"",
-                "\"USE YOUR YELLOW OR BLUE SOUL WISELY!\"",
+                "\"FOLLOW THE HARMONIC CALIBRATION SEQUENCE!\"",
                 "\"THE SECRET LABS HIDE ANSWERS ABOUT YOUR PARADOX.\""
             ),
             spareLine = "Orin kneels and binds an ally rune to your necklace! \"Go safely, Loka.\"",
             defeatLine = "Orin crumbles peacefully into dormant stones.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "SENTINEL ORIN — 115 HP. Ancient guardian of the brown caves.", 10),
-                EnemyActOption("pulse", "Show Golden Heart", "Your necklace chimes with Orin's core. He recognizes your kindness!", 10),
-                EnemyActOption("tune", "Stabilize Core", "You steady the cave crystals around him.", 10)
+                EnemyActOption("check", "1. Check Core", "SENTINEL ORIN — 115 HP. Ancient guardian calibrated only in strict sequence.", 10),
+                EnemyActOption(
+                    "pulse", "2. Show Golden Heart",
+                    "Your necklace chimes cleanly with Orin's core!", 10,
+                    requiredPrevActId = "check",
+                    outOfOrderReply = "* Static buzz! \"SCAN CORE INTEGRITY BEFORE PRESENTING THE CHARM.\""
+                ),
+                EnemyActOption(
+                    "tune", "3. Stabilize Crystals",
+                    "You align the cavern crystals to peaceful resonance!", 10,
+                    requiredPrevActId = "pulse",
+                    outOfOrderReply = "* Sparks scatter! \"RESONANCE REJECTED — MATCH GOLD HEART FIRST.\""
+                )
             )
         ),
         EnemyProfile(
@@ -773,47 +816,63 @@ object EnemyRoster {
             xNorm = 0.28f,
             yNorm = 0.44f,
             zone = WorldZone.WEST,
+            bossBehavior = BossBehavior.IMMEDIATE,
+            spareMethodHintEn = "Order: Check -> Stand Calm -> Bridge Peace (+10% each).",
+            spareMethodHintAr = "الترتيب: فحص -> صمود هادئ -> جسر السلام (+10% لكل خطوة).",
             allyBonusTitle = "Seraphiel's Green Grace",
             allyBonusDesc = "Start every battle with a free Guard Shield.",
-            introLine = "Six wings scatter green leaves over pink-purple grass. \"Will your Purple and Green Souls bring peace?\"",
+            introLine = "Six wings scatter green leaves over pink-purple grass. \"Prove your patience first!\"",
             attackQuips = listOf(
                 "\"Guard with Green! Glide with Purple!\"",
-                "\"The Angels fear another war with the Devils.\"",
+                "\"Calmness must come before promises of peace.\"",
                 "\"Loka, can two divided halves ever mend?\""
             ),
             spareLine = "Seraphiel folds their wings and joins your side! \"My feathers will shield you on every world.\"",
             defeatLine = "Seraphiel ascends into the pink-purple canopy.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "SERAPHIEL — 120 HP. Protects the Angels' green-tree sanctuaries.", 10),
-                EnemyActOption("harmony", "Bridge Both Sides", "You promise to carry peace across to the Devils' border.", 10),
-                EnemyActOption("hope", "Show Green Resolve", "You stand calm without striking. Seraphiel smiles.", 10)
+                EnemyActOption("check", "1. Check Halo", "SERAPHIEL — 120 HP. Tests sincerity in calm three-step order.", 10),
+                EnemyActOption(
+                    "hope", "2. Show Green Resolve",
+                    "You lower your arms calmly. Seraphiel lowers one pair of wings!", 10,
+                    requiredPrevActId = "check",
+                    outOfOrderReply = "* Seraphiel shakes their head. \"Measure the tension before lowering your shield.\""
+                ),
+                EnemyActOption(
+                    "harmony", "3. Bridge Both Sides",
+                    "You vow to unite Angels & Devils without bloodshed. Seraphiel smiles!", 10,
+                    requiredPrevActId = "hope",
+                    outOfOrderReply = "* \"Empty words! First show calm Resolve before promising harmony.\""
+                )
             )
         ),
         EnemyProfile(
             id = EnemyId.MALAKOR,
             worldId = WorldId.SPLIT_REALM,
             name = "Malakor",
-            raceTitle = "Devil · Red-Tree Border Vanguard",
-            difficultyLabel = "SPLIT: DEVILS",
+            raceTitle = "Devil · Crimson Hunter (Hunts Across Worlds)",
+            difficultyLabel = "CHASER BOSS",
             maxHp = 130,
             attackPower = 5,
             accentColor = SoulInfernalViolet,
             xNorm = 0.72f,
             yNorm = 0.44f,
             zone = WorldZone.EAST,
+            bossBehavior = BossBehavior.CROSS_WORLD_CHASER,
+            spareMethodHintEn = "Stalks Loka across ALL worlds! Any ACT gives +10% Mercy.",
+            spareMethodHintAr = "يطاردك في كل العوالم حرفياً! كل ACT يعطي +10% رحمة.",
             allyBonusTitle = "Malakor's Ember Pact",
             allyBonusDesc = "+4 Attack Damage & bonus fight precision.",
-            introLine = "Malakor steps from beneath red-leafed trees onto grey-brown earth. \"Show me what Loka's made of!\"",
+            introLine = "Malakor leaps from crimson portals! \"Running won't lose me, Loka! Show me what you're made of!\"",
             attackQuips = listOf(
-                "\"Bouncing embers from the Devils' wasteland!\"",
+                "\"Across every realm gate, I caught your trail!\"",
                 "\"Your Green Soul shield can't block forever—keep moving!\"",
-                "\"Heh, the Angels think we're all monsters!\""
+                "\"Heh, you actually look fearless!\""
             ),
-            spareLine = "Malakor laughs and fist-bumps your shoulder! \"Count me in as your ally, kid!\"",
+            spareLine = "Malakor laughs and fist-bumps your shoulder! \"No more hunting—count me in as your ally, kid!\"",
             defeatLine = "Malakor steps back into red-ember mist, tipping his horns.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "MALAKOR — 130 HP. Fierce devil warrior who respects courage.", 10),
-                EnemyActOption("respect", "Stand Fearless", "You meet his gaze under the red trees. Malakor grins!", 10),
+                EnemyActOption("check", "Check", "MALAKOR — 130 HP. Crimson hunter chasing Loka through all realms!", 10),
+                EnemyActOption("respect", "Stand Fearless", "You meet his gaze under any sky. Malakor grins!", 10),
                 EnemyActOption("truce", "Offer Alliance", "You invite him to join your friends across all worlds.", 10)
             )
         ),
@@ -821,25 +880,38 @@ object EnemyRoster {
             id = EnemyId.NORMAL_SLIME,
             worldId = WorldId.NORMAL_WORLD,
             name = "Mossy Puff",
-            raceTitle = "Normal Monster · Friendable",
+            raceTitle = "Slime Monster · Ordered Calm Method",
             difficultyLabel = "NORMAL MONSTER",
             maxHp = 48,
             attackPower = 2,
             accentColor = Color(0xFF86EFAC),
             xNorm = 0.18f,
             yNorm = 0.42f,
+            spareMethodHintEn = "Strict Order: 1.Observe (+15%) -> 2.Cool Dew (+35%) -> 3.Pat Cap (+50%).",
+            spareMethodHintAr = "ترتيب إجباري: 1.مراقبة (+15%) -> 2.ندى (+35%) -> 3.ربت (+50%).",
             allyBonusTitle = "Mossy Dew",
-            allyBonusDesc = "Cheery park slime who can become your friend!",
-            introLine = "A bouncy Mossy Puff chases up to you—wait, it just wants to play!",
+            allyBonusDesc = "Cheery park slime befriended by soothing its wobble!",
+            introLine = "A bouncy Mossy Puff wobbles nervously! Follow the right calm order to befriend it!",
             attackQuips = listOf(
-                "*bloop!* \"I only bumped you by accident!\"",
+                "*bloop!* \"Watch how I bounce before touching!\"",
                 "*jiggle!* \"Catch these springy dewdrops!\""
             ),
-            spareLine = "Mossy Puff bounces happily and joins your friends!",
+            spareLine = "Mossy Puff settles peacefully and joins your friends!",
             defeatLine = "Mossy Puff dissolves into a puddle of grass dew.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "MOSSY PUFF — 48 HP. Curious park monster. Can be befriended!", 25),
-                EnemyActOption("pet", "Pat Head", "You gently pat its leafy cap. Mossy Puff purrs!", 80)
+                EnemyActOption("check", "1. Observe Wobble", "MOSSY PUFF — 48 HP. Step 1 done: you learn its nervous rhythm! (+15%)", 15),
+                EnemyActOption(
+                    "soothe", "2. Offer Cool Dew",
+                    "You sprinkle cool dew along its bounce! It slows down happily! (+35%)", 35,
+                    requiredPrevActId = "check",
+                    outOfOrderReply = "* Sploosh! It got startled because you didn't Observe its wobble first! (+0%)"
+                ),
+                EnemyActOption(
+                    "pet", "3. Pat Leafy Cap",
+                    "Gentle final touch! Mossy Puff purrs like a mossy kitten! (+50%)", 50,
+                    requiredPrevActId = "soothe",
+                    outOfOrderReply = "* Too jittery! Soothe it with Cool Dew before patting its cap! (+0%)"
+                )
             ),
             isNormalMonster = true,
             canBefriend = true,
@@ -849,53 +921,79 @@ object EnemyRoster {
             id = EnemyId.FERAL_HOUND,
             worldId = WorldId.NORMAL_WORLD,
             name = "Rift Hound",
-            raceTitle = "Hostile Monster · No Mercy",
-            difficultyLabel = "HOSTILE MONSTER",
+            raceTitle = "Wild Hound · Pack Taming Method",
+            difficultyLabel = "FIERCE MONSTER",
             maxHp = 58,
             attackPower = 3,
             accentColor = Color(0xFFEF4444),
             xNorm = 0.30f,
             yNorm = 0.58f,
-            allyBonusTitle = "Untamed",
-            allyBonusDesc = "Cannot be befriended.",
-            introLine = "A feral Rift Hound lunges from the shadows, fangs bared! It refuses to listen!",
+            spareMethodHintEn = "Strict Order: 1.Stand Ground (+15%) -> 2.Toss Ration (+35%) -> 3.Pull Thorn (+50%).",
+            spareMethodHintAr = "ترتيب إجباري: 1.ثبات (+15%) -> 2.رمي طعام (+35%) -> 3.نزع الشوكة (+50%).",
+            allyBonusTitle = "Tamed Rift Fang",
+            allyBonusDesc = "Feral hound calmed by standing tall & pulling its paradox thorn.",
+            introLine = "A wounded Rift Hound snarls fiercely! Wait—there's a glowing paradox thorn stuck in its paw!",
             attackQuips = listOf(
-                "*GRRR!* \"Words won't tame the paradox!\"",
+                "*GRRR!* \"Stay back unless you mean no harm!\"",
                 "*SNAP!* Sharp shadow fangs tear across the box!"
             ),
-            spareLine = "It never backs down.",
+            spareLine = "The Rift Hound licks your boot gently and trots away as an unlikely friend!",
             defeatLine = "The Rift Hound yelps and scatters back into the bushes.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "RIFT HOUND — 58 HP. Too feral to befriend! FIGHT or FLEE!", 0),
-                EnemyActOption("glare", "Stand Ground", "The Rift Hound snarls fiercely and refuses mercy!", 0)
+                EnemyActOption("glare", "1. Stand Ground", "RIFT HOUND — 58 HP. You stand steady without flinching. It watches closely! (+15%)", 15),
+                EnemyActOption(
+                    "feed", "2. Toss Warm Scrap",
+                    "It sniffs the food and lowers its growl! Trust builds! (+35%)", 35,
+                    requiredPrevActId = "glare",
+                    outOfOrderReply = "* SNAP! It swatted the food away—Stand Ground first to show no fear! (+0%)"
+                ),
+                EnemyActOption(
+                    "thorn", "3. Remove Thorn",
+                    "Quickly and gently, you pull the paradox thorn free! The hound wags its tail! (+50%)", 50,
+                    requiredPrevActId = "feed",
+                    outOfOrderReply = "* Grrr! Never reach for its paw before earning trust with Step 1 & 2! (+0%)"
+                )
             ),
             isNormalMonster = true,
-            canBefriend = false,
+            canBefriend = true,
             zone = WorldZone.WEST
         ),
         EnemyProfile(
             id = EnemyId.SAND_MOTH,
             worldId = WorldId.TRI_RACE_REALM,
             name = "Cyan Moth",
-            raceTitle = "Normal Monster · Friendable",
+            raceTitle = "Winged Monster · Light Dance Method",
             difficultyLabel = "NORMAL MONSTER",
             maxHp = 56,
             attackPower = 3,
             accentColor = SoulSeraphCyan,
             xNorm = 0.28f,
             yNorm = 0.72f,
+            spareMethodHintEn = "Strict Order: 1.Track Dust (+20%) -> 2.Hum Beat (+30%) -> 3.Shine Necklace (+50%).",
+            spareMethodHintAr = "ترتيب إجباري: 1.تتبع الغبار (+20%) -> 2.همهمة (+30%) -> 3.إظهار القلادة (+50%).",
             allyBonusTitle = "Luminous Dust",
-            allyBonusDesc = "Gentle cyan-tree moth that loves shiny necklaces.",
-            introLine = "A glowing Cyan Moth swoops toward Loka's golden heart necklace!",
+            allyBonusDesc = "Gentle cyan-tree moth calmed by rhythmic resonance.",
+            introLine = "A glowing Cyan Moth darts around Loka! Match its wing rhythm before showing your bright necklace!",
             attackQuips = listOf(
-                "*flutter!* \"Your gold charm sparkles like dawn!\"",
+                "*flutter!* \"Sudden bright light scares my eyes!\"",
                 "*buzz!* Glowing cyan dust drifts across the arena!"
             ),
             spareLine = "Cyan Moth perches gently on your shoulder as a new friend!",
             defeatLine = "Cyan scales drift harmlessly into the beige breeze.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "CYAN MOTH — 56 HP. Drawn to warmth & light. Can be befriended!", 25),
-                EnemyActOption("shine", "Show Gold Heart", "You hold up your golden necklace. The moth hums with joy!", 80)
+                EnemyActOption("check", "1. Track Wing Beat", "CYAN MOTH — 56 HP. You count its soft 4/4 wing rhythm. (+20%)", 20),
+                EnemyActOption(
+                    "hum", "2. Hum Matching Beat",
+                    "You hum along cleanly—the moth slows down and hovers peacefully! (+30%)", 30,
+                    requiredPrevActId = "check",
+                    outOfOrderReply = "* Buzz! Your humming clashed—Track its Wing Beat first! (+0%)"
+                ),
+                EnemyActOption(
+                    "shine", "3. Show Gold Heart",
+                    "Warm golden light reflects off calm cyan wings! Total trust! (+50%)", 50,
+                    requiredPrevActId = "hum",
+                    outOfOrderReply = "* Too bright! Sudden light startled it—match its rhythm first! (+0%)"
+                )
             ),
             isNormalMonster = true,
             canBefriend = true,
@@ -905,53 +1003,85 @@ object EnemyRoster {
             id = EnemyId.IRON_STALKER,
             worldId = WorldId.TRI_RACE_REALM,
             name = "Chrono Stalker",
-            raceTitle = "Hostile Construct · No Mercy",
-            difficultyLabel = "HOSTILE MONSTER",
+            raceTitle = "Automaton · Signal Reboot Method",
+            difficultyLabel = "TECH MONSTER",
             maxHp = 70,
             attackPower = 4,
             accentColor = Color(0xFFF97316),
             xNorm = 0.26f,
             yNorm = 0.72f,
-            allyBonusTitle = "Rogue Automaton",
-            allyBonusDesc = "Cannot be befriended.",
-            introLine = "A rusted Chrono Stalker locks onto your Soul signature! Diplomacy module offline!",
+            spareMethodHintEn = "Strict Order: 1.Scan Lock (+25%) -> 2.Invert Ping (+25%) -> 3.Override Peace (+50%).",
+            spareMethodHintAr = "ترتيب إجباري: 1.فحص القفل (+25%) -> 2.عكس الإشارة (+25%) -> 3.برمجة السلام (+50%).",
+            allyBonusTitle = "Friendly Automaton",
+            allyBonusDesc = "Overrode rogue hunter firmware with peaceful protocol.",
+            introLine = "A rusted Chrono Stalker locks onto your Soul! Hack its protocol in exact boot order!",
             attackQuips = listOf(
-                "\"TARGET LOCKED. NEGOTIATION PROTOCOL: NONE.\"",
-                "\"ELIMINATING PARADOX ANOMALY.\""
+                "\"TARGET LOCKED. REBOOT SEQUENCE INCOMPLETE.\"",
+                "\"DETECTING MANUAL FREQUENCY OVERRIDE...\""
             ),
-            spareLine = "Its core has no mercy circuit.",
+            spareLine = "Its optics switch from red to calm green: \"PROTOCOL: PROTECT LOKA.\"",
             defeatLine = "Sparks erupt as the Chrono Stalker powers down in the sand.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "CHRONO STALKER — 70 HP. Rogue hunter machine. Cannot be befriended—FIGHT or FLEE!", 0),
-                EnemyActOption("signal", "Wave Hand", "No response. Its red optics lock straight onto you!", 0)
+                EnemyActOption("scan", "1. Scan Boot Port", "CHRONO STALKER — 70 HP. Port found at neck hinge! (+25%)", 25),
+                EnemyActOption(
+                    "invert", "2. Invert Radar Signal",
+                    "You mirror its radar ping with your necklace chime! Weapons stall! (+25%)", 25,
+                    requiredPrevActId = "scan",
+                    outOfOrderReply = "* ACCESS DENIED! Scan its Boot Port before inverting signal! (+0%)"
+                ),
+                EnemyActOption(
+                    "override", "3. Upload Peace Key",
+                    "Firewall bypassed! Its rogue hunter drive switches off peacefully! (+50%)", 50,
+                    requiredPrevActId = "invert",
+                    outOfOrderReply = "* SECURITY LOCKOUT! Invert the radar signal before uploading key! (+0%)"
+                )
             ),
             isNormalMonster = true,
-            canBefriend = false,
+            canBefriend = true,
             zone = WorldZone.WEST
         ),
         EnemyProfile(
             id = EnemyId.HALO_SCRIBE,
             worldId = WorldId.SPLIT_REALM,
             name = "Choir Wisp",
-            raceTitle = "Normal Monster · Friendable",
+            raceTitle = "Musical Spirit · 4-Beat Choir Method",
             difficultyLabel = "NORMAL MONSTER",
             maxHp = 60,
             attackPower = 3,
             accentColor = Color(0xFFF472B6),
             xNorm = 0.64f,
             yNorm = 0.66f,
+            spareMethodHintEn = "4-Step Varied %: Notes (+15%) -> Clap (+25%) -> Sing (+35%) -> Bow (+25%).",
+            spareMethodHintAr = "4 خطوات بنسب مختلفة: نوتة (+15%) -> تصفيق (+25%) -> غناء (+35%) -> تحية (+25%).",
             allyBonusTitle = "Choir Bell",
-            allyBonusDesc = "Playful pink-grove spirit that loves music.",
-            introLine = "A tiny Choir Wisp races across the pink grass, humming a nervous tune!",
+            allyBonusDesc = "Playful pink-grove spirit befriended with 4-beat harmony.",
+            introLine = "A tiny Choir Wisp floats with floating sheet music—perform the 4-part duet!",
             attackQuips = listOf(
-                "♪ \"Sing along with the bells, traveler!\" ♪",
-                "♪ \"Careful, the notes bounce fast!\" ♪"
+                "♪ \"Sing the four measures cleanly, traveler!\" ♪",
+                "♪ \"Watch the finale timing!\" ♪"
             ),
             spareLine = "Choir Wisp chimes happily and becomes your friend!",
             defeatLine = "Its tiny halo bell fades into shimmering pink mist.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "CHOIR WISP — 60 HP. Musical grove spirit. Can be befriended!", 25),
-                EnemyActOption("hum", "Hum Melody", "You hum a soft rhythm. The Choir Wisp twirls with delight!", 80)
+                EnemyActOption("check", "1. Read Halo Notes", "CHOIR WISP — 60 HP. Sheet music reads: Clap -> Sing -> Bow! (+15%)", 15),
+                EnemyActOption(
+                    "clap", "2. Clap on Beat",
+                    "Clap-clap! The tiny bells chime in sync with your hands! (+25%)", 25,
+                    requiredPrevActId = "check",
+                    outOfOrderReply = "* Off-beat! Read the Halo Notes before clapping! (+0%)"
+                ),
+                EnemyActOption(
+                    "hum", "3. Sing Counter-Melody",
+                    "Your voices harmonize across the pink-purple air! (+35%)", 35,
+                    requiredPrevActId = "clap",
+                    outOfOrderReply = "* Wait for the Clap beat cue first! (+0%)"
+                ),
+                EnemyActOption(
+                    "bow", "4. Quiet Curtain Bow",
+                    "A graceful finale! The Choir Wisp applauds warmly! (+25%)", 25,
+                    requiredPrevActId = "hum",
+                    outOfOrderReply = "* Wait! Don't bow before finishing the Counter-Melody! (+0%)"
+                )
             ),
             isNormalMonster = true,
             canBefriend = true,
@@ -961,28 +1091,36 @@ object EnemyRoster {
             id = EnemyId.ASH_IMP,
             worldId = WorldId.SPLIT_REALM,
             name = "Cinder Imp",
-            raceTitle = "Hostile Devil-Kin · No Mercy",
-            difficultyLabel = "HOSTILE MONSTER",
+            raceTitle = "Devil-Kin · Trickster Trade Method",
+            difficultyLabel = "TRICKY MONSTER",
             maxHp = 74,
             attackPower = 4,
             accentColor = SoulParadoxCrimson,
             xNorm = 0.32f,
             yNorm = 0.68f,
-            allyBonusTitle = "Pure Mischief",
-            allyBonusDesc = "Cannot be befriended.",
-            introLine = "A cackling Cinder Imp bolts across the grey ash! It only wants a brawl!",
+            spareMethodHintEn = "No fixed order for Joke (+30%) & Dare (+30%), then Finish with Trade (+40%)!",
+            spareMethodHintAr = "بادر بالضحك (+30%) أو التحدي (+30%)، ثم اختم بالمقايضة (+40%)!",
+            allyBonusTitle = "Imp's Lucky Coal",
+            allyBonusDesc = "Befriended by matching its humor before trading.",
+            introLine = "A cackling Cinder Imp juggles red embers! Laugh with it or win a stare-down, then trade!",
             attackQuips = listOf(
-                "\"Hehehe! Don't talk to me—DODGE OR FIGHT!\"",
-                "\"Boring words won't stop my fireballs!\""
+                "\"Hehehe! Don't be boring—play along!\"",
+                "\"Trade with me AFTER you make me laugh!\""
             ),
-            spareLine = "The imp laughs in your face.",
+            spareLine = "The Cinder Imp pockets the shiny pebble and winks as your new friend!",
             defeatLine = "The Cinder Imp puffs into soot and dashes back behind a red tree.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "CINDER IMP — 74 HP. Loves chaos. Cannot be befriended—FIGHT or FLEE!", 0),
-                EnemyActOption("reason", "Ask For Truce", "The Cinder Imp sticks out its tongue and tosses sparks!", 0)
+                EnemyActOption("joke", "Tell Silly Joke", "Hehehe! The Cinder Imp drops two fireballs laughing! (+30%)", 30),
+                EnemyActOption("dare", "Out-Stare Imp", "You blink last! The imp cheers loudly for your nerve! (+30%)", 30),
+                EnemyActOption(
+                    "trade", "Trade Cool Pebble",
+                    "Satisfied with the fun, the imp gladly accepts the trade! (+40%)", 40,
+                    requiredPrevActId = "joke",
+                    outOfOrderReply = "* \"Boring! Make me laugh with a Joke first before offering trades!\" (+0%)"
+                )
             ),
             isNormalMonster = true,
-            canBefriend = false,
+            canBefriend = true,
             zone = WorldZone.EAST
         ),
         EnemyProfile(
@@ -997,9 +1135,12 @@ object EnemyRoster {
             xNorm = 0.68f,
             yNorm = 0.48f,
             zone = WorldZone.EAST,
+            bossBehavior = BossBehavior.IMMEDIATE,
+            spareMethodHintEn = "Battle anytime! Only friendable Gov leader (+10% per ACT).",
+            spareMethodHintAr = "قتال فوري! القائد الوحيد في الحكومة القابل للصداقة (+10% لكل ACT).",
             allyBonusTitle = "Monster Chief's Oath",
             allyBonusDesc = "+3 Max HP & +3 Attack Damage across every battle.",
-            introLine = "Heavy armor clanks across the steel floor. \"Loka?! Why did the Council hunt you... Wait—you carry that golden heart?\"",
+            introLine = "Heavy armor clanks across the steel floor. \"Loka?! Wait—you carry that golden heart?\"",
             attackQuips = listOf(
                 "\"I swore to protect the kids—prove your heart isn't twisted!\"",
                 "\"Stand tall, kid! Show me the truth!\"",
@@ -1021,16 +1162,19 @@ object EnemyRoster {
             worldId = WorldId.GOVERNMENT_HQ,
             name = "Chancellor Vance",
             raceTitle = "Supreme Government Head · Corrupt Authority (No Friendship)",
-            difficultyLabel = "GOVERNMENT CHIEF",
+            difficultyLabel = "GOVERNMENT SEAL",
             maxHp = 155,
             attackPower = 5,
             accentColor = Color(0xFFEF4444),
             xNorm = 0.50f,
             yNorm = 0.34f,
             zone = WorldZone.NORTH,
+            bossBehavior = BossBehavior.WORLD_COMPLETION,
+            spareMethodHintEn = "Finish ALL Gov tasks first · Order: Check -> Expose -> Disarm (+10% Stop).",
+            spareMethodHintAr = "أنهِ كل مهام الحكومة أولاً · الترتيب: فحص -> فضح -> تعطيل (+10% إيقاف).",
             allyBonusTitle = "Corrupt Authority",
             allyBonusDesc = "Refuses friendship—must be stopped by Force or Disarm!",
-            introLine = "\"So the little Paradox finally walked into our Citadel! No treaties, no mercy—stay out of our war!\"",
+            introLine = "\"So you unlocked the Citadel Seal and walked in! No treaties, no friendship—only order!\"",
             attackQuips = listOf(
                 "\"Paradox seals active! You cannot alter our command!\"",
                 "\"Friends? Monsters are only tools for order!\"",
@@ -1039,9 +1183,19 @@ object EnemyRoster {
             spareLine = "You shut down Vance's Paradox Lock using the Angel Leader's files! Chancellor Vance is stopped and arrested WITHOUT killing!",
             defeatLine = "Chancellor Vance crashes onto the council seal, defeated for good.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "CHANCELLOR VANCE — 155 HP. Cannot become your friend! Defeat him with FIGHT or Expose & Disarm to STOP him without killing.", 10),
-                EnemyActOption("expose", "Broadcast Angel Evidence", "You release Angel Leader Cassiel's proof! Vance's authority barrier shatters!", 10),
-                EnemyActOption("disarm", "Lock Paradox Console", "You override the Citadel lock without shedding blood. Vance is cornered!", 10)
+                EnemyActOption("check", "1. Check Lock", "CHANCELLOR VANCE — 155 HP. Must Expose evidence before locking his console! (+10% Stop)", 10),
+                EnemyActOption(
+                    "expose", "2. Broadcast Angel Proof",
+                    "You release Angel Leader Cassiel's proof! Vance's authority barrier cracks! (+10% Stop)", 10,
+                    requiredPrevActId = "check",
+                    outOfOrderReply = "* Barrier holds! Check the Paradox Lock encryption first!"
+                ),
+                EnemyActOption(
+                    "disarm", "3. Lock Paradox Console",
+                    "You override his Citadel lock without shedding blood! (+10% Stop)", 10,
+                    requiredPrevActId = "expose",
+                    outOfOrderReply = "* Console locked! Broadcast the Angel Proof first to drop his shield!"
+                )
             ),
             isNormalMonster = false,
             canBefriend = false,
@@ -1053,11 +1207,14 @@ object EnemyRoster {
             name = "Echo-Loka",
             raceTitle = "Final Anomaly · Glitched Void",
             difficultyLabel = "FINAL ENEMY",
-            maxHp = 12, // Sick White Soul deals 1 DMG per hit—so 12 HP or Spare!
-            attackPower = 3, // Deals 2x = 6 DMG against Sick White Soul!
+            maxHp = 12,
+            attackPower = 3,
             accentColor = GlitchCyan,
             xNorm = 0.5f,
             yNorm = 0.35f,
+            bossBehavior = BossBehavior.WORLD_COMPLETION,
+            spareMethodHintEn = "Unlocks after full journey · Order: Check -> Golden Heart -> Remember (+10%).",
+            spareMethodHintAr = "يفتح بعد إنهاء الرحلة · الترتيب: فحص -> القلب الذهبي -> تذكّر (+10%).",
             allyBonusTitle = "Echo's Stabilized Shard",
             allyBonusDesc = "+3 Attack Damage & immune to paradox stutter.",
             introLine = "Your final reflection steps forward in the void... \"You finished the whole journey... now face yourself, Loka.\"",
@@ -1069,9 +1226,19 @@ object EnemyRoster {
             spareLine = "Echo-Loka's static softens into warm gold. \"...thank you for remembering me, Loka.\"",
             defeatLine = "Echo-Loka shatters into eight silent white pixels.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "ECHO-LOKA — 12 HP. Final enemy in the Glitched World. Sick White Soul deals 1 DMG & takes 2x DMG!", 10),
-                EnemyActOption("embrace", "Hold Golden Heart", "You touch your golden heart necklace. The static calms!", 10),
-                EnemyActOption("remember", "Promise Return", "You promise you won't leave any lost kids behind.", 10)
+                EnemyActOption("check", "1. Check Static", "ECHO-LOKA — 12 HP. Sick White Soul deals 1 DMG & takes 2x DMG! (+10%)", 10),
+                EnemyActOption(
+                    "embrace", "2. Hold Golden Heart",
+                    "You touch your golden heart necklace. The static calms! (+10%)", 10,
+                    requiredPrevActId = "check",
+                    outOfOrderReply = "* The static recoils! Check your echo's heartbeat first!"
+                ),
+                EnemyActOption(
+                    "remember", "3. Promise Return",
+                    "You promise you won't leave any lost kids behind. (+10%)", 10,
+                    requiredPrevActId = "embrace",
+                    outOfOrderReply = "* \"Don't make blind vows... hold our Golden Heart first!\""
+                )
             ),
             isNormalMonster = false,
             canBefriend = true
@@ -1087,6 +1254,9 @@ object EnemyRoster {
             accentColor = SepiaAmber,
             xNorm = 0.5f,
             yNorm = 0.25f,
+            bossBehavior = BossBehavior.IMMEDIATE,
+            spareMethodHintEn = "Timeline Arbiter (+10% Mercy per ACT).",
+            spareMethodHintAr = "حكم الخط الزمني (+10% رحمة لكل ACT).",
             allyBonusTitle = "Future-Loka's Mantle",
             allyBonusDesc = "Full control of timelines & +6 Attack Power.",
             introLine = "Your older self steps out of golden-cyan static. \"I tried to stop this, Loka. Put the knife down.\"",
@@ -1498,4 +1668,185 @@ data class SideWallShotWarning(
 ) {
     val readyToShoot: Boolean get() = elapsedSec >= warmupSec
 }
+
+enum class GameDifficulty(
+    val labelEn: String,
+    val labelAr: String,
+    val enemyDamageMult: Float,
+    val enemyBulletSpeedMult: Float,
+    val playerStrikeMult: Float
+) {
+    EASY("Easy", "سهل", 0.75f, 0.85f, 1.15f),
+    NORMAL("Normal", "عادي", 1.0f, 1.0f, 1.0f),
+    HARD("Hard", "صعب", 1.35f, 1.18f, 0.92f)
+}
+
+data class RelicEquipment(
+    val id: String,
+    val nameEn: String,
+    val nameAr: String,
+    val hpBonus: Int,
+    val defBonus: Int,
+    val atkBonus: Int,
+    val speedBonus: Float,
+    val critBonus: Float,
+    val normalMonsterMercyBonus: Int,
+    val accentColor: Color,
+    val descriptionEn: String,
+    val descriptionAr: String
+)
+
+object RelicCatalog {
+    val all: List<RelicEquipment> = listOf(
+        RelicEquipment(
+            id = "golden_locket",
+            nameEn = "Golden Heart Locket",
+            nameAr = "قلادة القلب الذهبي",
+            hpBonus = 2,
+            defBonus = 0,
+            atkBonus = 1,
+            speedBonus = 0f,
+            critBonus = 0.01f,
+            normalMonsterMercyBonus = 0,
+            accentColor = Color(0xFFFACC15),
+            descriptionEn = "Loka's keepsake. +2 Max HP, +1 ATK across timelines.",
+            descriptionAr = "تذكار لوكا الذهبي. +2 دم أقصى و+1 هجوم."
+        ),
+        RelicEquipment(
+            id = "chrono_pendulum",
+            nameEn = "Chrono Pendulum",
+            nameAr = "بندول الزمن",
+            hpBonus = 0,
+            defBonus = 0,
+            atkBonus = 1,
+            speedBonus = 0.16f,
+            critBonus = 0.04f,
+            normalMonsterMercyBonus = 0,
+            accentColor = Color(0xFF38BDF8),
+            descriptionEn = "+16% Movement Speed & +4% Crit Strike Zone.",
+            descriptionAr = "+16% سرعة حركة و+4% مساحة ضربة حرجة."
+        ),
+        RelicEquipment(
+            id = "seraph_feather",
+            nameEn = "Cassiel's Choir Feather",
+            nameAr = "ريشة جوقة كاسييل",
+            hpBonus = 6,
+            defBonus = 2,
+            atkBonus = 0,
+            speedBonus = 0.05f,
+            critBonus = 0f,
+            normalMonsterMercyBonus = 10,
+            accentColor = Color(0xFFF472B6),
+            descriptionEn = "+6 Max HP, +2 DEF & +10% Mercy vs normal monsters (bosses remain 10%).",
+            descriptionAr = "+6 دم و+2 دفاع و+10% رحمة للوحوش العادية (الزعماء 10%)."
+        ),
+        RelicEquipment(
+            id = "infernal_core",
+            nameEn = "Paradox Ember Core",
+            nameAr = "نواة جمر المفارقة",
+            hpBonus = 0,
+            defBonus = 1,
+            atkBonus = 5,
+            speedBonus = 0.08f,
+            critBonus = 0.05f,
+            normalMonsterMercyBonus = 0,
+            accentColor = Color(0xFFEF4444),
+            descriptionEn = "+5 ATK, +1 DEF & sharp crimson critical window.",
+            descriptionAr = "+5 هجوم و+1 دفاع وفرصة حرجة أعلى."
+        ),
+        RelicEquipment(
+            id = "echo_prism",
+            nameEn = "Echo Stabilizer Prism",
+            nameAr = "منشور موازنة الصدى",
+            hpBonus = 8,
+            defBonus = 2,
+            atkBonus = 3,
+            speedBonus = 0.12f,
+            critBonus = 0.04f,
+            normalMonsterMercyBonus = 15,
+            accentColor = Color(0xFF22D3EE),
+            descriptionEn = "Relic from fractured timelines: +8 HP, +2 DEF, +3 ATK, +12% Speed.",
+            descriptionAr = "أثر الخطوط الزمنية: +8 دم، +2 دفاع، +3 هجوم، +12% سرعة."
+        )
+    )
+
+    fun byId(id: String): RelicEquipment = all.firstOrNull { it.id == id } ?: all.first()
+}
+
+data class TimelineEcho(
+    val timelineNumber: Int,
+    val routeLabel: String,
+    val friendsCount: Int,
+    val stoppedCount: Int,
+    val slainCount: Int,
+    val kidsRescued: Int,
+    val kidsKilled: Int
+)
+
+data class LoreEncyclopediaEntry(
+    val id: String,
+    val categoryEn: String,
+    val categoryAr: String,
+    val titleEn: String,
+    val titleAr: String,
+    val bodyEn: String,
+    val bodyAr: String,
+    val accentColor: Color
+)
+
+object LoreEncyclopediaCatalog {
+    val entries: List<LoreEncyclopediaEntry> = listOf(
+        LoreEncyclopediaEntry(
+            id = "lore_races",
+            categoryEn = "WORLD LORE",
+            categoryAr = "تاريخ العالم",
+            titleEn = "The Four Coexisting Races",
+            titleAr = "الأجناس الأربعة المتعايشة",
+            bodyEn = "Humans, Monsters, Angels, and Devils shared one sky until time-paradox rifts fractured borders and sparked the Citadel security decrees.",
+            bodyAr = "عاش البشر والوحوش والملائكة والشياطين تحت سماء واحدة حتى مزقت صدوع المفارقة الحدود وأشعلت قرارات الحكومة.",
+            accentColor = SepiaAmber
+        ),
+        LoreEncyclopediaEntry(
+            id = "lore_worlds",
+            categoryEn = "REALM MAP",
+            categoryAr = "خريطة العوالم",
+            titleEn = "Connected World Gates vs Void Anomaly",
+            titleAr = "بوابات العوالم المتصلة مقابل الشذوذ",
+            bodyEn = "Normal World, Outlands Realm, Split Dominion, and Government HQ connect directly via colored World Gates. Only Glitched Void exists outside normal space.",
+            bodyAr = "ترتبط العوالم الأربعة مباشرة عبر بوابات العوالم، بينما يبقى العالم المقلتش شذوذاً منفصلاً يظهر فيه الصدى.",
+            accentColor = GlitchCyan
+        ),
+        LoreEncyclopediaEntry(
+            id = "lore_government",
+            categoryEn = "MAIN GOAL",
+            categoryAr = "الهدف الرئيسي",
+            titleEn = "Stopping The Government & Allies",
+            titleAr = "إيقاف الحكومة والحلفاء",
+            bodyEn = "Lord Cassiel (Angel Leader) aids Loka freely. Marshal Krog (Monster Chief) is the ONLY Government boss who can become your friend; Chancellor Vance must be disarmed via ACT+STOP or defeated.",
+            bodyAr = "زعيم الملائكة كاسييل يساعد لوكا داخل الحكومة، والمارشال كروغ (زعيم الوحوش) هو الوحيد الذي يمكن مصادقته هناك، بينما فانس يجب إيقافه بالـ ACT أو القتال.",
+            accentColor = SoulSeraphCyan
+        ),
+        LoreEncyclopediaEntry(
+            id = "lore_ashen",
+            categoryEn = "SECRET",
+            categoryAr = "سر الحفظ",
+            titleEn = "Ashen & The 8th Save Curse",
+            titleAr = "آشن ولعنة الحفظ الثامن",
+            bodyEn = "Saving with Ashen hides him underground for ~75 seconds. Every 8th save pulls Loka into the Glitched Void unless Lost Tapes unlock full teleport mastery.",
+            bodyAr = "بعد كل حفظ ينزل آشن تحت الأرض لحوالي 75 ثانية. وعند الحفظ رقم 8 ينسحب لوكا إلى العالم المقلتش.",
+            accentColor = Color(0xFFFACC15)
+        ),
+        LoreEncyclopediaEntry(
+            id = "lore_combat",
+            categoryEn = "GUIDE",
+            categoryAr = "دليل اللعب",
+            titleEn = "Combat, Ordered ACTs & Souls",
+            titleAr = "القتال وترتيب الـ ACT والأرواح",
+            bodyEn = "Boss ACT options strictly grant +10% Mercy/Stop each step, while normal monsters have unique sequences and mercy percentages. Switch Soul modes mid-fight to adapt!",
+            bodyAr = "خيارات ACT للزعماء تمنح 10% بالضبط لكل خطوة، أما الوحوش العادية فلها ترتيب ونسب مختلفة. بدّل الروح المناسبة أثناء المراوغة!",
+            accentColor = SoulParadoxCrimson
+        )
+    )
+}
+
 
