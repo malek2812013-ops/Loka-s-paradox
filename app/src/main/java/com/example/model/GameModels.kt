@@ -208,9 +208,16 @@ enum class WorldId(
         allowedSouls = listOf(SoulType.PURPLE, SoulType.GREEN, SoulType.SPLIT_DUO),
         hasLandmarks = true
     ),
+    GOVERNMENT_HQ(
+        title = "The Government HQ",
+        subtitle = "Central Council Citadel — Stop them (Mercy or Force)! Angel Leader helps you.",
+        racesPresent = "Gov. Council · Angel Leader (Ally) · Monster Chief (Only Friend)",
+        allowedSouls = listOf(SoulType.RED, SoulType.YELLOW, SoulType.PURPLE, SoulType.GREEN),
+        hasLandmarks = true
+    ),
     GLITCHED_WORLD(
         title = "Glitched Void",
-        subtitle = "No structures. Ghostly spawns. Random warp in 10s...",
+        subtitle = "No structures. Ghostly spawns. Anomaly ends in 10s...",
         racesPresent = "Corrupted Echoes Only",
         allowedSouls = listOf(SoulType.WHITE_SICK),
         hasLandmarks = false
@@ -241,13 +248,14 @@ data class ZoneDoorInfo(
     val labelEn: String,
     val labelAr: String,
     val doorX: Float,
-    val doorY: Float
+    val doorY: Float,
+    val targetWorld: WorldId? = null
 )
 
 object WorldZoneMap {
     fun doorsInZone(world: WorldId, zone: WorldZone): List<ZoneDoorInfo> {
         if (!world.hasLandmarks) return emptyList()
-        return when (zone) {
+        val innerDoors = when (zone) {
             WorldZone.CENTER -> listOf(
                 ZoneDoorInfo(ZoneEdge.TOP, WorldZone.NORTH, 0.50f, 0.81f, "NORTH", "الشمال", 0.50f, 0.05f),
                 ZoneDoorInfo(ZoneEdge.BOTTOM, WorldZone.SOUTH, 0.50f, 0.19f, "SOUTH", "الجنوب", 0.50f, 0.95f),
@@ -258,8 +266,7 @@ object WorldZoneMap {
             WorldZone.NORTH -> listOf(
                 ZoneDoorInfo(ZoneEdge.BOTTOM, WorldZone.CENTER, 0.50f, 0.19f, "CENTER", "المركز", 0.50f, 0.95f),
                 ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.WEST, 0.50f, 0.19f, "WEST", "الغرب", 0.04f, 0.50f),
-                ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.EAST, 0.50f, 0.19f, "EAST", "الشرق", 0.96f, 0.50f),
-                ZoneDoorInfo(ZoneEdge.TOP, WorldZone.SANCTUM, 0.50f, 0.81f, "DOOR V", "الباب ٥", 0.50f, 0.05f)
+                ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.EAST, 0.50f, 0.19f, "EAST", "الشرق", 0.96f, 0.50f)
             )
             WorldZone.SOUTH -> listOf(
                 ZoneDoorInfo(ZoneEdge.TOP, WorldZone.CENTER, 0.50f, 0.81f, "CENTER", "المركز", 0.50f, 0.05f),
@@ -281,6 +288,68 @@ object WorldZoneMap {
                 ZoneDoorInfo(ZoneEdge.TOP, WorldZone.NORTH, 0.50f, 0.19f, "NORTH", "الشمال", 0.50f, 0.05f)
             )
         }
+
+        // Cross-World Bridge Gates linking all 4 physical worlds (Glitched Void remains anomaly-only!)
+        val worldBridgeDoors = when (world) {
+            WorldId.NORMAL_WORLD -> when (zone) {
+                WorldZone.EAST -> listOf(
+                    ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.WEST, 0.17f, 0.50f, "OUTLANDS", "عالم البراري", 0.96f, 0.50f, targetWorld = WorldId.TRI_RACE_REALM)
+                )
+                WorldZone.WEST -> listOf(
+                    ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.EAST, 0.83f, 0.50f, "SPLIT REALM", "العالم المنقسم", 0.04f, 0.50f, targetWorld = WorldId.SPLIT_REALM)
+                )
+                WorldZone.NORTH -> listOf(
+                    ZoneDoorInfo(ZoneEdge.TOP, WorldZone.SOUTH, 0.50f, 0.81f, "GOVERNMENT", "الحكومة", 0.50f, 0.05f, targetWorld = WorldId.GOVERNMENT_HQ)
+                )
+                else -> emptyList()
+            }
+
+            WorldId.TRI_RACE_REALM -> when (zone) {
+                WorldZone.WEST -> listOf(
+                    ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.EAST, 0.83f, 0.50f, "NORMAL WORLD", "العالم الطبيعي", 0.04f, 0.50f, targetWorld = WorldId.NORMAL_WORLD)
+                )
+                WorldZone.EAST -> listOf(
+                    ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.WEST, 0.17f, 0.50f, "SPLIT REALM", "العالم المنقسم", 0.96f, 0.50f, targetWorld = WorldId.SPLIT_REALM)
+                )
+                WorldZone.NORTH -> listOf(
+                    ZoneDoorInfo(ZoneEdge.TOP, WorldZone.EAST, 0.83f, 0.50f, "GOVERNMENT", "الحكومة", 0.50f, 0.05f, targetWorld = WorldId.GOVERNMENT_HQ)
+                )
+                else -> emptyList()
+            }
+
+            WorldId.SPLIT_REALM -> when (zone) {
+                WorldZone.EAST -> listOf(
+                    ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.WEST, 0.17f, 0.50f, "NORMAL WORLD", "العالم الطبيعي", 0.96f, 0.50f, targetWorld = WorldId.NORMAL_WORLD)
+                )
+                WorldZone.WEST -> listOf(
+                    ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.EAST, 0.83f, 0.50f, "OUTLANDS", "عالم البراري", 0.04f, 0.50f, targetWorld = WorldId.TRI_RACE_REALM)
+                )
+                WorldZone.NORTH -> listOf(
+                    ZoneDoorInfo(ZoneEdge.TOP, WorldZone.WEST, 0.17f, 0.50f, "GOVERNMENT", "الحكومة", 0.50f, 0.05f, targetWorld = WorldId.GOVERNMENT_HQ)
+                )
+                else -> emptyList()
+            }
+
+            WorldId.GOVERNMENT_HQ -> when (zone) {
+                WorldZone.SOUTH -> listOf(
+                    ZoneDoorInfo(ZoneEdge.BOTTOM, WorldZone.NORTH, 0.50f, 0.19f, "NORMAL WORLD", "العالم الطبيعي", 0.50f, 0.95f, targetWorld = WorldId.NORMAL_WORLD)
+                )
+                WorldZone.EAST -> listOf(
+                    ZoneDoorInfo(ZoneEdge.RIGHT, WorldZone.NORTH, 0.50f, 0.19f, "OUTLANDS", "عالم البراري", 0.96f, 0.50f, targetWorld = WorldId.TRI_RACE_REALM)
+                )
+                WorldZone.WEST -> listOf(
+                    ZoneDoorInfo(ZoneEdge.LEFT, WorldZone.NORTH, 0.50f, 0.19f, "SPLIT REALM", "العالم المنقسم", 0.04f, 0.50f, targetWorld = WorldId.SPLIT_REALM)
+                )
+                WorldZone.NORTH -> listOf(
+                    ZoneDoorInfo(ZoneEdge.TOP, WorldZone.SANCTUM, 0.50f, 0.81f, "DOOR V", "الباب ٥", 0.50f, 0.05f)
+                )
+                else -> emptyList()
+            }
+
+            WorldId.GLITCHED_WORLD -> emptyList()
+        }
+
+        return innerDoors + worldBridgeDoors
     }
 }
 
@@ -356,7 +425,8 @@ object ArmorCatalog {
         ArmorEquipment("hill_cloak", "Greenhill Cloak", 1, 4, "Found in the Normal World Hills. +1 DEF, +4 Max HP."),
         ArmorEquipment("cyan_bark_vest", "Cyan Bark Mail", 2, 6, "Woven from Outlands cyan trees. +2 DEF, +6 Max HP."),
         ArmorEquipment("seraph_silk", "Pink-Silk Halo Mantle", 2, 8, "Blessed in the Angels' Mansion. +2 DEF, +8 Max HP."),
-        ArmorEquipment("rift_plate", "Ash-Iron Devil Guard", 3, 6, "Forged in the Devils' Cave. +3 DEF, +6 Max HP.")
+        ArmorEquipment("rift_plate", "Ash-Iron Devil Guard", 3, 6, "Forged in the Devils' Cave. +3 DEF, +6 Max HP."),
+        ArmorEquipment("angel_seal_mail", "Angel Leader's Seal", 3, 8, "Gifted by Angel Leader Cassiel inside The Government. +3 DEF, +8 Max HP.")
     )
 
     fun byId(id: String): ArmorEquipment = all.firstOrNull { it.id == id } ?: all.first()
@@ -507,6 +577,9 @@ enum class EnemyId {
     ORIN,
     SERAPHIEL,
     MALAKOR,
+    // Government HQ Bosses: ONLY GOV_MONSTER_CHIEF can become your friend! GOV_DIRECTOR is stopped without killing or defeated.
+    GOV_MONSTER_CHIEF,
+    GOV_DIRECTOR,
     // Overworld roaming normal monsters (some friendable, some hostile & non-friendable)
     NORMAL_SLIME,
     FERAL_HOUND,
@@ -545,6 +618,7 @@ data class EnemyProfile(
     val actOptions: List<EnemyActOption>,
     val isNormalMonster: Boolean = false,
     val canBefriend: Boolean = true,
+    val canStopWithoutKilling: Boolean = canBefriend,
     val zone: WorldZone = WorldZone.CENTER
 )
 
@@ -598,9 +672,9 @@ object EnemyRoster {
             spareLine = "Vex lowers his weapon and becomes your friend! \"Call me whenever the paradox flares up, Loka.\"",
             defeatLine = "Vex's scanner shorts out and he retreats down the street.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "COMMANDER VEX — 85 HP. Searches for paradox kids; secretly wants to help.", 15),
-                EnemyActOption("explain", "Show Necklace", "You show your golden heart necklace. Vex recognizes you and softens!", 50),
-                EnemyActOption("promise", "Team Up", "You promise to share what you find in the labs. Vex smiles!", 45)
+                EnemyActOption("check", "Check", "COMMANDER VEX — 85 HP. Searches for paradox kids; secretly wants to help.", 10),
+                EnemyActOption("explain", "Show Necklace", "You show your golden heart necklace. Vex recognizes you and softens!", 10),
+                EnemyActOption("promise", "Team Up", "You promise to share what you find in the labs. Vex smiles!", 10)
             )
         ),
         EnemyProfile(
@@ -626,9 +700,9 @@ object EnemyRoster {
             spareLine = "Bramble beams with joy and joins as your friend! \"Any friend of Loka is safe by my fire!\"",
             defeatLine = "Bramble lumbers back into the shadows of the cave.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "BRAMBLE — 95 HP. Gentle monster protecting lost children near the hills.", 15),
-                EnemyActOption("calm", "Share Snacks", "You offer a warm biscuit. Bramble's horns glow happily!", 55),
-                EnemyActOption("reassure", "Promise Peace", "You tell him the Red Soul seeks harmony. He nods.", 45)
+                EnemyActOption("check", "Check", "BRAMBLE — 95 HP. Gentle monster protecting lost children near the hills.", 10),
+                EnemyActOption("calm", "Share Snacks", "You offer a warm biscuit. Bramble's horns glow happily!", 10),
+                EnemyActOption("reassure", "Promise Peace", "You tell him the Red Soul seeks harmony. He nods.", 10)
             )
         ),
         EnemyProfile(
@@ -654,9 +728,9 @@ object EnemyRoster {
             spareLine = "Lady Vespera curtsies warmly and becomes your ally! \"My mansion doors are always open to you, Loka.\"",
             defeatLine = "Vespera vanishes behind a curtain of cyan leaves.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "LADY VESPERA — 105 HP. Tests travelers with elegant rhythmic volleys.", 15),
-                EnemyActOption("bow", "Courteous Bow", "You bow respectfully. Vespera applauds your manners!", 50),
-                EnemyActOption("tea", "Praise Cyan Trees", "You admire the cyan grove around her mansion. She delights!", 45)
+                EnemyActOption("check", "Check", "LADY VESPERA — 105 HP. Tests travelers with elegant rhythmic volleys.", 10),
+                EnemyActOption("bow", "Courteous Bow", "You bow respectfully. Vespera applauds your manners!", 10),
+                EnemyActOption("tea", "Praise Cyan Trees", "You admire the cyan grove around her mansion. She delights!", 10)
             )
         ),
         EnemyProfile(
@@ -682,9 +756,9 @@ object EnemyRoster {
             spareLine = "Orin kneels and binds an ally rune to your necklace! \"Go safely, Loka.\"",
             defeatLine = "Orin crumbles peacefully into dormant stones.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "SENTINEL ORIN — 115 HP. Ancient guardian of the brown caves.", 15),
-                EnemyActOption("pulse", "Show Golden Heart", "Your necklace chimes with Orin's core. He recognizes your kindness!", 50),
-                EnemyActOption("tune", "Stabilize Core", "You steady the cave crystals around him.", 45)
+                EnemyActOption("check", "Check", "SENTINEL ORIN — 115 HP. Ancient guardian of the brown caves.", 10),
+                EnemyActOption("pulse", "Show Golden Heart", "Your necklace chimes with Orin's core. He recognizes your kindness!", 10),
+                EnemyActOption("tune", "Stabilize Core", "You steady the cave crystals around him.", 10)
             )
         ),
         EnemyProfile(
@@ -710,9 +784,9 @@ object EnemyRoster {
             spareLine = "Seraphiel folds their wings and joins your side! \"My feathers will shield you on every world.\"",
             defeatLine = "Seraphiel ascends into the pink-purple canopy.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "SERAPHIEL — 120 HP. Protects the Angels' green-tree sanctuaries.", 15),
-                EnemyActOption("harmony", "Bridge Both Sides", "You promise to carry peace across to the Devils' border.", 50),
-                EnemyActOption("hope", "Show Green Resolve", "You stand calm without striking. Seraphiel smiles.", 45)
+                EnemyActOption("check", "Check", "SERAPHIEL — 120 HP. Protects the Angels' green-tree sanctuaries.", 10),
+                EnemyActOption("harmony", "Bridge Both Sides", "You promise to carry peace across to the Devils' border.", 10),
+                EnemyActOption("hope", "Show Green Resolve", "You stand calm without striking. Seraphiel smiles.", 10)
             )
         ),
         EnemyProfile(
@@ -738,9 +812,9 @@ object EnemyRoster {
             spareLine = "Malakor laughs and fist-bumps your shoulder! \"Count me in as your ally, kid!\"",
             defeatLine = "Malakor steps back into red-ember mist, tipping his horns.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "MALAKOR — 130 HP. Fierce devil warrior who respects courage.", 15),
-                EnemyActOption("respect", "Stand Fearless", "You meet his gaze under the red trees. Malakor grins!", 50),
-                EnemyActOption("truce", "Offer Alliance", "You invite him to join your friends across all worlds.", 45)
+                EnemyActOption("check", "Check", "MALAKOR — 130 HP. Fierce devil warrior who respects courage.", 10),
+                EnemyActOption("respect", "Stand Fearless", "You meet his gaze under the red trees. Malakor grins!", 10),
+                EnemyActOption("truce", "Offer Alliance", "You invite him to join your friends across all worlds.", 10)
             )
         ),
         EnemyProfile(
@@ -912,6 +986,68 @@ object EnemyRoster {
             zone = WorldZone.EAST
         ),
         EnemyProfile(
+            id = EnemyId.GOV_MONSTER_CHIEF,
+            worldId = WorldId.GOVERNMENT_HQ,
+            name = "Marshal Krog",
+            raceTitle = "Monster Chief · Government High Command (Only Gov Friend)",
+            difficultyLabel = "GOVERNMENT HQ",
+            maxHp = 140,
+            attackPower = 5,
+            accentColor = Color(0xFF4ADE80),
+            xNorm = 0.68f,
+            yNorm = 0.48f,
+            zone = WorldZone.EAST,
+            allyBonusTitle = "Monster Chief's Oath",
+            allyBonusDesc = "+3 Max HP & +3 Attack Damage across every battle.",
+            introLine = "Heavy armor clanks across the steel floor. \"Loka?! Why did the Council hunt you... Wait—you carry that golden heart?\"",
+            attackQuips = listOf(
+                "\"I swore to protect the kids—prove your heart isn't twisted!\"",
+                "\"Stand tall, kid! Show me the truth!\"",
+                "\"The Angel Leader told me someone pure was coming...\""
+            ),
+            spareLine = "Marshal Krog salutes and joins you! \"I'm done taking orders from corrupt tyrants. I'm your friend now, Loka!\"",
+            defeatLine = "Marshal Krog drops to one knee... the hall falls dead silent.",
+            actOptions = listOf(
+                EnemyActOption("check", "Check", "MARSHAL KROG — 140 HP. The ONLY leader in The Government who can become your true friend!", 10),
+                EnemyActOption("necklace", "Show Golden Heart", "You show your necklace & mention the Angel Leader's message. Krog lowers his halberd!", 10),
+                EnemyActOption("kids", "Mention Rescued Kids", "You tell him the kids are still out there. Krog agrees to stand with you!", 10)
+            ),
+            isNormalMonster = false,
+            canBefriend = true,
+            canStopWithoutKilling = true
+        ),
+        EnemyProfile(
+            id = EnemyId.GOV_DIRECTOR,
+            worldId = WorldId.GOVERNMENT_HQ,
+            name = "Chancellor Vance",
+            raceTitle = "Supreme Government Head · Corrupt Authority (No Friendship)",
+            difficultyLabel = "GOVERNMENT CHIEF",
+            maxHp = 155,
+            attackPower = 5,
+            accentColor = Color(0xFFEF4444),
+            xNorm = 0.50f,
+            yNorm = 0.34f,
+            zone = WorldZone.NORTH,
+            allyBonusTitle = "Corrupt Authority",
+            allyBonusDesc = "Refuses friendship—must be stopped by Force or Disarm!",
+            introLine = "\"So the little Paradox finally walked into our Citadel! No treaties, no mercy—stay out of our war!\"",
+            attackQuips = listOf(
+                "\"Paradox seals active! You cannot alter our command!\"",
+                "\"Friends? Monsters are only tools for order!\"",
+                "\"Stop me if you can, Loka!\""
+            ),
+            spareLine = "You shut down Vance's Paradox Lock using the Angel Leader's files! Chancellor Vance is stopped and arrested WITHOUT killing!",
+            defeatLine = "Chancellor Vance crashes onto the council seal, defeated for good.",
+            actOptions = listOf(
+                EnemyActOption("check", "Check", "CHANCELLOR VANCE — 155 HP. Cannot become your friend! Defeat him with FIGHT or Expose & Disarm to STOP him without killing.", 10),
+                EnemyActOption("expose", "Broadcast Angel Evidence", "You release Angel Leader Cassiel's proof! Vance's authority barrier shatters!", 10),
+                EnemyActOption("disarm", "Lock Paradox Console", "You override the Citadel lock without shedding blood. Vance is cornered!", 10)
+            ),
+            isNormalMonster = false,
+            canBefriend = false,
+            canStopWithoutKilling = true
+        ),
+        EnemyProfile(
             id = EnemyId.ECHO_LOKA,
             worldId = WorldId.GLITCHED_WORLD,
             name = "Echo-Loka",
@@ -933,9 +1069,9 @@ object EnemyRoster {
             spareLine = "Echo-Loka's static softens into warm gold. \"...thank you for remembering me, Loka.\"",
             defeatLine = "Echo-Loka shatters into eight silent white pixels.",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "ECHO-LOKA — 12 HP. Final enemy in the Glitched World. Sick White Soul deals 1 DMG & takes 2x DMG!", 20),
-                EnemyActOption("embrace", "Hold Golden Heart", "You touch your golden heart necklace. The static calms!", 45),
-                EnemyActOption("remember", "Promise Return", "You promise you won't leave any lost kids behind.", 45)
+                EnemyActOption("check", "Check", "ECHO-LOKA — 12 HP. Final enemy in the Glitched World. Sick White Soul deals 1 DMG & takes 2x DMG!", 10),
+                EnemyActOption("embrace", "Hold Golden Heart", "You touch your golden heart necklace. The static calms!", 10),
+                EnemyActOption("remember", "Promise Return", "You promise you won't leave any lost kids behind.", 10)
             ),
             isNormalMonster = false,
             canBefriend = true
@@ -962,8 +1098,8 @@ object EnemyRoster {
             spareLine = "Future-Loka smiles gently through the rift. \"You chose mercy after all...\"",
             defeatLine = "Future-Loka falls to one knee. Their timeline power surges into Loka's hands...",
             actOptions = listOf(
-                EnemyActOption("check", "Check", "FUTURE-LOKA — 160 HP. Your future self carrying the weight of every lost timeline.", 15),
-                EnemyActOption("listen", "Hear Their Plea", "You pause to hear their warning about destroying the world.", 35)
+                EnemyActOption("check", "Check", "FUTURE-LOKA — 160 HP. Your future self carrying the weight of every lost timeline.", 10),
+                EnemyActOption("listen", "Hear Their Plea", "You pause to hear their warning about destroying the world.", 10)
             ),
             isNormalMonster = false,
             canBefriend = true
@@ -1012,29 +1148,38 @@ object WorldContentCatalog {
         WorldLandmark("sr_cave", WorldId.SPLIT_REALM, LandmarkKind.CAVE, "Ash-Brown Devil Cave", 0.74f, 0.64f,
             "Mission: Ember Forge", "Cool Kaelith's forge beneath the red-leaved trees.", false, rewardArmorId = "rift_plate", rewardLabel = "Armor: Ash-Iron Devil Guard", zone = WorldZone.SOUTH),
         WorldLandmark("sr_lab", WorldId.SPLIT_REALM, LandmarkKind.LAB, "Borderline Rift Lab", 0.70f, 0.76f,
-            "Event: Truce Transmitter", "Link the Angel and Devil power grids across the divide.", false, rewardItemId = "save_anchor", rewardLabel = "+2 Save Anchors", zone = WorldZone.EAST)
+            "Event: Truce Transmitter", "Link the Angel and Devil power grids across the divide.", false, rewardItemId = "save_anchor", rewardLabel = "+2 Save Anchors", zone = WorldZone.EAST),
+
+        // The Government HQ
+        WorldLandmark("gov_vault", WorldId.GOVERNMENT_HQ, LandmarkKind.LAB, "Council Command Vault", 0.50f, 0.34f,
+            "Mission: Citadel Override", "Disable the Government's surveillance array from Door V.", false, rewardItemId = "save_anchor", rewardWeaponId = "chrono_lance", rewardLabel = "Weapon: Chrono Lance + 2 Anchors", zone = WorldZone.SANCTUM)
     )
 
     val npcs: List<WorldNpc> = listOf(
         WorldNpc("npc_maya", WorldId.NORMAL_WORLD, "Maya", "Human", 0.34f, 0.25f, Color(0xFFF59E0B),
-            "\"Hey Loka! Five doors lead out of this plaza—explore North, South, East, West, or Door V!\"",
+            "\"Hey Loka! All the worlds are connected through the North, East, and West gates now! Head North toward The Government when you're ready!\"",
             "Neighborhood Gift", "sepia_ration", "Maya handed you +1 Sepia Ration!", zone = WorldZone.CENTER),
         WorldNpc("npc_pip", WorldId.NORMAL_WORLD, "Pip", "Monster", 0.42f, 0.30f, Color(0xFF4ADE80),
             "\"My big brother says Humans, Monsters, Angels, and Devils used to hang out before the paradox war!\"", zone = WorldZone.SOUTH),
         WorldNpc("npc_kestrel", WorldId.NORMAL_WORLD, "Dr. Kestrel", "Angel-Human", 0.48f, 0.30f, SoulSeraphCyan,
-            "\"Did you see Ashen slip underground after saving? Check Door V's Secret Lab if you dare learn why 8 saves matter!\"", zone = WorldZone.WEST),
+            "\"Heard the Angel Leader inside The Government wants to help us! Beware though: your 8th Save with Ashen still pulls you into the Glitched Void!\"", zone = WorldZone.WEST),
 
         WorldNpc("npc_lyra", WorldId.TRI_RACE_REALM, "Lyra", "Angel Scout", 0.35f, 0.28f, SoulSeraphCyan,
-            "\"No humans live in this realm—only Monsters, Angels, and Devils. Check all 5 doorways around the dunes!\"", zone = WorldZone.CENTER),
+            "\"From here: West returns to Normal World, East crosses to Split Realm, and North marches straight to The Government!\"", zone = WorldZone.CENTER),
         WorldNpc("npc_zor", WorldId.TRI_RACE_REALM, "Zor", "Devil Merchant", 0.46f, 0.26f, SoulInfernalViolet,
             "\"Beige sand and cyan trees look strange, huh? Take this shard for the brown caves!\"",
             "Zor's Bargain", "chrono_shard", "Zor tossed you +1 Chrono Shard!", zone = WorldZone.SOUTH),
 
         WorldNpc("npc_aurelia", WorldId.SPLIT_REALM, "Aurelia", "Angel", 0.32f, 0.56f, Color(0xFFEC4899),
-            "\"West leads deep into the Angels' pink-purple sanctuary. Hold steady with your Green Soul!\"", zone = WorldZone.CENTER),
+            "\"West leads deep into the Angels' pink-purple sanctuary, and North leads up toward The Government Citadel!\"", zone = WorldZone.CENTER),
         WorldNpc("npc_kaelith", WorldId.SPLIT_REALM, "Kaelith", "Devil", 0.68f, 0.56f, Color(0xFFEF4444),
-            "\"East crosses into Devils' turf: brown-grey ash and red trees. Tell Malakor we're rooting for peace, Loka!\"",
-            "Red-Tree Ration", "chrono_shard", "Kaelith gave you +1 Chrono Shard!", zone = WorldZone.CENTER)
+            "\"East connects back to Normal World. Tell the Angel Leader in The Government we won't bow to Chancellor Vance!\"",
+            "Red-Tree Ration", "chrono_shard", "Kaelith gave you +1 Chrono Shard!", zone = WorldZone.CENTER),
+
+        // Inside The Government: Angel Leader helps Loka!
+        WorldNpc("npc_angel_leader", WorldId.GOVERNMENT_HQ, "Lord Cassiel", "Angel Leader · Ally", 0.50f, 0.62f, SoulSeraphCyan,
+            "\"Welcome to The Government, Loka! As Angel Leader, I stand with you! Take my Seal & Supplies. Remember: ONLY Marshal Krog (Monster Chief, East) can become your friend. Chancellor Vance (North) refuses friendship—stop him peacefully via ACT+STOP or defeat him by force!\"",
+            "Angel Leader's Aid", "sepia_ration", "Lord Cassiel gifted Angel Leader's Seal (+3 DEF, +8 HP) & supplies!", zone = WorldZone.CENTER)
     )
 
     val lostKids: List<LostKid> = listOf(
@@ -1164,7 +1309,10 @@ object WorldContentCatalog {
         WorldChest("chest_sr_dot", WorldId.SPLIT_REALM, ChestStyle.SMALL_DOT, "Angel Grove Chest", "صندوق الملائكة الصغير", 0.72f, 0.34f, "save_anchor", 2, zone = WorldZone.NORTH),
         WorldChest("chest_sr_star", WorldId.SPLIT_REALM, ChestStyle.SQUARE_STAR, "Ash-Border Star Chest", "صندوق النجمة المشتعل", 0.28f, 0.68f, "chrono_shard", 2, zone = WorldZone.SOUTH),
         WorldChest("chest_sr_west", WorldId.SPLIT_REALM, ChestStyle.SMALL_DOT, "Seraph Garden Box", "صندوق الحديقة الوردية", 0.56f, 0.24f, "sepia_ration", 2, zone = WorldZone.WEST),
-        WorldChest("chest_sr_sanctum", WorldId.SPLIT_REALM, ChestStyle.WIDE_PADLOCK, "Sanctuary Silk Chest", "صندوق الحرير السري", 0.26f, 0.68f, "save_anchor", 1, zone = WorldZone.SANCTUM)
+        WorldChest("chest_sr_sanctum", WorldId.SPLIT_REALM, ChestStyle.WIDE_PADLOCK, "Sanctuary Silk Chest", "صندوق الحرير السري", 0.26f, 0.68f, "save_anchor", 1, zone = WorldZone.SANCTUM),
+
+        WorldChest("chest_gov_center", WorldId.GOVERNMENT_HQ, ChestStyle.SQUARE_STAR, "Citadel Armory Box", "صندوق ترسانة الحكومة", 0.72f, 0.70f, "sepia_ration", 2, zone = WorldZone.CENTER),
+        WorldChest("chest_gov_west", WorldId.GOVERNMENT_HQ, ChestStyle.WIDE_PADLOCK, "Angel Locker Supply", "خزنة إمدادات الملاك", 0.30f, 0.34f, "save_anchor", 2, zone = WorldZone.WEST)
     )
 }
 

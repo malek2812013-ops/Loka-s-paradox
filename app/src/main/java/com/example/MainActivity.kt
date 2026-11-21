@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
                             WorldId.NORMAL_WORLD -> BgmTrack.WORLD_NORMAL
                             WorldId.TRI_RACE_REALM -> BgmTrack.WORLD_OUTLANDS
                             WorldId.SPLIT_REALM -> BgmTrack.WORLD_SPLIT
+                            WorldId.GOVERNMENT_HQ -> BgmTrack.WORLD_SPLIT
                             WorldId.GLITCHED_WORLD -> BgmTrack.GLITCHED_VOID
                         }
                         AppScreen.BATTLE -> when (state.selectedEnemyId) {
@@ -47,6 +48,7 @@ class MainActivity : ComponentActivity() {
                             EnemyId.VEX, EnemyId.BRAMBLE, EnemyId.NORMAL_SLIME, EnemyId.FERAL_HOUND -> BgmTrack.BATTLE
                             EnemyId.VESPERA, EnemyId.ORIN, EnemyId.SAND_MOTH, EnemyId.IRON_STALKER -> BgmTrack.BATTLE_OUTLANDS
                             EnemyId.SERAPHIEL, EnemyId.MALAKOR, EnemyId.HALO_SCRIBE, EnemyId.ASH_IMP -> BgmTrack.BATTLE_SPLIT
+                            EnemyId.GOV_MONSTER_CHIEF, EnemyId.GOV_DIRECTOR -> BgmTrack.BATTLE_FUTURE
                             EnemyId.ECHO_LOKA -> BgmTrack.BATTLE_GLITCH
                             EnemyId.FUTURE_LOKA -> BgmTrack.BATTLE_FUTURE
                         }

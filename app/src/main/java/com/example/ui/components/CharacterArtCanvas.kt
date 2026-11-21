@@ -86,25 +86,28 @@ fun LokaPortraitCanvas(
         }
 
         val palette = mapOf(
-            'O' to Color(0xFF140E0A),
-            'H' to Color(0xFF7C2614),
-            'h' to Color(0xFFB8452A),
-            'd' to Color(0xFF4E170C),
-            'S' to Color(0xFFEBC7A8),
-            's' to Color(0xFFD2A37E),
-            'r' to Color(0xFFE89A8A),
+            'O' to Color(0xFF140C09),
+            'H' to (if (isSickGlitched) Color(0xFF52525B) else Color(0xFF852B17)),
+            'h' to (if (isSickGlitched) Color(0xFFA1A1AA) else Color(0xFFBA472D)),
+            'l' to (if (isSickGlitched) Color(0xFFE4E4E7) else Color(0xFFE06D4F)),
+            'd' to (if (isSickGlitched) Color(0xFF27272A) else Color(0xFF4E180D)),
+            'S' to Color(0xFFF3D2B3),
+            's' to Color(0xFFD4A27D),
+            'r' to Color(0xFFEC8F87),
+            'm' to Color(0xFFA6624B),
             'W' to Color.White,
-            'G' to Color(0xFF6B7D85),
+            'G' to Color(0xFF64748B),
             'C' to (if (isSickGlitched) Color.White else if (expression == PortraitExpression.DETERMINED) Color(0xFF7DD3FC) else Color(0xFF38BDF8)),
-            'l' to Color(0xFF9CA3AF),
-            'T' to Color(0xFF747982),
-            't' to Color(0xFF52565E),
+            'c' to (if (isSickGlitched) Color(0xFFD4D4D8) else Color(0xFF7DD3FC)),
+            'K' to Color(0xFFB0B7C3),
+            'T' to Color(0xFF78808C),
+            't' to Color(0xFF525864),
             'Y' to SepiaGold,
             'y' to Color(0xFFB45309),
-            'P' to Color(0xFFD6C29F),
-            'p' to Color(0xFFB09B76),
-            'B' to Color(0xFF3A271B),
-            'b' to Color(0xFF5C3E2A)
+            'P' to Color(0xFFE2CEAB),
+            'p' to Color(0xFFB8A07B),
+            'B' to Color(0xFF3D271A),
+            'b' to Color(0xFF63422D)
         )
 
         drawPixelMatrix(
@@ -114,25 +117,25 @@ fun LokaPortraitCanvas(
             targetSizePx = spriteSize
         )
 
-        // Dynamic Undertale-style expression overlays
-        val u = spriteSize / 28f
+        // Dynamic Undertale-style expression overlays (aligned to 64x64 portrait grid)
+        val u = spriteSize / 64f
         when (expression) {
             PortraitExpression.HAPPY -> {
-                drawRect(Color(0xFF140E0A), Offset(cx - u * 1.4f, cy + u * 1.2f), SizeCompat(u * 2.8f, u * 0.75f))
-                drawPixelSaveStar(Offset(cx + u * 6.0f, cy - u * 5.4f), u * 1.1f, SepiaGold)
+                drawRect(Color(0xFF140C09), Offset(cx - u * 3.0f, cy - u * 3.8f), SizeCompat(u * 6.0f, u * 1.4f))
+                drawPixelSaveStar(Offset(cx + u * 14.5f, cy - u * 14.5f), u * 2.2f, SepiaGold)
             }
             PortraitExpression.SURPRISED -> {
-                drawRect(Color.White, Offset(cx - u * 3.8f, cy - u * 1.9f), SizeCompat(u * 1.3f, u * 1.5f))
-                drawRect(Color.White, Offset(cx + u * 2.5f, cy - u * 1.9f), SizeCompat(u * 1.3f, u * 1.5f))
-                drawRect(Color(0xFF140E0A), Offset(cx - u * 0.7f, cy + u * 1.3f), SizeCompat(u * 1.4f, u * 1.4f))
+                drawRect(Color.White, Offset(cx - u * 8.5f, cy - u * 10.5f), SizeCompat(u * 2.5f, u * 2.8f))
+                drawRect(Color.White, Offset(cx + u * 5.5f, cy - u * 10.5f), SizeCompat(u * 2.5f, u * 2.8f))
+                drawRect(Color(0xFF140C09), Offset(cx - u * 1.3f, cy - u * 4.2f), SizeCompat(u * 2.6f, u * 2.6f))
             }
             PortraitExpression.ANGRY -> {
-                drawRect(Color(0xFF140E0A), Offset(cx - u * 4.2f, cy - u * 2.5f), SizeCompat(u * 2.8f, u * 0.85f))
-                drawRect(Color(0xFF140E0A), Offset(cx + u * 1.4f, cy - u * 2.5f), SizeCompat(u * 2.8f, u * 0.85f))
-                drawRect(Color(0xFFEF4444), Offset(cx + u * 2.5f, cy - u * 0.9f), SizeCompat(u * 0.95f, u * 0.95f))
+                drawRect(Color(0xFF140C09), Offset(cx - u * 9.5f, cy - u * 13.0f), SizeCompat(u * 5.2f, u * 1.5f))
+                drawRect(Color(0xFF140C09), Offset(cx + u * 4.3f, cy - u * 13.0f), SizeCompat(u * 5.2f, u * 1.5f))
+                drawRect(Color(0xFFEF4444), Offset(cx + u * 6.2f, cy - u * 9.0f), SizeCompat(u * 1.8f, u * 1.8f))
             }
             PortraitExpression.DETERMINED -> {
-                drawPixelSaveStar(Offset(cx + u * 3.0f, cy - u * 0.8f), u * 1.5f, Color(0xFF38BDF8))
+                drawPixelSaveStar(Offset(cx + u * 7.0f, cy - u * 9.5f), u * 2.8f, Color(0xFF38BDF8))
             }
             PortraitExpression.NEUTRAL -> Unit
         }
@@ -167,91 +170,6 @@ fun LokaFullBodySpriteCanvas(
 }
 
 /**
- * Deltarune-style Combat Stance Canvas for Loka (standing on left side of the battle stage facing right).
- */
-@Composable
-fun LokaBattleStanceCanvas(
-    modifier: Modifier = Modifier,
-    isGlitched: Boolean = false,
-    isDefending: Boolean = false,
-    isSlashing: Boolean = false,
-    weaponAccent: Color = SepiaGold,
-    expression: PortraitExpression = PortraitExpression.DETERMINED
-) {
-    val transition = rememberInfiniteTransition(label = "lokaDeltaruneStance")
-    val idleBob by transition.animateFloat(
-        initialValue = -2f,
-        targetValue = 2f,
-        animationSpec = infiniteRepeatable(tween(720, easing = LinearEasing), RepeatMode.Reverse),
-        label = "idleBob"
-    )
-    Canvas(modifier = modifier) {
-        val lungeX = if (isSlashing) size.width * 0.14f else 0f
-        val cx = size.width * 0.46f + lungeX
-        val cy = size.height * 0.52f + idleBob
-        val targetSize = minOf(size.width, size.height) * 0.86f
-
-        // Stepped pixel shadow beneath Loka's boots
-        drawSteppedPixelShadow(
-            center = Offset(cx, cy + targetSize * 0.44f),
-            widthPx = targetSize * 0.72f,
-            heightPx = targetSize * 0.14f,
-            color = Color(0x88000000)
-        )
-
-        val palette = mapOf(
-            'O' to Color(0xFF0A080C),
-            'H' to Color(0xFF7C2614),
-            'h' to Color(0xFFB8452A),
-            'd' to Color(0xFF4E170C),
-            'S' to Color(0xFFEBC7A8),
-            's' to Color(0xFFD2A37E),
-            'r' to Color(0xFFE89A8A),
-            'W' to Color.White,
-            'G' to Color(0xFF6B7D85),
-            'C' to (if (isGlitched) Color.White else if (expression == PortraitExpression.DETERMINED) Color(0xFF7DD3FC) else Color(0xFF38BDF8)),
-            'l' to Color(0xFF9CA3AF),
-            'T' to Color(0xFF747982),
-            't' to Color(0xFF52565E),
-            'Y' to SepiaGold,
-            'y' to Color(0xFFB45309),
-            'P' to Color(0xFFD6C29F),
-            'p' to Color(0xFFB09B76),
-            'B' to Color(0xFF3A271B),
-            'b' to Color(0xFF5C3E2A)
-        )
-
-        drawPixelMatrix(
-            rows = PixelSprites.lokaBattleStanceGrid,
-            palette = palette,
-            center = Offset(cx, cy),
-            targetSizePx = targetSize
-        )
-
-        // Pixel sword/stick blade gleam held toward enemy
-        val px = targetSize / 26f
-        val armX = cx + targetSize * 0.25f
-        val armY = cy + targetSize * 0.04f
-        if (isDefending) {
-            // Deltarune Cyan/Gold Guard Pixel Shield Barrier
-            drawRect(Color(0xFF0A0A10), Offset(armX + px, cy - targetSize * 0.34f), SizeCompat(px * 4.5f, targetSize * 0.68f))
-            drawRect(SoulSeraphCyan, Offset(armX + px * 1.5f, cy - targetSize * 0.30f), SizeCompat(px * 3.2f, targetSize * 0.60f), style = Stroke(3f))
-            drawPixelSaveStar(Offset(armX + px * 3.1f, cy), px * 1.4f, SoulSeraphCyan, Color.White)
-        } else {
-            val bladeLen = if (isSlashing) targetSize * 0.42f else targetSize * 0.28f
-            val bladeY = if (isSlashing) armY - px * 2f else armY - px * 4f
-            // Stepped diagonal pixel weapon blade
-            for (s in 0..4) {
-                val bx = armX + s * (bladeLen / 5f)
-                val by = bladeY - s * (px * 1.1f)
-                drawRect(Color(0xFF0A0A0D), Offset(bx - 1f, by - 1f), SizeCompat(px * 2.1f, px * 2.1f))
-                drawRect(weaponAccent, Offset(bx, by), SizeCompat(px * 1.6f, px * 1.6f))
-            }
-        }
-    }
-}
-
-/**
  * Crisp top-down Undertale-style Overworld Pixel Sprite for Frisk-bodied Loka.
  */
 fun DrawScope.drawLokaOverworldSprite(
@@ -260,38 +178,41 @@ fun DrawScope.drawLokaOverworldSprite(
     isGlitched: Boolean
 ) {
     drawSteppedPixelShadow(
-        center = Offset(center.x, center.y + unit * 1.38f),
-        widthPx = unit * 2.04f,
+        center = Offset(center.x, center.y + unit * 1.48f),
+        widthPx = unit * 2.15f,
         heightPx = unit * 0.56f
     )
 
     val palette = mapOf(
-        'O' to Color(0xFF120C08),
-        'H' to Color(0xFF7C2614),
-        'h' to Color(0xFFB8452A),
-        'd' to Color(0xFF4E170C),
-        'S' to Color(0xFFEBC7A8),
-        's' to Color(0xFFD2A37E),
-        'r' to Color(0xFFE89A8A),
+        'O' to Color(0xFF140C09),
+        'H' to (if (isGlitched) Color(0xFF52525B) else Color(0xFF852B17)),
+        'h' to (if (isGlitched) Color(0xFFA1A1AA) else Color(0xFFBA472D)),
+        'l' to (if (isGlitched) Color(0xFFE4E4E7) else Color(0xFFE06D4F)),
+        'd' to (if (isGlitched) Color(0xFF27272A) else Color(0xFF4E180D)),
+        'S' to Color(0xFFF3D2B3),
+        's' to Color(0xFFD4A27D),
+        'r' to Color(0xFFEC8F87),
+        'm' to Color(0xFFA6624B),
         'W' to Color.White,
-        'G' to Color(0xFF6B7D85),
+        'G' to Color(0xFF64748B),
         'C' to (if (isGlitched) Color.White else Color(0xFF38BDF8)),
-        'l' to Color(0xFF9CA3AF),
-        'T' to Color(0xFF747982),
-        't' to Color(0xFF52565E),
+        'c' to (if (isGlitched) Color(0xFFD4D4D8) else Color(0xFF7DD3FC)),
+        'K' to Color(0xFFB0B7C3),
+        'T' to Color(0xFF78808C),
+        't' to Color(0xFF525864),
         'Y' to SepiaGold,
         'y' to Color(0xFFB45309),
-        'P' to Color(0xFFD6C29F),
-        'p' to Color(0xFFB09B76),
-        'B' to Color(0xFF3A271B),
-        'b' to Color(0xFF5C3E2A)
+        'P' to Color(0xFFE2CEAB),
+        'p' to Color(0xFFB8A07B),
+        'B' to Color(0xFF3D271A),
+        'b' to Color(0xFF63422D)
     )
 
     drawPixelMatrix(
         rows = PixelSprites.lokaOverworldGrid,
         palette = palette,
         center = center,
-        targetSizePx = unit * 3.15f
+        targetSizePx = unit * 3.55f
     )
 }
 
@@ -495,14 +416,14 @@ fun AshenFlowerCanvas(
             targetSizePx = spriteSize
         )
 
-        val u = spriteSize / 28f
+        val u = spriteSize / 32f
         when (expression) {
             PortraitExpression.HAPPY -> {
-                drawRect(Color(0xFF09090B), Offset(cx - u * 1.8f, cy - u * 0.8f), SizeCompat(u * 3.6f, u * 0.85f))
+                drawRect(Color(0xFF09090B), Offset(cx - u * 2.0f, cy - u * 2.2f), SizeCompat(u * 4.0f, u * 0.9f))
             }
             PortraitExpression.SURPRISED -> {
-                drawRect(Color.White, Offset(cx - u * 2.8f, cy - u * 3.2f), SizeCompat(u * 1.6f, u * 1.8f))
-                drawRect(Color.White, Offset(cx + u * 1.2f, cy - u * 3.2f), SizeCompat(u * 1.6f, u * 1.8f))
+                drawRect(Color.White, Offset(cx - u * 3.2f, cy - u * 6.0f), SizeCompat(u * 1.7f, u * 2.0f))
+                drawRect(Color.White, Offset(cx + u * 1.5f, cy - u * 6.0f), SizeCompat(u * 1.7f, u * 2.0f))
             }
             else -> Unit
         }

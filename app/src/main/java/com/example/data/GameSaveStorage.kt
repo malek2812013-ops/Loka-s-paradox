@@ -25,6 +25,8 @@ data class SavedGameSnapshot(
     val playerMapY: Float = 0.50f,
     val defeatedEnemies: Set<EnemyId> = emptySet(),
     val friendAllies: Set<EnemyId> = emptySet(),
+    val stoppedEnemies: Set<EnemyId> = emptySet(),
+    val angelAidClaimed: Boolean = false,
     val escortingKidIds: Set<String> = emptySet(),
     val rescuedToNormalKidIds: Set<String> = emptySet(),
     val killedKidIds: Set<String> = emptySet(),
@@ -89,6 +91,8 @@ class GameSaveStorage(context: Context) {
                 playerMapY = obj.optDouble("playerMapY", 0.50).toFloat().coerceIn(0.07f, 0.93f),
                 defeatedEnemies = obj.optStringSet("defeatedEnemies").mapNotNull { runCatching { EnemyId.valueOf(it) }.getOrNull() }.toSet(),
                 friendAllies = obj.optStringSet("friendAllies").mapNotNull { runCatching { EnemyId.valueOf(it) }.getOrNull() }.toSet(),
+                stoppedEnemies = obj.optStringSet("stoppedEnemies").mapNotNull { runCatching { EnemyId.valueOf(it) }.getOrNull() }.toSet(),
+                angelAidClaimed = obj.optBoolean("angelAidClaimed", false),
                 escortingKidIds = obj.optStringSet("escortingKidIds"),
                 rescuedToNormalKidIds = obj.optStringSet("rescuedToNormalKidIds"),
                 killedKidIds = obj.optStringSet("killedKidIds"),
@@ -127,6 +131,8 @@ class GameSaveStorage(context: Context) {
             put("playerMapY", snapshot.playerMapY.toDouble())
             put("defeatedEnemies", JSONArray(snapshot.defeatedEnemies.map { it.name }))
             put("friendAllies", JSONArray(snapshot.friendAllies.map { it.name }))
+            put("stoppedEnemies", JSONArray(snapshot.stoppedEnemies.map { it.name }))
+            put("angelAidClaimed", snapshot.angelAidClaimed)
             put("escortingKidIds", JSONArray(snapshot.escortingKidIds.toList()))
             put("rescuedToNormalKidIds", JSONArray(snapshot.rescuedToNormalKidIds.toList()))
             put("killedKidIds", JSONArray(snapshot.killedKidIds.toList()))

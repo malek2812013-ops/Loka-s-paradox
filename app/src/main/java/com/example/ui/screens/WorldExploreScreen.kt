@@ -95,6 +95,7 @@ import com.example.ui.components.UltraPixelArtEngine
 import com.example.ui.components.drawOverworldNpcSprite
 import com.example.ui.components.drawPixelBrickSaveMonument
 import com.example.ui.components.drawPixelChest
+import com.example.ui.components.drawPixelHeart
 import com.example.ui.components.drawPixelSaveStar
 import com.example.ui.components.drawSteppedPixelShadow
 import com.example.ui.components.drawUndertaleBossPixelSprite
@@ -197,7 +198,8 @@ fun WorldExploreScreen(
             WorldContentCatalog.lostKids.filter { it.id in state.rescuedToNormalKidIds }
         } else emptyList()
     }
-    val bosses = remember(world, zone) { EnemyRoster.forWorld(world).filter { it.zone == zone } }
+    val worldBosses = remember(world) { EnemyRoster.forWorld(world) }
+    val bosses = remember(world, zone, worldBosses) { worldBosses.filter { it.zone == zone } }
 
     val px = state.playerMapX
     val py = state.playerMapY
@@ -265,6 +267,7 @@ fun WorldExploreScreen(
                     WorldId.NORMAL_WORLD -> MercyYellow.copy(alpha = 0.40f)
                     WorldId.TRI_RACE_REALM -> GlitchCyan.copy(alpha = 0.38f)
                     WorldId.SPLIT_REALM -> Color(0xFFF472B6).copy(alpha = 0.40f)
+                    WorldId.GOVERNMENT_HQ -> Color(0xFF38BDF8).copy(alpha = 0.36f)
                     WorldId.GLITCHED_WORLD -> Color.White.copy(alpha = 0.42f)
                 }
                 for (i in 0 until 16) {
@@ -276,11 +279,19 @@ fun WorldExploreScreen(
                 if (world.hasLandmarks) {
                     // Render all active doorways in the current zone
                     activeDoors.forEach { door ->
+                        val targetRoster = if (door.targetWorld != null) EnemyRoster.forWorld(door.targetWorld) else worldBosses
+                        val doorHasBoss = targetRoster.any {
+                            it.zone == door.targetZone &&
+                                it.id !in state.friendAllies &&
+                                it.id !in state.stoppedEnemies &&
+                                it.id !in state.defeatedEnemies
+                        }
                         drawZoneDoorway(
                             door = door,
                             world = world,
                             center = Offset(door.doorX * size.width, door.doorY * size.height),
-                            ambientClock = ambientClock
+                            ambientClock = ambientClock,
+                            hasUnresolvedBoss = doorHasBoss
                         )
                     }
 
@@ -330,6 +341,7 @@ fun WorldExploreScreen(
                             WorldId.NORMAL_WORLD -> SepiaAmber
                             WorldId.TRI_RACE_REALM -> Color(0xFF06B6D4)
                             WorldId.SPLIT_REALM -> if (lm.xNorm < 0.5f) Color(0xFFEC4899) else Color(0xFFEF4444)
+                            WorldId.GOVERNMENT_HQ -> GlitchCyan
                             WorldId.GLITCHED_WORLD -> GlitchCyan
                         }
                         drawOverworldLandmarkSprite(
@@ -372,24 +384,72 @@ fun WorldExploreScreen(
                         drawOverworldKidSprite(kid = kid, center = c, unitPx = 9.5.dp.toPx(), isRescued = true)
                     }
 
-                    // Crisp Pixel Boss Sprites in the Overworld
+                    // Crisp Pixel Boss Sprites in the Overworld with unmistakable Boss Arena Frame
                     bosses.forEach { boss ->
                         val bobY = sin(ambientClock * 2.4f + boss.yNorm * 7f) * 2.dp.toPx()
                         val c = Offset(boss.xNorm * size.width, boss.yNorm * size.height + bobY)
                         val isFriend = boss.id in state.friendAllies
+                        val isStopped = boss.id in state.stoppedEnemies
+                        val isSlain = boss.id in state.defeatedEnemies
+                        val isActiveBoss = !isFriend && !isStopped && !isSlain
+                        val frameSize = 44.dp.toPx()
+                        val halfFrame = frameSize * 0.5f
+                        val frameColor = when {
+                            isFriend -> HpBarGreen
+                            isStopped -> GlitchCyan
+                            isSlain -> MutedSepiaInk.copy(alpha = 0.55f)
+                            else -> MercyYellow
+                        }
+                        drawRect(
+                            color = frameColor.copy(alpha = if (isActiveBoss) 0.85f else 0.65f),
+                            topLeft = Offset(c.x - halfFrame, c.y - halfFrame),
+                            size = Size(frameSize, frameSize),
+                            style = Stroke(if (isActiveBoss) 2.4f else 1.6f)
+                        )
                         drawSteppedPixelShadow(
                             center = Offset(c.x, c.y + 13.dp.toPx()),
                             widthPx = 36.dp.toPx(),
                             heightPx = 10.dp.toPx(),
-                            color = (if (isFriend) HpBarGreen else boss.accentColor).copy(alpha = 0.30f)
+                            color = (if (isFriend) HpBarGreen else if (isStopped) GlitchCyan else boss.accentColor).copy(alpha = 0.30f)
                         )
                         drawUndertaleBossPixelSprite(
                             enemyId = boss.id,
                             center = c,
                             sizePx = 34.dp.toPx(),
                             isHitFlash = false,
-                            isSpareReady = isFriend
+                            isSpareReady = isFriend || isStopped
                         )
+                        when {
+                            isActiveBoss -> drawPixelSaveStar(
+                                center = Offset(c.x, c.y - halfFrame - 6.dp.toPx() + sin(ambientClock * 4f) * 1.5.dp.toPx()),
+                                sizePx = 5.5.dp.toPx(),
+                                color = MercyYellow
+                            )
+                            isFriend -> drawPixelHeart(
+                                center = Offset(c.x, c.y - halfFrame - 6.dp.toPx()),
+                                sizePx = 4.5.dp.toPx(),
+                                fillColor = HpBarGreen
+                            )
+                            isStopped -> drawPixelSaveStar(
+                                center = Offset(c.x, c.y - halfFrame - 6.dp.toPx()),
+                                sizePx = 5.dp.toPx(),
+                                color = GlitchCyan
+                            )
+                            isSlain -> {
+                                drawLine(
+                                    color = DangerRed.copy(alpha = 0.75f),
+                                    start = Offset(c.x - 10.dp.toPx(), c.y - 10.dp.toPx()),
+                                    end = Offset(c.x + 10.dp.toPx(), c.y + 10.dp.toPx()),
+                                    strokeWidth = 2.2f
+                                )
+                                drawLine(
+                                    color = DangerRed.copy(alpha = 0.75f),
+                                    start = Offset(c.x + 10.dp.toPx(), c.y - 10.dp.toPx()),
+                                    end = Offset(c.x - 10.dp.toPx(), c.y + 10.dp.toPx()),
+                                    strokeWidth = 2.2f
+                                )
+                            }
+                        }
                     }
 
                     // Overworld Chasing Normal Monsters (Touch = Instant Battle!)
@@ -428,14 +488,12 @@ fun WorldExploreScreen(
                         heightPx = 12.dp.toPx(),
                         color = (if (echoUnlocked) GlitchMagenta else DangerRed).copy(alpha = 0.30f)
                     )
-                    if (!echoUnlocked) {
-                        drawRect(
-                            color = DangerRed.copy(alpha = 0.80f),
-                            topLeft = Offset(ec.x - 21.dp.toPx(), ec.y - 21.dp.toPx()),
-                            size = Size(42.dp.toPx(), 42.dp.toPx()),
-                            style = Stroke(2.2f)
-                        )
-                    }
+                    drawRect(
+                        color = if (echoUnlocked) GlitchCyan.copy(alpha = 0.90f) else DangerRed.copy(alpha = 0.80f),
+                        topLeft = Offset(ec.x - 22.dp.toPx(), ec.y - 22.dp.toPx()),
+                        size = Size(44.dp.toPx(), 44.dp.toPx()),
+                        style = Stroke(2.4f)
+                    )
                     drawUndertaleBossPixelSprite(
                         enemyId = EnemyId.ECHO_LOKA,
                         center = ec,
@@ -443,6 +501,13 @@ fun WorldExploreScreen(
                         isHitFlash = false,
                         isSpareReady = echoUnlocked && EnemyId.ECHO_LOKA in state.friendAllies
                     )
+                    if (echoUnlocked) {
+                        drawPixelSaveStar(
+                            center = Offset(ec.x, ec.y - 28.dp.toPx() + sin(ambientClock * 4.5f) * 2.dp.toPx()),
+                            sizePx = 6.dp.toPx(),
+                            color = GlitchCyan
+                        )
+                    }
                 }
 
                 // Escorted kids currently following Loka (only until reaching Normal World!)
@@ -511,8 +576,15 @@ fun WorldExploreScreen(
                     )
                 }
 
-                // Clear Door Badges aligned along active edges & Door V
+                // Clear Door Badges aligned along active edges, Bridge World Gates & Door V
                 activeDoors.forEach { door ->
+                    val targetRoster = if (door.targetWorld != null) EnemyRoster.forWorld(door.targetWorld) else worldBosses
+                    val doorBoss = targetRoster.firstOrNull {
+                        it.zone == door.targetZone &&
+                            it.id !in state.friendAllies &&
+                            it.id !in state.stoppedEnemies &&
+                            it.id !in state.defeatedEnemies
+                    }
                     val badgeAlignment = when (door.edge) {
                         ZoneEdge.TOP -> Alignment.TopCenter
                         ZoneEdge.BOTTOM -> Alignment.BottomCenter
@@ -520,12 +592,21 @@ fun WorldExploreScreen(
                         ZoneEdge.RIGHT -> Alignment.CenterEnd
                         null -> Alignment.TopEnd
                     }
-                    val arrowPrefix = when (door.edge) {
-                        ZoneEdge.TOP -> "↑ "
-                        ZoneEdge.BOTTOM -> "↓ "
-                        ZoneEdge.LEFT -> "← "
-                        ZoneEdge.RIGHT -> "→ "
-                        null -> "✦ "
+                    val arrowPrefix = when {
+                        door.targetWorld != null -> "🌐 "
+                        door.edge == ZoneEdge.TOP -> "↑ "
+                        door.edge == ZoneEdge.BOTTOM -> "↓ "
+                        door.edge == ZoneEdge.LEFT -> "← "
+                        door.edge == ZoneEdge.RIGHT -> "→ "
+                        else -> "✦ "
+                    }
+                    val baseLabel = if (lang == AppLanguage.AR) door.labelAr else door.labelEn
+                    val bossTag = doorBoss?.let { " · ★ ${it.name}" } ?: ""
+                    val borderTint = when {
+                        door.targetWorld != null -> GlitchCyan
+                        doorBoss != null -> MercyYellow
+                        door.edge == null -> GlitchCyan
+                        else -> SepiaAmber
                     }
                     Box(
                         modifier = Modifier
@@ -537,17 +618,13 @@ fun WorldExploreScreen(
                                 end = if (door.edge == null) 14.dp else 4.dp
                             )
                             .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(0.dp))
-                            .border(
-                                1.5.dp,
-                                if (door.edge == null) GlitchCyan else SepiaAmber,
-                                RoundedCornerShape(0.dp)
-                            )
+                            .border(1.5.dp, borderTint, RoundedCornerShape(0.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "$arrowPrefix${if (lang == AppLanguage.AR) door.labelAr else door.labelEn}",
+                            text = "$arrowPrefix$baseLabel$bossTag",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (door.edge == null) GlitchCyan else SepiaGold
+                            color = if (door.targetWorld != null) GlitchCyan else if (doorBoss != null) MercyYellow else if (door.edge == null) GlitchCyan else SepiaGold
                         )
                     }
                 }
@@ -610,31 +687,140 @@ fun WorldExploreScreen(
                     }
                 }
 
+                val isAnomaly = world == WorldId.GLITCHED_WORLD
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF0A0A0E), RoundedCornerShape(0.dp))
-                        .border(1.5.dp, if (world == WorldId.GLITCHED_WORLD) GlitchCyan else SepiaAmber, RoundedCornerShape(0.dp))
+                        .border(
+                            1.5.dp,
+                            when {
+                                isAnomaly -> GlitchCyan
+                                state.isGovernmentStopped -> HpBarGreen
+                                else -> MercyYellow
+                            },
+                            RoundedCornerShape(0.dp)
+                        )
                         .padding(horizontal = 8.dp, vertical = 5.dp)
                 ) {
-                    val warpText = when {
-                        state.teleportControlMastered -> tr(lang, "TELEPORT MASTERED", "التحكم بالانتقال مفعّل")
-                        world == WorldId.GLITCHED_WORLD -> tr(
+                    val objectiveText = when {
+                        isAnomaly -> tr(
                             lang,
-                            "PAST MEMORIES · WARP IN ${"%.1f".format(state.glitchedCountdownSec)}s",
-                            "ذكريات الماضي · انتقال خلال ${"%.1f".format(state.glitchedCountdownSec)}ث"
+                            "GLITCHED VOID (ISOLATED) · RETURN IN ${"%.1f".format(state.glitchedCountdownSec)}s",
+                            "العالم المقلتش (منفصل) · العودة خلال ${"%.1f".format(state.glitchedCountdownSec)}ث"
                         )
-                        else -> tr(
+                        state.isGovernmentStopped -> tr(
                             lang,
-                            "PARADOX CLOCK: ${formatMmSs(state.randomWarpCountdownSec)} (or 8 Saves)",
-                            "مؤقت المفارقة: ${formatMmSs(state.randomWarpCountdownSec)} (أو 8 حفظات)"
+                            "★ GOAL COMPLETE: GOVERNMENT STOPPED (${state.governmentStoppedCount}/${state.totalGovernmentTargets})!",
+                            "★ الهدف اكتمل: تم إيقاف الحكومة (${state.governmentStoppedCount}/${state.totalGovernmentTargets})!"
                         )
+                        else -> {
+                            val aidHint = if (state.angelAidClaimed) tr(lang, "Angel Aid ✓", "مساعدة الملائكة ✓") else tr(lang, "Seek Angel Leader", "قابل زعيم الملائكة")
+                            tr(
+                                lang,
+                                "GOAL: REACH GOV & STOP THEM (${state.governmentStoppedCount}/${state.totalGovernmentTargets}) · $aidHint",
+                                "الهدف: الوصول للحكومة وإيقافهم (${state.governmentStoppedCount}/${state.totalGovernmentTargets}) · $aidHint"
+                            )
+                        }
                     }
                     Text(
-                        text = warpText,
+                        text = objectiveText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (world == WorldId.GLITCHED_WORLD) GlitchCyan else SepiaGold
+                        color = when {
+                            isAnomaly -> GlitchCyan
+                            state.isGovernmentStopped -> HpBarGreen
+                            else -> MercyYellow
+                        }
                     )
+                }
+
+                // Compact World Bosses Tracker Strip
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF0A0A0E), RoundedCornerShape(0.dp))
+                        .border(
+                            1.5.dp,
+                            if (state.isJourneyCompleteForEcho) GlitchCyan else Color.White.copy(alpha = 0.72f),
+                            RoundedCornerShape(0.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 5.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = tr(
+                                lang,
+                                "★ REALM BOSSES",
+                                "★ زعماء العالم"
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MercyYellow
+                        )
+                        Text(
+                            text = "${state.resolvedBossCount}/${state.totalStandardBosses}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (state.isJourneyCompleteForEcho) GlitchCyan else ParchmentInk
+                        )
+                    }
+                    worldBosses.forEach { wb ->
+                        val isFriend = wb.id in state.friendAllies
+                        val isStopped = wb.id in state.stoppedEnemies
+                        val isSlain = wb.id in state.defeatedEnemies
+                        val isLockedEcho = wb.id == EnemyId.ECHO_LOKA && !state.isJourneyCompleteForEcho
+                        val dirHint = when (wb.zone) {
+                            WorldZone.NORTH -> tr(lang, "↑North", "↑شمال")
+                            WorldZone.SOUTH -> tr(lang, "↓South", "↓جنوب")
+                            WorldZone.WEST -> tr(lang, "←West", "←غرب")
+                            WorldZone.EAST -> tr(lang, "→East", "→شرق")
+                            WorldZone.SANCTUM -> tr(lang, "✦DoorV", "✦باب5")
+                            WorldZone.CENTER -> tr(lang, "★Center", "★الوسط")
+                        }
+                        val roleTag = when (wb.id) {
+                            EnemyId.GOV_MONSTER_CHIEF -> tr(lang, " [Friendable]", " [صداقة]")
+                            EnemyId.GOV_DIRECTOR -> tr(lang, " [Stop/Kill]", " [إيقاف/قتل]")
+                            else -> ""
+                        }
+                        val (statusText, statusColor) = when {
+                            isLockedEcho -> tr(lang, "LOCKED", "مقفل") to DangerRed
+                            isFriend -> tr(lang, "♥FRIEND", "♥صديق") to HpBarGreen
+                            isStopped -> tr(lang, "⚖STOPPED", "⚖مُوقَف") to GlitchCyan
+                            isSlain -> tr(lang, "✕SLAIN", "✕مقتول") to MutedSepiaInk
+                            else -> tr(lang, "ACTIVE", "موجود") to MercyYellow
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "• ${wb.name} ($dirHint)$roleTag",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isSlain) MutedSepiaInk else Color.White,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = statusText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusColor
+                            )
+                        }
+                    }
+                    if (state.isJourneyCompleteForEcho && world != WorldId.GLITCHED_WORLD) {
+                        Text(
+                            text = tr(
+                                lang,
+                                "✦ ECHO-LOKA UNLOCKED IN GLITCHED VOID!",
+                                "✦ تم فتح ECHO-LOKA في العالم المقلتش!"
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = GlitchCyan
+                        )
+                    }
                 }
 
                 state.worldBannerMessage?.let { msg ->
@@ -705,16 +891,57 @@ fun WorldExploreScreen(
 
                     nearBoss != null -> {
                         val isEchoLocked = nearBoss.id == EnemyId.ECHO_LOKA && !state.isJourneyCompleteForEcho
+                        val isBossFriend = nearBoss.id in state.friendAllies
+                        val isBossStopped = nearBoss.id in state.stoppedEnemies
+                        val isBossSlain = nearBoss.id in state.defeatedEnemies
+                        val bossBadge = when {
+                            nearBoss.id == EnemyId.ECHO_LOKA -> tr(lang, "★ FINAL BOSS", "★ الزعيم الأخير")
+                            isBossFriend -> tr(lang, "♥ FRIEND BOSS", "♥ زعيم صديق")
+                            isBossStopped -> tr(lang, "⚖ STOPPED (NO KILL)", "⚖ مُوقَف بدون قتل")
+                            isBossSlain -> tr(lang, "✕ SLAIN BOSS", "✕ زعيم مهزوم")
+                            nearBoss.id == EnemyId.GOV_MONSTER_CHIEF -> tr(lang, "★ GOV BOSS (FRIENDABLE)", "★ زعيم الحكومة (صداقة)")
+                            nearBoss.id == EnemyId.GOV_DIRECTOR -> tr(lang, "★ GOV LEADER (NO FRIEND)", "★ رئيس الحكومة (بلا صداقة)")
+                            else -> tr(lang, "★ WORLD BOSS", "★ زعيم العالم")
+                        }
+                        Text(
+                            text = "$bossBadge · HP ${nearBoss.maxHp}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isEchoLocked) DangerRed else if (isBossFriend) HpBarGreen else if (isBossStopped) GlitchCyan else MercyYellow
+                        )
                         Text(nearBoss.name, style = MaterialTheme.typography.titleMedium, color = if (isEchoLocked) DangerRed else nearBoss.accentColor)
                         Text(
-                            text = if (isEchoLocked) {
-                                tr(
+                            text = when {
+                                isEchoLocked -> tr(
                                     lang,
                                     "LOCKED FINAL ENEMY (${state.resolvedBossCount}/${state.totalStandardBosses} bosses) — Finish your journey first!",
                                     "عدو أخير مقفل (${state.resolvedBossCount}/${state.totalStandardBosses} زعماء) — أنهِ رحلتك أولاً!"
                                 )
-                            } else {
-                                nearBoss.raceTitle
+                                isBossFriend -> tr(
+                                    lang,
+                                    "${nearBoss.raceTitle} · Befriended! Safe to spar anytime.",
+                                    "${nearBoss.raceTitle} · حليفك الآن! يمكنك تدريبه بأمان."
+                                )
+                                isBossStopped -> tr(
+                                    lang,
+                                    "${nearBoss.raceTitle} · Stopped peacefully without killing!",
+                                    "${nearBoss.raceTitle} · تم إيقافه سلمياً بدون قتل!"
+                                )
+                                nearBoss.id == EnemyId.GOV_MONSTER_CHIEF -> tr(
+                                    lang,
+                                    "The ONLY Government official you can befriend (ACT+SPARE) or FIGHT!",
+                                    "الشخص الوحيد في الحكومة الذي يمكنك مصادقته (ACT ثم SPARE) أو قتاله!"
+                                )
+                                nearBoss.id == EnemyId.GOV_DIRECTOR -> tr(
+                                    lang,
+                                    "Cannot become a friend! Stop without killing (ACT+STOP) or kill (FIGHT).",
+                                    "لا يمكن مصادقته! أوقفه بدون قتل (ACT ثم STOP) أو اقتله (FIGHT)."
+                                )
+                                nearBoss.canBefriend -> tr(
+                                    lang,
+                                    "${nearBoss.raceTitle} · Use ACT + SPARE to befriend or FIGHT!",
+                                    "${nearBoss.raceTitle} · استخدم ACT ثم SPARE لمصادقته أو FIGHT لهزيمته!"
+                                )
+                                else -> nearBoss.raceTitle
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isEchoLocked) DangerRed else MutedSepiaInk
@@ -737,8 +964,9 @@ fun WorldExploreScreen(
                                 text = when {
                                     isEchoLocked -> tr(lang, "LOCKED UNTIL JOURNEY ENDS", "مقفل حتى تنتهي رحلتك")
                                     nearBoss.id == EnemyId.ECHO_LOKA -> tr(lang, "FINAL BATTLE: ECHO-LOKA", "المعركة الأخيرة: ECHO-LOKA")
-                                    nearBoss.id in state.friendAllies -> tr(lang, "SPAR / VISIT", "تدريب / زيارة")
-                                    else -> tr(lang, "ENCOUNTER", "مواجهة")
+                                    isBossFriend -> tr(lang, "SPAR / VISIT", "تدريب / زيارة")
+                                    isBossStopped -> tr(lang, "RE-CHALLENGE", "إعادة المواجهة")
+                                    else -> tr(lang, "BOSS BATTLE!", "بدء معركة الزعيم!")
                                 },
                                 style = MaterialTheme.typography.labelLarge
                             )
@@ -761,16 +989,34 @@ fun WorldExploreScreen(
                     }
 
                     nearNpc != null -> {
+                        val isAngelHelper = nearNpc.id == "npc_angel_leader"
                         Text("${nearNpc.name} (${nearNpc.race})", style = MaterialTheme.typography.titleMedium, color = nearNpc.accentColor)
+                        if (isAngelHelper) {
+                            Text(
+                                text = if (state.angelAidClaimed) {
+                                    tr(lang, "★ Ally · Angel Aid & Armor received!", "★ حليف · استلمت دعم الملائكة والدرع!")
+                                } else {
+                                    tr(lang, "★ ALLY · Helps Loka against the Government!", "★ حليف يساعد لوكا لإيقاف الحكومة!")
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = GlitchCyan
+                            )
+                        }
                         Button(
                             onClick = { activeNpcDialog = nearNpc },
-                            colors = ButtonDefaults.buttonColors(containerColor = SepiaAmber, contentColor = ObsidianBg),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isAngelHelper) GlitchCyan else SepiaAmber,
+                                contentColor = ObsidianBg
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(46.dp)
                                 .testTag("explore_talk_npc_button")
                         ) {
-                            Text(tr(lang, "TALK", "تحدث"), style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                text = if (isAngelHelper) tr(lang, "TALK TO ANGEL LEADER", "تحدث مع زعيم الملائكة") else tr(lang, "TALK", "تحدث"),
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
 
@@ -812,12 +1058,12 @@ fun WorldExploreScreen(
                     }
 
                     nearRift -> {
-                        Text(tr(lang, "PARADOX RIFT SHRINE", "بوابة صدع المفارقة"), style = MaterialTheme.typography.titleMedium, color = GlitchCyan)
+                        Text(tr(lang, "GLITCH ANOMALY PORTAL", "بوابة الجلتش الشاذة"), style = MaterialTheme.typography.titleMedium, color = GlitchCyan)
                         Text(
                             text = tr(
                                 lang,
-                                "Step in manually if you want to jump early to another random world.",
-                                "ادخل البوابة يدوياً إذا أردت الانتقال مبكراً إلى عالم عشوائي آخر."
+                                "Disconnected anomaly rift — enter only if you want to drop into the Glitched Void.",
+                                "صدع شاذ منفصل — ادخله فقط إذا أردت الدخول إلى العالم المقلتش (أما بقية العوالم فمتصلة بالأبواب)."
                             ),
                             style = MaterialTheme.typography.labelSmall,
                             color = ParchmentInk
@@ -830,7 +1076,7 @@ fun WorldExploreScreen(
                                 .height(46.dp)
                                 .testTag("explore_manual_rift_button")
                         ) {
-                            Text(tr(lang, "ENTER PARADOX RIFT", "ادخل صدع المفارقة"), style = MaterialTheme.typography.labelLarge)
+                            Text(tr(lang, "ENTER GLITCHED VOID", "ادخل العالم المقلتش"), style = MaterialTheme.typography.labelLarge)
                         }
                     }
 
@@ -839,8 +1085,8 @@ fun WorldExploreScreen(
                             text = if (world.hasLandmarks) {
                                 tr(
                                     lang,
-                                    "${zone.titleEn} · Bosses: ${state.resolvedBossCount}/${state.totalStandardBosses} · Friends: ${state.friendAllies.size}\nExplore all 5 doors (edges + Door V) or save with Ashen ★.",
-                                    "${zone.titleAr} · الزعماء: ${state.resolvedBossCount}/${state.totalStandardBosses} · الأصدقاء: ${state.friendAllies.size}\nاستكشف الأبواب الخمسة (الحواف + الباب ٥) أو احفظ مع آشن ★!"
+                                    "${zone.titleEn} · Gov: ${state.governmentStoppedCount}/${state.totalGovernmentTargets} · Bosses: ${state.resolvedBossCount}/${state.totalStandardBosses}\nWalk through connected World Gates (🌐) to reach Government HQ!",
+                                    "${zone.titleAr} · الحكومة: ${state.governmentStoppedCount}/${state.totalGovernmentTargets} · الزعماء: ${state.resolvedBossCount}/${state.totalStandardBosses}\nتنقل عبر بوابات العوالم المتصلة (🌐) للوصول إلى الحكومة!"
                                 )
                             } else {
                                 if (state.isJourneyCompleteForEcho) {
@@ -1056,15 +1302,22 @@ fun WorldExploreScreen(
             },
             confirmButton = {
                 if (npc.eventRewardItemId != null && !claimed) {
+                    val isAngelHelper = npc.id == "npc_angel_leader"
                     Button(
                         onClick = {
                             onClaimNpcEvent(npc.id)
                             activeNpcDialog = null
                         },
                         shape = RoundedCornerShape(0.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = SepiaAmber, contentColor = ObsidianBg)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isAngelHelper) GlitchCyan else SepiaAmber,
+                            contentColor = ObsidianBg
+                        )
                     ) {
-                        Text(tr(lang, "ACCEPT GIFT", "اقبل الهدية"), style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            text = if (isAngelHelper) tr(lang, "ACCEPT ANGEL AID", "اقبل مساعدة الملائكة") else tr(lang, "ACCEPT GIFT", "اقبل الهدية"),
+                            style = MaterialTheme.typography.labelLarge
+                        )
                     }
                 }
             },
@@ -1296,6 +1549,26 @@ private fun DrawScope.drawWorldTerrain(
                     drawPixelTree(Offset(tx * size.width, ty * size.height), Color(0xFF991B1B), Color(0xFFEF4444), Color(0xFF2B2523))
                 }
                 drawPixelLantern(Offset(size.width * 0.62f, size.height * 0.62f), Color(0xFFEF4444), ambientClock)
+            }
+        }
+
+        WorldId.GOVERNMENT_HQ -> {
+            drawDoorPaths(
+                doors = doors,
+                roadFill = Color(0xFF334155),
+                roadTrim = SepiaGold.copy(alpha = 0.85f)
+            )
+            // Citadel guard pillars
+            listOf(0.14f to 0.22f, 0.86f to 0.22f, 0.14f to 0.80f, 0.86f to 0.80f).forEach { (pxPos, pyPos) ->
+                val cx = pxPos * size.width
+                val cy = pyPos * size.height
+                drawSteppedPixelShadow(Offset(cx, cy + 12.dp.toPx()), 22.dp.toPx(), 8.dp.toPx(), Color.Black.copy(alpha = 0.45f))
+                drawRect(Color(0xFF1E293B), Offset(cx - 8.dp.toPx(), cy - 16.dp.toPx()), Size(16.dp.toPx(), 26.dp.toPx()))
+                drawRect(SepiaGold.copy(alpha = 0.8f), Offset(cx - 9.dp.toPx(), cy - 17.dp.toPx()), Size(18.dp.toPx(), 4.dp.toPx()))
+                drawRect(GlitchCyan.copy(alpha = 0.7f), Offset(cx - 3.dp.toPx(), cy - 6.dp.toPx()), Size(6.dp.toPx(), 6.dp.toPx()))
+            }
+            listOf(0.39f to 0.40f, 0.61f to 0.40f, 0.39f to 0.62f, 0.61f to 0.62f).forEach { (lx, ly) ->
+                drawPixelLantern(Offset(lx * size.width, ly * size.height), GlitchCyan, ambientClock)
             }
         }
 

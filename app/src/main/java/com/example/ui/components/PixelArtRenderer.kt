@@ -19,13 +19,11 @@ import com.example.model.WorldId
 import com.example.model.WorldNpc
 import com.example.model.ZoneDoorInfo
 import com.example.model.ZoneEdge
-import kotlin.math.atan2
-import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import com.example.ui.theme.GlitchCyan
 import com.example.ui.theme.MercyYellow
-import com.example.ui.theme.ParchmentInk
+import com.example.ui.theme.SepiaAmber
 import com.example.ui.theme.SepiaGold
 import com.example.ui.theme.SoulAegisAmber
 import com.example.ui.theme.SoulInfernalViolet
@@ -33,8 +31,8 @@ import com.example.ui.theme.SoulParadoxCrimson
 import com.example.ui.theme.SoulSeraphCyan
 
 /**
- * Renders crisp Ultra-HD Pixel Art sprites (128x128 / 128x160 EPX + directional pixel shader)
- * blitted cleanly onto Compose Canvas with FilterQuality.None at 60 FPS.
+ * Renders 512x512 Ultra-Crisp Integer-Scaled Undertale Pixel Art Sprites
+ * (32x32 grids upscaled cleanly at 16x integer factor via FilterQuality.None).
  */
 fun DrawScope.drawPixelMatrix(
     rows: List<String>,
@@ -61,7 +59,7 @@ fun DrawScope.drawPixelMatrix(
 }
 
 /**
- * Hand-drawn Chunky Stepped Pixel-Block Outline Heart (13x12) matching the user's Soul sketches!
+ * Classic Undertale Stepped Pixel-Block Outline Heart (13x12).
  */
 fun DrawScope.drawPixelHeart(
     center: Offset,
@@ -85,9 +83,7 @@ fun DrawScope.drawPixelHeart(
         ".....OXO.....",
         "......O......"
     )
-    val palette = mutableMapOf(
-        'X' to fillColor
-    )
+    val palette = mutableMapOf('X' to fillColor)
     palette['O'] = outlineColor ?: fillColor
     drawPixelMatrix(grid, palette, center, sizePx * 2.05f, alpha = alpha)
 
@@ -104,9 +100,7 @@ fun DrawScope.drawPixelHeart(
 }
 
 /**
- * Image 3 — Split Soul (الروح الانقسامية):
- * Left half Red, Right half Teal, with chunky stepped pixel-block outline.
- * When splitApart == true, draws either left half (halfIndex == 0) or right half (halfIndex == 1).
+ * Split Soul (الروح الانقسامية): Left half Red, Right half Teal.
  */
 fun DrawScope.drawSplitPixelHeart(
     center: Offset,
@@ -172,18 +166,6 @@ fun DrawScope.drawSplitPixelHeart(
     drawPixelMatrix(grid, palette, center, scale, alpha = alpha)
 }
 
-/**
- * Image 1 — The 6 Chests (شكل الصناديق):
- * Closed top row:
- *  - SMALL_DOT: square box with lid line + small round clasp
- *  - SQUARE_STAR: compact square chest with star/cross clasp
- *  - WIDE_PADLOCK: wider box with lid line + padlock clasp
- * Open bottom row:
- *  - Raised lid + shaded horizontal opening band inside!
- */
-/**
- * Stepped integer-pixel Undertale ground shadow (3 stepped bands, zero smooth ovals).
- */
 fun DrawScope.drawSteppedPixelShadow(
     center: Offset,
     widthPx: Float,
@@ -300,576 +282,823 @@ fun DrawScope.drawPixelSaveStar(
 
 object PixelSprites {
 
-    // Loka Portrait (28x28 Micro-Pixel): Crisp Frisk-proportioned rounded bob (NO hat), iconic crown tuft,
-    // 3-tone chestnut shading, warm shadow directly under bangs, cyan-grey eyes + cheek tint, golden heart necklace
+    // 64x64 Ultra-Detailed Undertale Loka Bust Portrait (512x512 @ 8x integer scale — 4,096 crisp pixels!):
+    // Fluffy tousled chestnut bob with glossy strands, large layered grey-cyan Undertale eyes,
+    // rosy blush, gentle smile, folded collar/scarf trim, and glowing golden heart locket.
     val lokaPortraitGrid = listOf(
-        "...........OO...............",
-        "..........OHhO..............",
-        ".......OOOOHHHOOOO..........",
-        "......OHHhHHHHHHhHO.........",
-        ".....OHhHHHHHHHHHHhO........",
-        "....OHHHHHhHHHHHhHHHO.......",
-        "....OHHHHHHHHHHHHHHHO.......",
-        "...OHHhHHHHHHHHHHHHhHO......",
-        "...OHHHOdSSSSSSSSdOHHO......",
-        "...OHHdSSSSSSSSSSSSdHO......",
-        "...OHHSSSWGCHSSGCHWSHO......",
-        "...OHHdSSGGCHSSGCHGdHO......",
-        "...OOHSSrSSSSSSSSrSSHOO.....",
-        "....OOHSSSSssssSSSSHOO......",
-        ".....OOdSSSSSSSSSSdOO.......",
-        "......OOOTllllllTOO.........",
-        "....OOOTTTTtyYYytTTTTOO.....",
-        "...OttTTTTTTYYYYTTTTTttO....",
-        "...OTTTTTTTTWYYyTTTTTTTO....",
-        "...OStTTTTTTtyytTTTTTTtO....",
-        "...OStTTTTTTTTTTTTTTTTtO....",
-        "....OOtTTTTTTTTTTTTTTtOO....",
-        ".....OOOtTTTTTTTTTTtOOO.....",
-        "......OPPPPPp..pPPPPPO......",
-        "......OPPPPPp..pPPPPPO......",
-        "......OPPPPP....PPPPPO......",
-        "......OBBBBBO..OBBBBBO......",
-        "......OOOOOOO..OOOOOOO......"
+        "................................................................",
+        "................................................................",
+        "............................OOOOOOOO............................",
+        "........................OOOOHhhhhhhHOOOO........................",
+        "......................OOOHhhllllllllhhHOOO......................",
+        "...................OOOHhHHHHHHHHHHHHHHHHhHOOO...................",
+        ".................OOHHhHHHHHHHHHHHHHHHHHHHHhHHOO.................",
+        "...............OOHhHHHHhhHHHHHHHHHHHHHHhhHHHHhHOO...............",
+        ".............OOHHHhhllHHHHHHHHHHHHHHHHHHHHllhhHHHOO.............",
+        "............OOHhHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHhHOO............",
+        "...........OHHhHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHhHHO...........",
+        "..........OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHO..........",
+        "..........OHHhHHHHHHHHdHHHHHHHHHHHHHHHHHHdHHHHHHHHhHHO..........",
+        ".........OHHHHHHHHHHddHHHHHHHHHHHHHHHHHHHHddHHHHHHHHHHO.........",
+        ".........OHHHHHHHHdddHHHdHHHHHHHHHHHHHHdHHHdddHHHHHHHHO.........",
+        ".........OHHHHHHHddHHHdsssddHHHHHHHHddsssdHHHddHHHHHHHO.........",
+        ".........OHHHHHHddHHdSSSSSsdHHHHHHHHdsSSSSSdHHddHHHHHHO.........",
+        ".........OHHHHHddHHdSSSSSSSsdHHHHHHdsSSSSSSSdHHddHHHHHO.........",
+        ".........OHHHHddHHdSSSSSSSSSSsdHHdsSSSSSSSSSSdHHddHHHHO.........",
+        ".........OHHHHddHdSSSSSSSSSSSSssssSSSSSSSSSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSOOOOOOSSSSSSSSOOOOOOSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSOWWGGOSSSSSSSSOWWGGOSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSWOOGGOSSSSSSSSWOOGGOSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSWOGCcOSSSSSSSSWOGCcOSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSWCCccWSSSSSSSSWCCccWSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSrrssssssSSSssSSSssssssrrSSdHddHHHHO.........",
+        ".........OHHHHddHdSSrrrrSSSSSSSssSSSSSSSrrrrSSdHddHHHHO.........",
+        "..........OHHHddHdsSSrrrSSSSSSSSSSSSSSSSrrrSSsdHddHHHO..........",
+        "...........OHHHddOdsSSSSSSSSSSmmmmSSSSSSSSSSsdOddHHHO...........",
+        "............OHHHddOOdssSSSSSSSSSSSSSSSSSSssdOOddHHHO............",
+        ".............OOHHddOOdssssssssssssssssssssdOOddHHOO.............",
+        "..............OOHHddOO..OOssssssssssssOO..OOddHHOO..............",
+        "...............OOOHOO....OssssssssssssO....OOHOOO...............",
+        "................OOOOOKKKKsssYYYYYYYYsssKKKKOOOOO................",
+        "..............OOOKKTTTTttKKssYYssYYssKKttTTTTKKOOO..............",
+        "............OOKKTTTTTTTTttKKsYYYYYYsKKttTTTTTTTTKKOO............",
+        "..........OOTTTTTTTTTTTTTttKKKYYYYKKKttTTTTTTTTTTTTTOO..........",
+        ".........OOTTTTTTTTTTTTTTtKKKtYYYYtKKKtTTTTTTTTTTTTTTOO.........",
+        "........OOTTTTTTTTTTTTTTTtyYYYYyyYYYYytTTTTTTTTTTTTTTTOO........",
+        "........OOTTTTtTTTTTTTTTTTyYYWWYYYYYYyTTTTTTTTTTTtTTTTOO........",
+        "........OOTTTtTTTTTTTTTTTTyYWYYYYYYYYyTTTTTTTTTTTTtTTTOO........",
+        "........OOTTTtTTTTTTTTTTTTtyYYYYYYYYytTTTTTTTTTTTTtTTTOO........",
+        ".......OOTTTtTTTTTTTTTTTTTttyYYYYYYyttTTTTTTTTTTTTTtTTTOO.......",
+        ".......OOTTTtTTTTTTTTTTTTTTTtyYYYYytTTTTTTTTTTTTTTTtTTTOO.......",
+        ".......OOTTTtTTTTTTTTTTTTTTTTtyYYytTTTTTTTTTTTTTTTTtTTTOO.......",
+        ".......OOTTTtTTTTTTTTTTTTTTTTTtyytTTTTTTTTTTTTTTTTTtTTTOO.......",
+        ".......OOKKKKtTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTtKKKKOO.......",
+        ".......OSSSSssOOOTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTOOOssSSSSO.......",
+        ".......OSSSSsOO.OttttttttttttttttttttttttttttttO.OOsSSSSO.......",
+        "........OOOOOO..OPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPO..OOOOOO........",
+        "................OPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPO................",
+        "................OPPPPPPPPPPPPPPppPPPPPPPPPPPPPPO................",
+        "................OPPPPPPPPPPPPPp..pPPPPPPPPPPPPPO................",
+        "................OPPPPPPPPPPPPP....PPPPPPPPPPPPPO................",
+        "................OppppppppppppO....OppppppppppppO................",
+        "................OOOOOOOOOOOOOO....OOOOOOOOOOOOOO................",
+        "................................................................",
+        "................................................................",
+        "................................................................",
+        "................................................................",
+        "................................................................",
+        "................................................................",
+        "................................................................",
+        "................................................................"
     )
 
-    // Loka Overworld (28x32 Micro-Pixel): Expressive full-body Frisk silhouette with shaded hair tuft, bangs shadow,
-    // collar, grey shirt stripe, glowing 3D golden heart necklace, creased beige trousers, and two-tone boots
+    // 64x64 Ultra-Detailed Undertale Loka Overworld Sprite (512x512 @ 8x integer scale — 4,096 crisp pixels!):
+    // Full-body standing Loka with sleeker proportions, fluffy chestnut bob, layered eyes & smile,
+    // grey casual tee & collar, bright golden heart necklace, relaxed arms, beige trousers & cuffed boots.
     val lokaOverworldGrid = listOf(
-        "...........OO...............",
-        "..........OHhO..............",
-        ".......OOOOHHHOOOO..........",
-        "......OHHhHHHHHHhHO.........",
-        ".....OHhHHHHHHHHHHhO........",
-        "....OHHHHHhHHHHHhHHHO.......",
-        "....OHHHHHHHHHHHHHHHO.......",
-        "...OHHhHHHHHHHHHHHHhHO......",
-        "...OHHHSSdHHHHHHdSSSHO......",
-        "...OHHdSSSSSSSSSSSSdHO......",
-        "...OHHSSSWGCHdSGCHWSHO......",
-        "...OHHdSSGGCHdSGCHGdHO......",
-        "...OOHSSrSSSSSSSSrSSHOO.....",
-        "....OOHSSSSssssSSSSHOO......",
-        ".....OOdSSSSSSSSSSdOO.......",
-        "......OOOTllllllTOO.........",
-        "....OOOTTTTTYYYYTTTTTOO.....",
-        "...OSttTTTTTWYYyTTTTTttO....",
-        "...OStTTTTTTyYYyTTTTTTtO....",
-        "...OOSTTTTTTTyyTTTTTTTSOO...",
-        ".....OTTTTTTTTTTTTTTTTTO....",
-        ".....OOtTTTTTTTTTTTTtOO.....",
-        "......OPPPPPPPppPPPPPPO.....",
-        "......OPPPPPPp..pPPPPPO.....",
-        "......OPPPpPP....PPpPPO.....",
-        "......OPPPPPP....PPPPPO.....",
-        "......OPPPpPP....PPpPPO.....",
-        "......OPPPPPP....PPPPPO.....",
-        "......OBBBBBb....bBBBBO.....",
-        "......OBBBBBB....BBBBBO.....",
-        "......OBBBBBb....bBBBBO.....",
-        "......OOOOOOO....OOOOOO....."
+        "................................................................",
+        "................................................................",
+        "............................OOOOOOOO............................",
+        "........................OOOOHhhhhhhHOOOO........................",
+        "......................OOOHhhllllllllhhHOOO......................",
+        "...................OOOHhHHHHHHHHHHHHHHHHhHOOO...................",
+        ".................OOHHhHHHHHHHHHHHHHHHHHHHHhHHOO.................",
+        "...............OOHhHHHHhhllllllllllllllhhHHHHhHOO...............",
+        ".............OHHhHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHhHHO.............",
+        "............OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHO............",
+        "...........OHHhHHHHHHHdHHHHHHHHHHHHHHHHHHdHHHHHHHhHHO...........",
+        "...........OHHHHHHHHHddHHHHHHHHHHHHHHHHHHddHHHHHHHHHO...........",
+        "...........OHHHHHHHHddHHHdHHHHHHHHHHHHdHHHddHHHHHHHHO...........",
+        "...........OHHHHHHHddHHHdsssddHHHHddsssdHHHddHHHHHHHO...........",
+        "..........OOHHHHHddHHdSSSSSsdHHHHHHdsSSSSSdHHddHHHHHOO..........",
+        "..........OOHHHHddHHdSSSSSSSSdHHHHdSSSSSSSSdHHddHHHHOO..........",
+        "..........OOHHHHddHdSSSSSSSSSSdHHdSSSSSSSSSSdHddHHHHOO..........",
+        "..........OOHHHddHdSSSSSSSSSSSSssSSSSSSSSSSSSdHddHHHOO..........",
+        "..........OOHHHddHdSSSSOOOOOSSSSSSSSOOOOOSSSSdHddHHHOO..........",
+        "..........OOHHHddHdSSSSOWWGOSSSSSSSSOWWGOSSSSdHddHHHOO..........",
+        "..........OOHHHddHdSSSSWOCGOSSSSSSSSWOCGOSSSSdHddHHHOO..........",
+        "..........OOHHHddHdSSSSWcCCWSSSSSSSSWcCCWSSSSdHddHHHOO..........",
+        "..........OOHHHddHdSSrrrrsssSSSSSSSSsssrrrrSSdHddHHHOO..........",
+        "..........OOHHHddHdSSrrrrSSSSSSssSSSSSSrrrrSSdHddHHHOO..........",
+        "..........OOHHHddHdSSSSSSSSSSSmmmmSSSSSSSSSSSdHddHHHOO..........",
+        "............OOHHddOdssSSSSSSSSSSSSSSSSSSSSssdOddHHOO............",
+        "..............OOHHddOOssssssssssssssssssssOOddHHOO..............",
+        "...............OOHdOO..OOssssssssssssssOO..OOdHOO...............",
+        ".................OOOO...OOssssssssssssOO...OOOO.................",
+        "..................OOKKKKKKssYYYYYYYYssKKKKKKOO..................",
+        "...............OOTTTTTTttKKKssYYYYssKKKttTTTTTTOO...............",
+        ".............OOTTTTTTTTTTtKKyYYyyYYyKKtTTTTTTTTTTOO.............",
+        "............OOTTTTTTTTTTTTtyYYWWYYYYytTTTTTTTTTTTTOO............",
+        "...........OOKKKTTTTTTTTTTTyYYYYYYYYyTTTTTTTTTTTKKKOO...........",
+        "...........OOTTTTtTTTTTTTTTyYYYYYYYYyTTTTTTTTTtTTTTOO...........",
+        "...........OOTTTTtTTTTTTTTTTyYYYYYYyTTTTTTTTTTtTTTTOO...........",
+        "...........OOTTTTtTTTTTTTTTTTyYYYYyTTTTTTTTTTTtTTTTOO...........",
+        "...........OOTTTTtTTTTTTTTTTTTyYYyTTTTTTTTTTTTtTTTTOO...........",
+        "...........OOKKKKOTTTTTTTTTTTTTTTTTTTTTTTTTTTTOKKKKOO...........",
+        "...........OSSSSsOTTTTTTTTTTTTTTTTTTTTTTTTTTTTOsSSSSO...........",
+        "...........OSSSSsOTTTTTTTTTTTTTTTTTTTTTTTTTTTTOsSSSSO...........",
+        "...........OSSSSsOttttttttttttttttttttttttttttOsSSSSO...........",
+        "............OOOOO.OPPPPPPPPPPPPPPPPPPPPPPPPPPO.OOOOO............",
+        "..................OPPPPPPPPPPPPPPPPPPPPPPPPPPO..................",
+        "..................OPPPPPPPPPPPPppPPPPPPPPPPPPO..................",
+        "..................OPPPPPPPPPPPpOOpPPPPPPPPPPPO..................",
+        "..................OPPPPPPPPPPPO..OPPPPPPPPPPPO..................",
+        "..................OPPPpPPPPPPPO..OPPPPPPPpPPPO..................",
+        "..................OPPPPPPPPPPPO..OPPPPPPPPPPPO..................",
+        "..................OPPPpPPPPPPPp..pPPPPPPPpPPPO..................",
+        "..................OPPPPPPPPPPPO..OPPPPPPPPPPPO..................",
+        "..................OpppppppppppO..OpppppppppppO..................",
+        ".................ObbbbbbbbbbbOO..OObbbbbbbbbbbO.................",
+        ".................OBBBBBBBBBBBBO..OBBBBBBBBBBBBO.................",
+        "................OBBBBBBBBBBBBBO..OBBBBBBBBBBBBBO................",
+        "................OBBBBBBBBBBBBBO..OBBBBBBBBBBBBBO................",
+        "................OBBBBBBBBBBBBBO..OBBBBBBBBBBBBBO................",
+        "................ObbbbbbbbbbbbOO..OObbbbbbbbbbbbO................",
+        ".................OOOOOOOOOOOOO....OOOOOOOOOOOOO.................",
+        "................................................................",
+        "................................................................",
+        "................................................................",
+        "................................................................",
+        "................................................................"
     )
 
-    // Deltarune-style Combat Stance Loka facing RIGHT (28x32): swept bob hair, Frisk side silhouette,
-    // grey shirt + golden heart necklace, and ready forward blade/hand posture
-    val lokaBattleStanceGrid = listOf(
-        "..........OO................",
-        ".........OHhO...............",
-        "......OOOOHHHOOOO...........",
-        ".....OHHhHHHHHHhHO..........",
-        "....OHhHHHHHHHHHHhHO........",
-        "...OHHHHHhHHHHHhHHHHO.......",
-        "...OHHHHHHHHHHHHHHHHO.......",
-        "...OHHhHHHHHHHHHHHdSHO......",
-        "...OHHHHdSSSSSSSWGCdHO......",
-        "...OHHHdSSSSSSSSSGGCSO......",
-        "....OOHSSSSSSSSrSSSSSO......",
-        ".....OOHdSSSSSssssSdO.......",
-        "......OOOTllllllTTOO........",
-        ".....OOTTTTTYYYYTTTTTOO.....",
-        "....OSttTTTTWYYyTTTTSttO....",
-        "....OStTTTTTyYYyTTTTSOO.....",
-        ".....OOSTTTTTyyTTTTTS.......",
-        "......OTTTTTTTTTTTTTO.......",
-        "......OOtTTTTTTTTtOO........",
-        "......OPPPPPPPppPPPPO.......",
-        ".....OPPPPPp..pPPPPPO.......",
-        "....OPPPPPp....pPPPPPO......",
-        "....OPPPPp......pPPPPO......",
-        "....OBBBBb......bBBBBO......",
-        "....OBBBBB......BBBBBO......",
-        "....OOOOOO......OOOOOO......"
-    )
-
-    // Black-and-Grey Ashen Flower (28x28 Micro-Pixel): Sculpted 6-petal monochrome blossom with inner crease shading,
-    // faint brow expression, curved stem with veined leaves, and textured soil mound
+    // 32x32 Monochrome Undertale Ashen Flower (512x512 @ 16x integer scale):
+    // Sculpted 6-petal white/silver Undertale blossom inspired by Flowey art, curved stem, veined leaves, pixel dirt mound.
     val ashenFlowerNormal = listOf(
-        ".......OOOOO....OOOOO.......",
-        "......OWPPPPO..OPPPPWO......",
-        ".....OWPGPPGPWWPGPPGPWO.....",
-        ".....OWPGDDDDWWDDDDGPWO.....",
-        "..OOOOOPGDDDDDDDDDDGPOOOOO..",
-        ".OWPPPPGDDPPPPPPPPDDGPPPPWO.",
-        ".OWPGGDDPPWWPPPPWWPPDDGGPWO.",
-        ".OWPGDDPPPBPPPPPPBPPPDDGPWO.",
-        "..OGGDDPPPBPPPPPPBPPPDDGGO..",
-        ".OWPGDDPPPPPGGGGPPPPPPDDGPO.",
-        ".OWPGGDDPPBPPPPPPBPPDDGGPWO.",
-        ".OWPPPGDDPPBBBBBBPPDDGPPPWO.",
-        "..OOOOOPGDDDDDDDDDDGPOOOOO..",
-        ".....OWGGGDDDDDDDDGGGWO.....",
-        "......OOOGGDDDDDDGGOOO......",
-        "..........OOODDDOO..........",
-        "...........OODDDDO..........",
-        "....OOOO...ODDDDDO...OOOO...",
-        "...OGPGGO..ODDDDO...OGPGGO..",
-        "...ODGGGDDDDDDDDDDDDGGGDO...",
-        "....OODDDDDGDDDDGDDDDDOO....",
-        ".....OOODDDDDDDDDDDDOOO.....",
-        "......OOOOOOOOOOOOOOOO......",
-        "............................",
-        "............................",
-        "............................",
-        "............................",
-        "............................"
+        ".......OOOOOO......OOOOOO.......",
+        "......OWWWWWWO....OWWWWWWO......",
+        ".....OWPPPPPPWO..OWPPPPPPWO.....",
+        ".....OWPPGGPPWWOOOWWPPGGPWO.....",
+        ".....OWPGGPPPPWWWWPPPPGGPWO.....",
+        "..OOOOOWPPPPPPPPPPPPPPPPOOOOOO..",
+        ".OWWWWPPPPPPPPGGGGPPPPPPPPWWWWO.",
+        "OWPPPPGGPPPPWWWWWWWWPPPPGGPPPPO.",
+        "OWPPPGGPPPWPPPPPPPPPPWPPPGGPPPO.",
+        "OWPPGGPPPWPPBBPPPPBBPPWPPPGPPPO.",
+        "OWPPGGPPPWPPBBPPPPBBPPWPPPGPPPO.",
+        ".OWPPPGGPWPPPPPPPPPPPPWPPGGPPPO.",
+        ".OWWWWWPPWPPPBBBBBBPPPWPPWWWWWO.",
+        "..OOOOOWPPWPPPPWWPPPPWPPOOOOOO..",
+        ".....OWPGGPWWWWWWWWWWPGGPWO.....",
+        ".....OWPPGGGGGGGGGGGGGGPPWO.....",
+        "......OOOGGGGGDDDDGGGGGOOO......",
+        "........OOOOOODDDDOOOOOO........",
+        "..............ODDDO.............",
+        "..............ODDDO.............",
+        ".....OOOOO....ODDDO...OOOOO.....",
+        "....OGPPPGO...ODDDDO.OGPPPGO....",
+        "....OGGGGGDO..ODDDO.ODGGGGGO....",
+        ".....OOOGGGDO.ODDDO.ODGGGOO.....",
+        "........OOOGDODDDDODGGOOO.......",
+        ".......OOOOODDDDDDDDOOOOO.......",
+        ".....OODDDDDGGDDDDGGDDDDDOO.....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        ".....OOOOOOOOOOOOOOOOOOOOOO.....",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // 32x32 Creepy Undertale Smirk Ashen Flower (512x512 @ 16x integer scale)
     val ashenFlowerCreepy = listOf(
-        ".......OOOOO....OOOOO.......",
-        "......ODPPPPO..OPPPPDO......",
-        ".....ODPGDDDDWWDDDDGPDO.....",
-        ".....ODDDDDDDDDDDDDDDDO.....",
-        "..OOOOODDDDDPPPPDDDDDOOOOO..",
-        ".ODDPPGDDPPBBBBBBPPDDGPPDDO.",
-        ".ODDPGDPPBBBBBBBBBBPPDGPDDO.",
-        ".ODDPGDPPBPPWWWWPPBPPDGPDDO.",
-        "..OGPGDPPPPPPPPPPPPPPDGPGO..",
-        ".ODDPGDPBBBBBBBBBBBBPPDPDDO.",
-        ".ODDPGDDPBPWWWWWWPBPDDGPDDO.",
-        ".ODDPGGDDPBBBBBBBBPDDGGPDDO.",
-        "..OOOOODDDDDDDDDDDDDDOOOOO..",
-        ".....ODGGGDDDDDDDDGGGDO.....",
-        "......OOOGGDDDDDDGGOOO......",
-        "..........OOODDDOO..........",
-        "...........OODDDDO..........",
-        "....OOOO...ODDDDDO...OOOO...",
-        "...OGGGGO..ODDDDO...OGGGGO..",
-        "...ODDDDDDDDDDDDDDDDDDDDO...",
-        "....OODDDDDDDDDDDDDDDDOO....",
-        ".....OOODDDDDDDDDDDDOOO.....",
-        "......OOOOOOOOOOOOOOOO......",
-        "............................",
-        "............................",
-        "............................",
-        "............................",
-        "............................"
+        ".......OOOOOO......OOOOOO.......",
+        "......ODDDDDDO....ODDDDDDO......",
+        ".....ODPPPPPPDO..ODPPPPPPDO.....",
+        ".....ODDDGGPPDDDDDDPPGGDDDO.....",
+        ".....ODPGGDDDDPPPPDDDDGGPDO.....",
+        "..OOOOODPPPPPPPPPPPPPPPPDOOOOO..",
+        ".ODDDDPPPPPPGGGGGGGGPPPPPPDDDDO.",
+        "ODPPPPGGPPPPGGGGGGGGPPPPGGPPPPO.",
+        "ODPPPGGPPPGPPPPPPPPPPGPPGGPPPPO.",
+        "ODPPGGPPPGPBBBPPPPBBBPGGPPPGPPO.",
+        "ODPPGGPPPGPBBWWPPWWBBPGGPPPGPPO.",
+        ".ODPPPGGPGPPPPPPPPPPPPGGPGGPPPO.",
+        ".ODDDDDPPGPBBBBBBBBBBPGGPDDDDDO.",
+        "..OOOOODPPGGBWWWWWWBBGPPDOOOOO..",
+        ".....ODPGGPGGGBBBBGGGPPGGDO.....",
+        ".....ODDDGGGGGGGGGGGGGGDDDO.....",
+        "......OOOGGGGGDDDDGGGGGOOO......",
+        "........OOOOOODDDDOOOOOO........",
+        "..............ODDDO.............",
+        "..............ODDDO.............",
+        ".....OOOOO....ODDDO...OOOOO.....",
+        "....OGGGGGGO..ODDDDO.OGGGGGGO...",
+        "....ODGGGGDO..ODDDO.ODGGGGDO....",
+        ".....OOODGGDO.ODDDO.ODGDOOO.....",
+        "........OOOGDODDDDODGGOOO.......",
+        ".......OOOOODDDDDDDDOOOOO.......",
+        ".....OODDDDDDDDDDDDDDDDDDDOO....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        ".....OOOOOOOOOOOOOOOOOOOOOO.....",
+        "................................",
+        "................................",
+        "................................"
     )
 
-    // 24x24 Micro-Pixel Boss Battle Sprites
+    // ==================== 32x32 UNDERTALE ENEMIES & BOSSES (512x512 @ 16x SCALE) ====================
+
     val ruinsDummyGrid = listOf(
-        ".......OOOOOOOOOO.......",
-        "......OWWWWWWWWWWO......",
-        "......OWWWWWWWWWWO......",
-        "....OOOWWWWWWWWWWO......",
-        "....OCCCCCCCCCCCCO......",
-        "...OCCCCECCCCDECCCO.....",
-        "...OCCCCECCCCDECCCO.....",
-        "...OCCCCCCCCCCCCCCCO....",
-        "....OOCCCCMMMMCCCOO.....",
-        "......OCCCMMMCCCO.......",
-        ".....OOCCCMCCCCCOO......",
-        "....OCCCCCMCCCCCCCO.....",
-        "....OCCCCEMCCCCCCCO.....",
-        "...OCCCCCCMCCCCCCCCO....",
-        "...OCCCCCCMCCCCCCCCO....",
-        "...OCCCCCCCCCCCCCCCO....",
-        "..OCCCCCCCCCCCCCCCCCO...",
-        "..OCCCCCCCCCCCCCCCCCO...",
-        "...OOOOOOOOOOOOOOOOO....",
-        ".........OWWWO..........",
-        ".........OWWWO..........",
-        "......OOOWWWWOOO........",
-        ".....OOOOOOOOOOOO.......",
-        "........................"
+        ".........OOOOOOOOOOOOOO.........",
+        "........OWWWWWWWWWWWWWWO........",
+        ".......OWWWCCCCCCCCCCWWWO.......",
+        "......OWWWCCCCCCCCCCCCWWWO......",
+        ".....OWWWCCCCCCCCCCCCCCWWWO.....",
+        ".....OWWCCCCBCCCCCCBCCCCWWO.....",
+        ".....OWWCCCBBBCCCCBBBCCCWWO.....",
+        ".....OWWCCCCBCCCCCCBCCCCWWO.....",
+        "......OWWCCCCCCCCCCCCCCWWO......",
+        ".......OOWWCCCCMMMMCCCWOO.......",
+        ".........OOWCCCMMMCCCWOO........",
+        "........OOCCCCCCCCCCCCOO........",
+        ".......OCCCCCMCCCCCCCCCCO.......",
+        "......OCCCCCBMCCCCCCCCCCCO......",
+        ".....OCCCCCCCMCCCCCCCCCCCCO.....",
+        ".....OCCCCCCCMCCCCCCCCCCCCO.....",
+        "....OCCCCCCCBMCCCCCCCCCCCCCO....",
+        "....OCCCCCCCCCCCCCCCCCCCCCCCO...",
+        "....OCCCCCCCCCCCCCCCCCCCCCCCO...",
+        ".....OCCCCCCCCCCCCCCCCCCCCCO....",
+        "......OOOOOOOOOOOOOOOOOOOOO.....",
+        ".............OWWWWWO............",
+        ".............OWWWWWO............",
+        ".............OWWWWWO............",
+        "...........OOOWWWWWOOO..........",
+        "..........OWWWWWWWWWWWOO........",
+        ".........OOOOOOOOOOOOOOO........",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // Commander Vex (32x32): Armored Paradox Officer with angular visor & tactical coat
     val vexBossGrid = listOf(
-        ".......OOOOOOOOOO.......",
-        "......ODDDDDDDDDDO......",
-        ".....ODDDDDDDDDDDDO.....",
-        ".....ODAAAAAAAAAAAO.....",
-        ".....ODAAAWWWWAAAAO.....",
-        ".....ODAAAAAAAAAAAO.....",
-        ".....ODDDDDDDDDDDDO.....",
-        "......ODDDDDDDDDDO......",
-        "...OO..OOOOOOOOOO..OO...",
-        "..OAAOODDDDDDDDDDOOAAO..",
-        ".OAAAOODDDDWWDDDDOOAAAO.",
-        ".OAA..ODDDDDDDDDDO..AAO.",
-        "......ODDDDAAADDDO......",
-        ".....ODDDDDAAADDDDO.....",
-        ".....ODDDDDDDDDDDDO.....",
-        ".....ODDDDDAAADDDDO.....",
-        ".....ODDDDDDDDDDDDO.....",
-        ".....ODDDDDDDDDDDDO.....",
-        "......ODDDD..DDDDO......",
-        "......ODDDD..DDDDO......",
-        "......ODDDD..DDDDO......",
-        ".....OODDD....DDDOO.....",
-        ".....OOOOO....OOOOO.....",
-        "........................"
+        "..........OOOOOOOOOOOO..........",
+        ".........ODDDDDDDDDDDDO.........",
+        "........ODDDDDDDDDDDDDDO........",
+        ".......ODDDAAAAAAAAAAADDO.......",
+        ".......ODDAAAAAAAAAAAAADO.......",
+        ".......ODAAAWWWWWWWWAAADO.......",
+        ".......ODDAAAAAAAAAAAAADO.......",
+        "........ODDDDDDDDDDDDDDO........",
+        ".........ODDDDDDDDDDDDO.........",
+        ".....OOO..OOOOOOOOOOOO..OOO.....",
+        "....OAAAOODDDDDDDDDDDDOOAAAO....",
+        "...OAAAAOODDDDDWWDDDDDOOAAAAO...",
+        "...OAAAO.ODDDDDDDDDDDDO.OAAAO...",
+        "...OAAO..ODDDDDAAADDDDO..OAAO...",
+        ".........ODDDDDAAADDDDO.........",
+        "........ODDDDDDWWDDDDDDO........",
+        "........ODDDDDDDDDDDDDDO........",
+        "........ODDDDDDAAADDDDDO........",
+        "........ODDDDDDAAADDDDDO........",
+        "........ODDDDDDDDDDDDDDO........",
+        ".........ODDDDDDDDDDDDO.........",
+        ".........ODDDDD..DDDDDO.........",
+        ".........ODDDDD..DDDDDO.........",
+        ".........ODDDDD..DDDDDO.........",
+        ".........ODDDDD..DDDDDO.........",
+        "........OODDDD....DDDDOO........",
+        "........OOOOOO....OOOOOO........",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // Bramble (32x32): Gentle horned Boss Monster (Asgore/Toriel silhouette) with mossy coat
     val brambleBossGrid = listOf(
-        ".OOO................OOO.",
-        ".OGGO..............OGGO.",
-        "..OGGO..OOOOOOOO..OGGO..",
-        "...OGGODDDDDDDDDDOGGO...",
-        "..ODDDDDDDDDDDDDDDDDDO..",
-        ".ODDDDDDDDDDDDDDDDDDDDO.",
-        ".ODDDGGDDDDDDDDDDGGDDDO.",
-        ".ODDDDDDDDDDDDDDDDDDDDO.",
-        ".ODDDDWWDDDDDDDDWWDDDDO.",
-        ".ODDDDWBDDDDDDDDWBDDDDO.",
-        ".ODDDDDDDDDDDDDDDDDDDDO.",
-        "..ODDDDDDDGGGGDDDDDDDO..",
-        "..OODDDDDGGGGGGDDDDDOO..",
-        "...ODDDDDGGGGGGDDDDDO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "....ODDDDDDDDDDDDDDO....",
-        "....ODDDDD....DDDDDO....",
-        "....ODDDD......DDDDO....",
-        "....ODDDD......DDDDO....",
-        "...OODDD........DDDOO...",
-        "...OOOOO........OOOOO...",
-        "........................",
-        "........................"
+        ".OOO........................OOO.",
+        ".OGGO......................OGGO.",
+        "..OGGO......OOOOOOOO......OGGO..",
+        "...OGGO...OODDDDDDDDOO...OGGO...",
+        "....OGGGOODDDDDDDDDDDDOOGGGO....",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "..ODDDDDGGDDDDDDDDDDDDGGDDDDDO..",
+        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        "..ODDDDDDWWWDDDDDDDDWWWDDDDDDO..",
+        "..ODDDDDDWBBDDDDDDDDWBBDDDDDDO..",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "...ODDDDDDDDGGGGGGGGDDDDDDDDO...",
+        "....OODDDDDDGGGGGGGGDDDDDDOO....",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        "....ODDDGGDDDDDDDDDDDDGGDDDO....",
+        "...ODDDDGGDDDDWWWWDDDDGGDDDDO...",
+        "...ODDDDDDDDDDWWWWDDDDDDDDDDO...",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        ".....ODDDDDDDD....DDDDDDDDO.....",
+        "......ODDDDDD......DDDDDDO......",
+        "......ODDDDDD......DDDDDDO......",
+        ".....OODDDDD........DDDDDOO.....",
+        ".....OOOOOOO........OOOOOOO.....",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // Lady Vespera (32x32): Noble butterfly/spider-noble silhouette with floating crown crest & gown
     val vesperaBossGrid = listOf(
-        "........OOOOOOOO........",
-        ".......OYYYYYYYYO.......",
-        "......ODDDDDDDDDDO......",
-        ".....ODDDDDDDDDDDDO.....",
-        ".....ODDDYYDDDYYDDO.....",
-        ".....ODDDDDDDDDDDDO.....",
-        "......ODDDDDDDDDDO......",
-        ".....OODDDDDDDDDDOO.....",
-        "....ODDDDDDDDDDDDDDO....",
-        "...ODDDDDCCCCCCDDDDDO...",
-        "..ODDDDDCCCCCCCCDDDDDO..",
-        "..ODDDDCCCCYYCCCCDDDDO..",
-        ".ODDDDDDDDDDDDDDDDDDDDO.",
-        ".ODDDDDDDDDYYDDDDDDDDDO.",
-        "ODDDDDDDDDDDDDDDDDDDDDDO",
-        "ODDDDDDDDDDDDDDDDDDDDDDO",
-        ".OOOOOOOOOOOOOOOOOOOOOO.",
-        "......ODDDD..DDDDO......",
-        "......ODDDD..DDDDO......",
-        ".....OODDD....DDDOO.....",
-        ".....OOOOO....OOOOO.....",
-        "........................",
-        "........................",
-        "........................"
+        "..........OOOOOOOOOOOO..........",
+        ".........OYYYYYYYYYYYYO.........",
+        "..........OOYYYYYYYYOO..........",
+        ".........ODDDDDDDDDDDDO.........",
+        "........ODDDDDDDDDDDDDDO........",
+        "........ODDDYYDDDDYYDDDO........",
+        "........ODDDYWDDDDWYDDDO........",
+        ".........ODDDDDDDDDDDDO.........",
+        "........OODDDDDDDDDDDDOO........",
+        ".......ODDDDDCCCCCCDDDDDO.......",
+        "......ODDDDDCCCCCCCCDDDDDO......",
+        ".....ODDDDDCCCCYYCCCCDDDDDO.....",
+        "....ODDDDDDDDDDYYDDDDDDDDDDO....",
+        "...ODDDDDDDDDDYYYYDDDDDDDDDDO...",
+        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        ".ODDDDDDDDCCCCDDDDCCCCDDDDDDDDO.",
+        ".ODDDDDDDDDDDDDDDDDDDDDDDDDDDDO.",
+        "..OOOOOOOOOOOOOOOOOOOOOOOOOOOO..",
+        "........ODDDDDD..DDDDDDO........",
+        "........ODDDDD....DDDDDO........",
+        "........ODDDDD....DDDDDO........",
+        ".......OODDDD......DDDDOO.......",
+        ".......OOOOOO......OOOOOO.......",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // Sentinel Orin (32x32): Ancient carved stone golem construct with glowing rune core
     val orinBossGrid = listOf(
-        ".....OOOOOOOOOOOOOO.....",
-        "....ODDDDDDDDDDDDDDO....",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "...ODDDDWWDDDDWWDDDDO...",
-        "...ODDDDWBDDDDWBDDDDO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "..OODDDDDDDDDDDDDDDDOO..",
-        ".ODDDDDDBBBBBBBBDDDDDDO.",
-        ".ODDDDDBBWWWWWWBBDDDDDO.",
-        ".ODDDDDBBWBBBBWBBDDDDDO.",
-        ".ODDDDDBBWWWWWWBBDDDDDO.",
-        ".ODDDDDDBBBBBBBBDDDDDDO.",
-        "..OODDDDDDDDDDDDDDDDOO..",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "...ODDDDDD....DDDDDDO...",
-        "....ODDDDD....DDDDDO....",
-        "....ODDDDD....DDDDDO....",
-        "....ODDDDD....DDDDDO....",
-        "...OODDDD......DDDDOO...",
-        "...OOOOOO......OOOOOO...",
-        "........................",
-        "........................"
+        "......OOOOOOOOOOOOOOOOOOOO......",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "....ODDDDDWWWDDDDDDWWWDDDDDO....",
+        "....ODDDDDWBBDDDDDDWBBDDDDDO....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "...OODDDDDDDDDDDDDDDDDDDDDDOO...",
+        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        ".ODDDDDDDDBBBBBBBBBBBBDDDDDDDDO.",
+        ".ODDDDDDDBBWWWWWWWWWWBBDDDDDDDO.",
+        ".ODDDDDDDBBWBBBBBBBBWBBDDDDDDDO.",
+        ".ODDDDDDDBBWBWWWWWWBWBBDDDDDDDO.",
+        ".ODDDDDDDBBWBBBBBBBBWBBDDDDDDDO.",
+        ".ODDDDDDDBBWWWWWWWWWWBBDDDDDDDO.",
+        "..ODDDDDDDBBBBBBBBBBBBDDDDDDDO..",
+        "...OODDDDDDDDDDDDDDDDDDDDDDOO...",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "....ODDDDDDDDD....DDDDDDDDDO....",
+        "....ODDDDDDDDD....DDDDDDDDDO....",
+        ".....ODDDDDDD......DDDDDDDO.....",
+        ".....ODDDDDDD......DDDDDDDO.....",
+        ".....ODDDDDDD......DDDDDDDO.....",
+        "....OODDDDDD........DDDDDDOO....",
+        "....OOOOOOOO........OOOOOOOO....",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // Seraphiel (32x32): Six-winged Halo Angel Arbiter in layered ceremonial robes
     val seraphielBossGrid = listOf(
-        "......OOOOOOOOOOOO......",
-        ".....OYYYYYYYYYYYYO.....",
-        "...OO.OOOOOOOOOOOO.OO...",
-        "..OCCODDDDDDDDDDDDOCCO..",
-        ".OCCCODDDDYYDDYYDDOCCCO.",
-        "OCCCCODDDDDDDDDDDDOCCCCO",
-        ".OCCC.OODDDDDDDDOO.CCCO.",
-        "..OO.ODDDDDDDDDDDDO.OO..",
-        ".OOCCODDDDDYYDDDDDOCCOO.",
-        "OCCCOODDDDDYYDDDDDOOCCCO",
-        ".OO..ODDDDDDDDDDDDO..OO.",
-        "....ODDDDDDDDDDDDDDO....",
-        "...ODDDDDDDYYDDDDDDDO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "..ODDDDDDDDDDDDDDDDDDO..",
-        "..ODDDDDDDDDDDDDDDDDDO..",
-        "..OOOOOOOOOOOOOOOOOOOO..",
-        "......ODDD....DDDO......",
-        "......ODDD....DDDO......",
-        ".....OODDD....DDDOO.....",
-        ".....OOOOO....OOOOO.....",
-        "........................",
-        "........................",
-        "........................"
+        ".......OOOOOOOOOOOOOOOOOO.......",
+        "......OYYYYYYYYYYYYYYYYYYO......",
+        ".......OOOOOOOOOOOOOOOOOO.......",
+        "....OOO..OOOOOOOOOOOOOO..OOO....",
+        "...OCCCOODDDDDDDDDDDDDDOOCCCO...",
+        "..OCCCCOODDDDYYDDYYDDDDOOCCCCO..",
+        ".OCCCCCOODDDDDDDDDDDDDDOOCCCCCO.",
+        "..OCCCC..OODDDDDDDDDDOO..CCCCO..",
+        "...OOO..ODDDDDDDDDDDDDDO..OOO...",
+        "..OOCCCOODDDDDDYYDDDDDDOOCCCOO..",
+        ".OCCCCCOODDDDDYYYYDDDDDOOCCCCCO.",
+        "..OOO...ODDDDDDYYDDDDDDO...OOO..",
+        ".......ODDDDDDDDDDDDDDDDO.......",
+        "......ODDDDDDDYYYYDDDDDDDO......",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "....OOOOOOOOOOOOOOOOOOOOOOOO....",
+        "........ODDDDD....DDDDDO........",
+        "........ODDDDD....DDDDDO........",
+        ".......OODDDD......DDDDOO.......",
+        ".......OOOOOO......OOOOOO.......",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // Malakor (32x32): Fierce Devil Knight with curved horns, spiky pauldrons & chest emblem
     val malakorBossGrid = listOf(
-        ".OOO................OOO.",
-        ".OVVO..............OVVO.",
-        "..OVVO..OOOOOOOO..OVVO..",
-        "...OVVODDDDDDDDDDOVVO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "...ODDDVVVDDDDVVVDDDO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "..OODDDDDDDDDDDDDDDDOO..",
-        ".ODDDDDDDDDDDDDDDDDDDDO.",
-        ".ODDDDDDDVVVVVVDDDDDDDO.",
-        ".ODDDDDDVWWWWWWVDDDDDDO.",
-        ".ODDDDDDVWVVVVWVDDDDDDO.",
-        ".ODDDDDDDVVVVVVDDDDDDDO.",
-        "..ODDDDDDDDDDDDDDDDDDO..",
-        "..ODDDDDDDDDDDDDDDDDDO..",
-        "...ODDDDDD....DDDDDDO...",
-        "...ODDDDD..OO..DDDDDO...",
-        "....ODDDD..OO..DDDDO....",
-        "....OODDD......DDDOO....",
-        "....OOOOO......OOOOO....",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        ".OOOO......................OOOO.",
+        ".OVVVO....................OVVVO.",
+        "..OVVVO.....OOOOOOOO.....OVVVO..",
+        "...OVVVO..OODDDDDDDDOO..OVVVO...",
+        "....OVVVODDDDDDDDDDDDDDOVVVO....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "....ODDDDVVVVDDDDDDVVVVDDDDO....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "...OODDDDDDDDDDDDDDDDDDDDDDOO...",
+        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        ".ODDDDDDDDDVVVVVVVVVVDDDDDDDDDO.",
+        ".ODDDDDDDDVWWWWWWWWWWVDDDDDDDDO.",
+        ".ODDDDDDDDVWVVVVVVVVWVDDDDDDDDO.",
+        ".ODDDDDDDDDVVVVVVVVVVDDDDDDDDDO.",
+        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "....ODDDDDDDDD....DDDDDDDDDO....",
+        "....ODDDDDDDD..OO..DDDDDDDDO....",
+        ".....ODDDDDDD..OO..DDDDDDDO.....",
+        ".....OODDDDD........DDDDDOO.....",
+        ".....OOOOOOO........OOOOOOO.....",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // Echo-Loka (32x32): Corrupted mirror echo in glitch halo, asymmetric void/cyan eyes & cracked chest core
     val echoLokaBossGrid = listOf(
-        "......OOOOOOOOOOOO......",
-        ".....OCCCCCCCCCCCCO.....",
-        "....ODDDDDDDDDDDDDDO....",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "...ODDDWWDDDDDDCCDDDO...",
-        "...ODDDWWDDDDDDCCDDDO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "....ODDDDDDDDDDDDDDO....",
-        "...OODDDDDDDDDDDDDDOO...",
-        "..ODDDDDDDDDDDDDDDDDDO..",
-        "..ODDDDDDWWWWWWDDDDDDO..",
-        "..ODDDDDWCCCCCCWDDDDDO..",
-        "..ODDDDDDWCCCCWDDDDDDO..",
-        "..ODDDDDDDWWWWDDDDDDDO..",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "....ODDDDDDDDDDDDDDO....",
-        "....ODDDDD....DDDDDO....",
-        "....ODDDDD....DDDDDO....",
-        "...OODDDD......DDDDOO...",
-        "...OOOOOO......OOOOOO...",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        ".......OOOOOOOOOOOOOOOOOO.......",
+        "......OCCCCCCCCCCCCCCCCCCO......",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "....ODDDDWWWDDDDDDDDCCCDDDDO....",
+        "....ODDDDWWWDDDDDDDDCCCDDDDO....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        "....OODDDDDDDDDDDDDDDDDDDDOO....",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "...ODDDDDDDWWWWWWWWWWDDDDDDDO...",
+        "...ODDDDDDWCCCCCCCCCCWDDDDDDO...",
+        "...ODDDDDDDWCCCCCCCCWDDDDDDDO...",
+        "...ODDDDDDDDWCCCCCCWDDDDDDDDO...",
+        "....ODDDDDDDWWWWWWWWDDDDDDDO....",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        ".....ODDDDDDD......DDDDDDDO.....",
+        ".....ODDDDDDD......DDDDDDDO.....",
+        "....OODDDDDD........DDDDDDOO....",
+        "....OOOOOOOO........OOOOOOOO....",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
+    // Future-Loka (32x32): Older trench-coated Loka with billowing cloak, glowing cyan eyes & golden heart crest
     val futureLokaBossGrid = listOf(
-        ".....OOOOOOOOOOOOOO.....",
-        "....OHHHHHHHHHHHHHHO....",
-        "...OHHHHHHHHHHHHHHHHO...",
-        "...OHHSSSSSSSSSSSSSHO...",
-        "...OHSSCCSSSSSSCCSSHO...",
-        "...OHSSCCSSSSSSCCSSHO...",
-        "...OHHHHHHHHHHHHHHHHO...",
-        "....OSSSSSSSSSSSSSSO....",
-        "..OOODDDDDDDDDDDDDDOOO..",
-        ".ODDDDDDDDDDDDDDDDDDDDO.",
-        ".ODDDDDDYYYYYYYYDDDDDDO.",
-        ".ODDDDDDDYYYYYYDDDDDDDO.",
-        ".ODDDDDDDDYYYYDDDDDDDDO.",
-        "ODDDDDDDDDDDDDDDDDDDDDDO",
-        "ODDDDDDDDDDDDDDDDDDDDDDO",
-        "ODDDDDDDDDDDDDDDDDDDDDDO",
-        "ODDDDDDDD......DDDDDDDDO",
-        "ODDDDDDD........DDDDDDDO",
-        ".OOOOOOO........OOOOOOO.",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        ".......OOOOOOOOOOOOOOOOOO.......",
+        "......OHHHHHHHHHHHHHHHHHHO......",
+        ".....OHHHHHHHHHHHHHHHHHHHHO.....",
+        ".....OHHSSSSSSSSSSSSSSSSSHO.....",
+        ".....OHSSCCCSSSSSSSSCCCSSHO.....",
+        ".....OHSSCCCSSSSSSSSCCCSSHO.....",
+        ".....OHHHHHHHHHHHHHHHHHHHHO.....",
+        "......OSSSSSSSSSSSSSSSSSSO......",
+        "...OOOODDDDDDDDDDDDDDDDDDOOOO...",
+        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        ".ODDDDDDDDYYYYYYYYYYYYDDDDDDDDO.",
+        ".ODDDDDDDDDYYYYYYYYYYDDDDDDDDDO.",
+        ".ODDDDDDDDDDYYYYYYYYDDDDDDDDDDO.",
+        "ODDDDDDDDDDDDYYYYYYDDDDDDDDDDDDO",
+        "ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDO",
+        "ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDO",
+        "ODDDDDDDDDDDDDDDDDDDDDDDDDDDDDDO",
+        "ODDDDDDDDDD..........DDDDDDDDDDO",
+        "ODDDDDDDDD............DDDDDDDDDO",
+        ".OOOOOOOOO............OOOOOOOOO.",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
-    // 24x24 High-Detail Overworld & Battle Normal Monsters
+    // 32x32 Undertale Normal Monsters (512x512 @ 16x integer scale)
     val normalSlimeGrid = listOf(
-        ".........OOOOOO.........",
-        "........OGGGGGGO........",
-        ".......OGGDDDDGGO.......",
-        ".........OOGGOO.........",
-        "......OOOOOOOOOOOO......",
-        "....OOGGGGGGGGGGGGOO....",
-        "...OGGGGGWWGGGGGGGGGO...",
-        "..OGGGGGGGGGGGGGGGGGGO..",
-        "..OGGGGWWGGGGGGWWGGGGO..",
-        ".OGGGGGWBGGGGGGWBGGGGGO.",
-        ".OGGGGGGGGGGGGGGGGGGGGO.",
-        ".OGGGGGGGGGWWGGGGGGGGGO.",
-        "OGGGGGGGGGGGGGGGGGGGGGGO",
-        "OGGGGGGGGGDDDDGGGGGGGGGO",
-        "OGGGGGGGDDDDDDDDGGGGGGGO",
-        ".OOOOOOOOOOOOOOOOOOOOOO.",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        "................................",
+        "...........OOOOOOOOOO...........",
+        "..........OGGGGGGGGGGO..........",
+        ".........OGGGDDDDDDGGGO.........",
+        "...........OOOOGGOOOO...........",
+        ".......OOOOOOOOOOOOOOOOOO.......",
+        ".....OOGGGGGGGGGGGGGGGGGGOO.....",
+        "....OGGGGGGGGWWGGGGGGGGGGGGO....",
+        "...OGGGGGGGGGGGGGGGGGGGGGGGGO...",
+        "..OGGGGGGGWWGGGGGGGGWWGGGGGGGO..",
+        "..OGGGGGGGWBGGGGGGGGWBGGGGGGGO..",
+        "..OGGGGGGGGGGGGGGGGGGGGGGGGGGO..",
+        "..OGGGGGGGGGGGGWWGGGGGGGGGGGGO..",
+        ".OGGGGGGGGGGGGGGGGGGGGGGGGGGGGO.",
+        ".OGGGGGGGGGGGGGDDGGGGGGGGGGGGGO.",
+        ".OGGGGGGGGGGGDDDDDDGGGGGGGGGGGO.",
+        "..OOOOOOOOOOOOOOOOOOOOOOOOOOOO..",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
     val feralHoundGrid = listOf(
-        ".OO..................OO.",
-        ".OROO..............OORO.",
-        "..ORRO...OOOOOO...ORRO..",
-        "..ODDDDOODDDDDDOODDDDO..",
-        ".ODDDDRRWDDDDDDWRRDDDDO.",
-        ".ODDDDDDDDDDDDDDDDDDDDO.",
-        "OODDDDDWWWWWWWWWWDDDDDOO",
-        "ODDDDDDWDDDDDDDDWDDDDDDO",
-        ".OODDDDDDDDDDDDDDDDDDOO.",
-        "..ODDDDDDRRRRRRDDDDDDO..",
-        "..ODDDDDDDDDDDDDDDDDDO..",
-        "..ODDDD..ODDDDO..DDDDO..",
-        "..ODDD...ODDDDO...DDDO..",
-        "..ODDD...O....O...DDDO..",
-        "..OOOO............OOOO..",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        ".OOO........................OOO.",
+        ".ORRO......................ORRO.",
+        "..ORRO.....OOOOOOOOOO.....ORRO..",
+        "..ODDDDOOODDDDDDDDDDDDOOODDDDO..",
+        ".ODDDDDDRRRWDDDDDDDDWRRRDDDDDDO.",
+        ".ODDDDDDDDDDDDDDDDDDDDDDDDDDDDO.",
+        "OODDDDDDDWWWWWWWWWWWWWWDDDDDDDOO",
+        "ODDDDDDDDW.W.W.W.W.W.WWDDDDDDDDO",
+        ".OODDDDDDWWWWWWWWWWWWWWDDDDDDOO.",
+        "..ODDDDDDDDDDRRRRRRDDDDDDDDDDO..",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "...ODDDDDDD..ODDDDDO..DDDDDDO...",
+        "...ODDDDDD...ODDDDDO...DDDDDO...",
+        "...ODDDDD....O.....O....DDDDO...",
+        "...OOOOOO...............OOOOO...",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
     val sandMothGrid = listOf(
-        "...OO..............OO...",
-        "....OO....OOOO....OO....",
-        ".....OO..ODDDDO..OO.....",
-        ".OOOOOCCOODWWDOOCCOOOOO.",
-        "OCCCCCCCOODDDDOOCCCCCCCO",
-        "OCCCYYCCCOODDOOCCCYYCCCO",
-        "OCCYWWYCCODDDDOCCYWWYCCO",
-        "OCCCCCCCCODDDDOCCCCCCCCO",
-        ".OCCCCCCCODDDDOCCCCCCCO.",
-        "..OOOOCC.ODDDDO.CCOOOO..",
-        "......OO.ODDDDO.OO......",
-        "..........ODDO..........",
-        "..........OOOO..........",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        "...OOO....................OOO...",
+        "....OOO.....OOOOOOOO.....OOO....",
+        ".....OOO...ODDDDDDDDO...OOO.....",
+        ".OOOOOOCCCOODWWDDWWDOOCCCOOOOOO.",
+        "OCCCCCCCCCOODDDDDDDDOOCCCCCCCCCO",
+        "OCCCCYYCCCOODDDDDDDDOOCCCYYCCCCO",
+        "OCCCYWWYCCCOODDDDDDOOCCCYWWYCCCO",
+        "OCCCCCCCCCCOOODDDDOOOCCCCCCCCCCO",
+        ".OCCCCCCCCCO.ODDDDO.OCCCCCCCCCO.",
+        "..OOOOOOCCC..ODDDDO..CCCOOOOOO..",
+        "........OO...ODDDDO...OO........",
+        "..............ODDO..............",
+        "..............OOOO..............",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
     val ironStalkerGrid = listOf(
-        ".....OOOOOOOOOOOOOO.....",
-        "....ODDDDDDDDDDDDDDO....",
-        "...ODDDDDRRRRRRDDDDDO...",
-        "...ODDDDWWWWWWWWDDDDO...",
-        "....ODDDDDDDDDDDDDDO....",
-        "..OO.OOOOOOOOOOOOOO.OO..",
-        ".ORROODDDDDDDDDDDDOORRO.",
-        ".ORROODDDDDYYDDDDDOORRO.",
-        ".ORROODDDDYYYYDDDDOORRO.",
-        "..OO.ODDDDDDDDDDDDO.OO..",
-        ".....ODDDDDDDDDDDDO.....",
-        ".....ODDDD....DDDDO.....",
-        ".....ODDD......DDDO.....",
-        "....OODDD......DDDOO....",
-        "....OOOOO......OOOOO....",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        "......OOOOOOOOOOOOOOOOOOOO......",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        "....ODDDDDDRRRRRRRRRRDDDDDDO....",
+        "....ODDDDDWWWWWWWWWWWWDDDDDO....",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        "..OOO.OOOOOOOOOOOOOOOOOOOO.OOO..",
+        ".ORRROODDDDDDDDDDDDDDDDDDOORRRO.",
+        ".ORRROODDDDDDYYYYYYDDDDDDOORRRO.",
+        ".ORRROODDDDDYYYYYYYYDDDDDOORRRO.",
+        "..OOO.ODDDDDDDDDDDDDDDDDDO.OOO..",
+        "......ODDDDDDDDDDDDDDDDDDO......",
+        "......ODDDDDDD....DDDDDDDO......",
+        "......ODDDDDD......DDDDDDO......",
+        ".....OODDDDD........DDDDDOO.....",
+        ".....OOOOOOO........OOOOOOO.....",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
     val haloScribeGrid = listOf(
-        "......YYYYYYYYYYYY......",
-        ".....YOOOOOOOOOOOOY.....",
-        ".......OOOOOOOOOO.......",
-        "......OPPPPPPPPPPO......",
-        ".....OPPPWWPPPWWPPPO....",
-        ".....OPPPWBPPPWBPPPO....",
-        ".....OPPPPPPPPPPPPPO....",
-        "...O..OPPPPPPPPPPO..O...",
-        "..OPPOOOOOOOOOOOOOOPPO..",
-        ".OPPPPOPPPPPPPPPPOPPPPO.",
-        "..OOOO.OPPPPPPPPO.OOOO..",
-        ".......OPPPYYPPPO.......",
-        "........OPPPPPPO........",
-        ".........OPPPPO.........",
-        "..........OPPO..........",
-        "...........OO...........",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        ".......YYYYYYYYYYYYYYYYYY.......",
+        "......YOOOOOOOOOOOOOOOOOOY......",
+        "........OOOOOOOOOOOOOOOO........",
+        ".......OPPPPPPPPPPPPPPPPO.......",
+        "......OPPPPWWPPPPPPWWPPPPO......",
+        "......OPPPPWBPPPPPPWBPPPPO......",
+        "......OPPPPPPPPPPPPPPPPPPO......",
+        "...OO..OPPPPPPPPPPPPPPPPO..OO...",
+        "..OPPOOOOOOOOOOOOOOOOOOOOOOPPO..",
+        ".OPPPPOPPPPPPPPPPPPPPPPPPOPPPPO.",
+        "..OOOO..OPPPPPPPPPPPPPPO..OOOO..",
+        "........OPPPPPYYYYPPPPPO........",
+        ".........OPPPPPPPPPPPPO.........",
+        "..........OPPPPPPPPPPO..........",
+        "...........OPPPPPPPPO...........",
+        "............OOOOOOOO............",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
     )
 
     val ashImpGrid = listOf(
-        "..OO................OO..",
-        "..OROO....OOOO....OORO..",
-        "...ORROOODDDDDDOOORRO...",
-        "...ODDDDDDDDDDDDDDDDO...",
-        "..ODDDDYYDDDDDDYYDDDDO..",
-        "..ODDDDDDDDDDDDDDDDDDO..",
-        "...ODDDDWWWWWWWWDDDDO...",
-        "..OODDDDDDDDDDDDDDDDOO..",
-        ".ORRODDDDDRRRRDDDDDORRO.",
-        ".ORRODDDDDDDDDDDDDDORRO.",
-        "..OO..ODDDD..DDDDO..OO..",
-        "......ODDD....DDDO......",
-        ".....OODD......DDOO.....",
-        ".....OOOO......OOOO.....",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................",
-        "........................"
+        "..OOO......................OOO..",
+        "..ORRO......OOOOOOOO......ORRO..",
+        "...ORROOOODDDDDDDDDDDDOOOORRO...",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "..ODDDDDDYYDDDDDDDDDDYYDDDDDDO..",
+        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        "...ODDDDDWWWWWWWWWWWWWWDDDDDO...",
+        "..OODDDDDDDDDDDDDDDDDDDDDDDDOO..",
+        ".ORRRODDDDDDRRRRRRRRDDDDDDORRRO.",
+        ".ORRRODDDDDDDDDDDDDDDDDDDDORRRO.",
+        "..OOO..ODDDDDD....DDDDDDO..OOO..",
+        ".......ODDDDD......DDDDDO.......",
+        "......OODDDD........DDDDOO......",
+        "......OOOOOO........OOOOOO......",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................",
+        "................................"
+    )
+
+    val govMonsterChiefGrid = listOf(
+        ".....OOO................OOO.....",
+        "....OGGGO..............OGGGO....",
+        "....OGGGGO............OGGGGO....",
+        ".....OGGGGOOOOOOOOOOOOGGGGO.....",
+        ".....ODDDDDDDDDDDDDDDDDDDDO.....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "....ODDDDYYYYDDDDDDYYYYDDDDO....",
+        "...ODDDDDYYWWDDDDDDWWYYDDDDDO...",
+        "...ODDDDDWWWWDDDDDDWWWWDDDDDO...",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "...ODDDDDDDDYYYYYYYYDDDDDDDDO...",
+        "....ODDDDDDDWWWWWWWWDDDDDDDO....",
+        "....OODDDDDDDDDDDDDDDDDDDDOO....",
+        "..OOODDDDDGGGGGGGGGGGGDDDDDOOO..",
+        ".ODDDDDDDGGYYYYYYYYYYGGDDDDDDDO.",
+        ".ODDDDDDGGYDDDDDDDDDDYGGDDDDDDO.",
+        ".ODDDDDDDGDDDDGGGGDDDDGDDDDDDDO.",
+        ".ODDDDDDDDDDDGYYYYGDDDDDDDDDDDO.",
+        "..OOODDDDDDDDGYYYYGDDDDDDDOOOO..",
+        "...ODDDDDDDDDDGGGGDDDDDDDDDDO...",
+        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
+        "...ODDDDDDDYYYYYYYYYYDDDDDDDO...",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "....ODDDDDDDDDDDDDDDDDDDDDDO....",
+        "....ODDDDDDDDOOOOOODDDDDDDDO....",
+        "....ODDDDDDDO......ODDDDDDDO....",
+        "....ODDDDDDDO......ODDDDDDDO....",
+        "....ODDDDDDDO......ODDDDDDDO....",
+        "....OGGGGGGO........OGGGGGGO....",
+        "....OOOOOOOO........OOOOOOOO....",
+        "................................",
+        "................................"
+    )
+
+    val govDirectorGrid = listOf(
+        "..........OOOOOOOOOOOO..........",
+        ".........OYYYYYYYYYYYYO.........",
+        "........OYYRRRRRRRRRRYYO........",
+        "........ODDDDDDDDDDDDDDO........",
+        ".......ODDDDDDDDDDDDDDDDO.......",
+        ".......ODDDYYYYDDYYYYDDDO.......",
+        ".......ODDDYYWWDDWWYYDDDO.......",
+        ".......ODDDDDDDDDDDDDDDDO.......",
+        "........ODDDDYYYYYYDDDDO........",
+        "........OODDDDDDDDDDDDOO........",
+        "......OOODDDDDDDDDDDDDDOOO......",
+        "....OODDDDYYRRRRRRRRYYDDDDOO....",
+        "...ODDDDDDYRDDDDDDDDYDDDDDDDO...",
+        "...ODDDDDDYRDDDYYDDDYDDDDDDDO...",
+        "..ODDDDDDDYRDDDWWDDDYDDDDDDDDO..",
+        "..ODDDDDDDDYRRRRRRRRYDDDDDDDDO..",
+        "..ODDDDDDDDDYYYYYYYYDDDDDDDDDO..",
+        "..ORRODDDDDDDDDDDDDDDDDDDDORRO..",
+        "..ORRODDDDDDRRRRRRRRDDDDDDORRO..",
+        "..OOO.ODDDDDDDDDDDDDDDDDDO.OOO..",
+        "......ODDDDDDDDDDDDDDDDDDO......",
+        "......ODDDDDDDDDDDDDDDDDDO......",
+        "......ODDDDDDRRRRRRDDDDDDO......",
+        "......ODDDDDDOOOOOODDDDDDO......",
+        "......ODDDDDDO....ODDDDDDO......",
+        "......ODDDDDDO....ODDDDDDO......",
+        "......ODDDDDDO....ODDDDDDO......",
+        "......ORRRRRO......ORRRRRO......",
+        "......OOOOOOO......OOOOOOO......",
+        "................................",
+        "................................",
+        "................................"
     )
 }
 
@@ -886,97 +1115,124 @@ fun DrawScope.drawUndertaleBossPixelSprite(
         isSpareReady -> MercyYellow
         else -> Color.White
     }
-    val darkFill = if (isHitFlash) Color.White else Color(0xFF040406)
-    val midTone = if (isHitFlash) Color.White else Color(0xFFA1A1AA)
-    val dimTone = if (isHitFlash) Color.White else Color(0xFF52525B)
 
     val (grid, palette) = if (monochromeBattle) {
-        // 100% Authentic Undertale Black-and-White Battle Sprite Palette (turns MercyYellow when SPARE-ready)
-        val monoWhite = lineCol
-        val monoBright = if (isSpareReady && !isHitFlash) MercyYellow else Color.White
-        val monoEye = when (enemyId) {
-            EnemyId.ECHO_LOKA -> if (isHitFlash) Color.White else GlitchCyan
-            EnemyId.FUTURE_LOKA -> if (isHitFlash) Color.White else SoulSeraphCyan
-            else -> monoBright
+        // 100% Authentic Undertale White-on-Black Battle Sprite Palette:
+        // Solid bright White bodies/armor with pure Black eyes, seams, and interior details!
+        val mainBody = when {
+            isHitFlash -> Color.White
+            isSpareReady -> MercyYellow
+            else -> Color.White
         }
-        val monoGold = if (isHitFlash) Color.White else if (isSpareReady) MercyYellow else Color(0xFFD4D4D8)
+        val lightShade = when {
+            isHitFlash -> Color.White
+            isSpareReady -> Color(0xFFFDE047)
+            else -> Color(0xFFD4D4D8)
+        }
+        val midShade = when {
+            isHitFlash -> Color.White
+            isSpareReady -> Color(0xFFCA8A04)
+            else -> Color(0xFF9CA3AF)
+        }
+        val darkSeam = if (isHitFlash) Color.White else Color(0xFF000000)
+        val eyeGlint = when {
+            isHitFlash -> Color.White
+            enemyId == EnemyId.ECHO_LOKA -> GlitchCyan
+            enemyId == EnemyId.FUTURE_LOKA -> SoulSeraphCyan
+            else -> darkSeam
+        }
+        val brightAccent = when {
+            isHitFlash -> Color.White
+            enemyId == EnemyId.ECHO_LOKA -> GlitchCyan
+            enemyId == EnemyId.FUTURE_LOKA -> MercyYellow
+            else -> mainBody
+        }
+
         when (enemyId) {
             EnemyId.RUINS_DUMMY -> PixelSprites.ruinsDummyGrid to mapOf(
-                'O' to lineCol, 'C' to midTone, 'E' to monoBright, 'D' to dimTone,
-                'M' to darkFill, '0' to lineCol, 'W' to dimTone
+                'O' to lineCol, 'W' to midShade, 'C' to mainBody,
+                'B' to darkSeam, 'M' to darkSeam
             )
             EnemyId.VEX -> PixelSprites.vexBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'A' to monoGold, 'W' to monoBright
+                'O' to lineCol, 'D' to mainBody, 'A' to lightShade, 'W' to darkSeam
             )
             EnemyId.BRAMBLE -> PixelSprites.brambleBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'G' to midTone, 'B' to darkFill, 'W' to monoBright
+                'O' to lineCol, 'D' to mainBody, 'G' to lightShade, 'B' to darkSeam, 'W' to darkSeam
             )
             EnemyId.VESPERA -> PixelSprites.vesperaBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'C' to monoBright, 'Y' to monoGold
+                'O' to lineCol, 'D' to mainBody, 'C' to lightShade, 'Y' to darkSeam, 'W' to mainBody
             )
             EnemyId.ORIN -> PixelSprites.orinBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'B' to midTone, 'W' to monoBright
+                'O' to lineCol, 'D' to mainBody, 'B' to midShade, 'W' to darkSeam
             )
             EnemyId.SERAPHIEL -> PixelSprites.seraphielBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'C' to monoBright, 'Y' to monoGold
+                'O' to lineCol, 'D' to mainBody, 'C' to lightShade, 'Y' to darkSeam
             )
             EnemyId.MALAKOR -> PixelSprites.malakorBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'V' to midTone, 'W' to monoBright
+                'O' to lineCol, 'D' to mainBody, 'V' to lightShade, 'W' to darkSeam
             )
             EnemyId.ECHO_LOKA -> PixelSprites.echoLokaBossGrid to mapOf(
-                'O' to (if (isHitFlash) Color.White else GlitchCyan), 'D' to darkFill, 'C' to monoEye, 'W' to monoWhite
+                'O' to (if (isHitFlash) Color.White else GlitchCyan),
+                'D' to mainBody, 'C' to eyeGlint, 'W' to darkSeam
             )
             EnemyId.FUTURE_LOKA -> PixelSprites.futureLokaBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'H' to dimTone, 'S' to midTone, 'C' to monoEye, 'Y' to monoGold
+                'O' to lineCol, 'D' to mainBody, 'H' to midShade,
+                'S' to lightShade, 'C' to eyeGlint, 'Y' to brightAccent
             )
             EnemyId.NORMAL_SLIME -> PixelSprites.normalSlimeGrid to mapOf(
-                'O' to lineCol, 'G' to midTone, 'D' to dimTone, 'B' to darkFill, 'W' to monoBright
+                'O' to lineCol, 'G' to mainBody, 'D' to midShade, 'B' to darkSeam, 'W' to darkSeam
             )
             EnemyId.FERAL_HOUND -> PixelSprites.feralHoundGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'R' to monoBright, 'W' to monoBright
+                'O' to lineCol, 'D' to mainBody, 'R' to darkSeam, 'W' to darkSeam
             )
             EnemyId.SAND_MOTH -> PixelSprites.sandMothGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'C' to monoBright, 'Y' to midTone, 'W' to monoBright
+                'O' to lineCol, 'D' to mainBody, 'C' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
             )
             EnemyId.IRON_STALKER -> PixelSprites.ironStalkerGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'R' to monoBright, 'Y' to midTone, 'W' to monoBright
+                'O' to lineCol, 'D' to mainBody, 'R' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
             )
             EnemyId.HALO_SCRIBE -> PixelSprites.haloScribeGrid to mapOf(
-                'O' to lineCol, 'Y' to monoGold, 'P' to midTone, 'B' to darkFill, 'W' to monoBright
+                'O' to lineCol, 'Y' to brightAccent, 'P' to mainBody, 'B' to darkSeam, 'W' to darkSeam
             )
             EnemyId.ASH_IMP -> PixelSprites.ashImpGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'R' to midTone, 'Y' to monoBright, 'W' to monoBright
+                'O' to lineCol, 'D' to mainBody, 'R' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
+            )
+            EnemyId.GOV_MONSTER_CHIEF -> PixelSprites.govMonsterChiefGrid to mapOf(
+                'O' to lineCol, 'D' to mainBody, 'G' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
+            )
+            EnemyId.GOV_DIRECTOR -> PixelSprites.govDirectorGrid to mapOf(
+                'O' to lineCol, 'D' to mainBody, 'R' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
             )
         }
     } else {
+        // Full-color Overworld Sprites
+        val darkFill = if (isHitFlash) Color.White else Color(0xFF0E0E14)
         val white = if (isSpareReady && !isHitFlash) MercyYellow else Color.White
         when (enemyId) {
             EnemyId.RUINS_DUMMY -> PixelSprites.ruinsDummyGrid to mapOf(
                 'O' to lineCol,
                 'C' to (if (isHitFlash) Color.White else Color(0xFFD6C29F)),
-                'E' to (if (isHitFlash) Color.White else Color(0xFFD8B4FE)),
-                'D' to (if (isHitFlash) Color.White else Color(0xFFD8B4FE)),
-                'M' to Color(0xFF4A2E1B),
-                '0' to lineCol,
-                'W' to (if (isHitFlash) Color.White else Color(0xFF785135))
+                'W' to (if (isHitFlash) Color.White else Color(0xFF785135)),
+                'B' to Color(0xFF1F1624),
+                'M' to Color(0xFF4A2E1B)
             )
             EnemyId.VEX -> PixelSprites.vexBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'A' to (if (isHitFlash) Color.White else SoulAegisAmber), 'W' to white
+                'O' to lineCol, 'D' to Color(0xFF1E293B), 'A' to (if (isHitFlash) Color.White else SoulAegisAmber), 'W' to white
             )
             EnemyId.BRAMBLE -> PixelSprites.brambleBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'G' to (if (isHitFlash) Color.White else Color(0xFF4ADE80)), 'B' to Color(0xFF09090B), 'W' to white
+                'O' to lineCol, 'D' to Color(0xFF1F2A22), 'G' to (if (isHitFlash) Color.White else Color(0xFF4ADE80)), 'B' to Color(0xFF09090B), 'W' to white
             )
             EnemyId.VESPERA -> PixelSprites.vesperaBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'C' to (if (isHitFlash) Color.White else SoulSeraphCyan), 'Y' to (if (isHitFlash) Color.White else MercyYellow)
+                'O' to lineCol, 'D' to Color(0xFF2E1065), 'C' to (if (isHitFlash) Color.White else SoulSeraphCyan), 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'W' to white
             )
             EnemyId.ORIN -> PixelSprites.orinBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'B' to (if (isHitFlash) Color.White else Color(0xFF3B82F6)), 'W' to white
+                'O' to lineCol, 'D' to Color(0xFF334155), 'B' to (if (isHitFlash) Color.White else Color(0xFF3B82F6)), 'W' to white
             )
             EnemyId.SERAPHIEL -> PixelSprites.seraphielBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'C' to (if (isHitFlash) Color.White else SoulSeraphCyan), 'Y' to (if (isHitFlash) Color.White else SepiaGold)
+                'O' to lineCol, 'D' to Color(0xFF1E293B), 'C' to (if (isHitFlash) Color.White else SoulSeraphCyan), 'Y' to (if (isHitFlash) Color.White else SepiaGold)
             )
             EnemyId.MALAKOR -> PixelSprites.malakorBossGrid to mapOf(
-                'O' to lineCol, 'D' to darkFill, 'V' to (if (isHitFlash) Color.White else SoulInfernalViolet), 'W' to white
+                'O' to lineCol, 'D' to Color(0xFF2B121E), 'V' to (if (isHitFlash) Color.White else SoulInfernalViolet), 'W' to white
             )
             EnemyId.ECHO_LOKA -> PixelSprites.echoLokaBossGrid to mapOf(
                 'O' to (if (isHitFlash) Color.White else GlitchCyan), 'D' to darkFill, 'C' to (if (isHitFlash) Color.White else GlitchCyan), 'W' to white
@@ -991,7 +1247,7 @@ fun DrawScope.drawUndertaleBossPixelSprite(
                 'O' to lineCol, 'G' to (if (isHitFlash) Color.White else Color(0xFF4ADE80)), 'D' to (if (isHitFlash) Color.White else Color(0xFF166534)), 'B' to Color(0xFF0A0A0D), 'W' to white
             )
             EnemyId.FERAL_HOUND -> PixelSprites.feralHoundGrid to mapOf(
-                'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF1F1D26)), 'R' to (if (isHitFlash) Color.White else Color(0xFFEF4444)), 'W' to white
+                'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF27222D)), 'R' to (if (isHitFlash) Color.White else Color(0xFFEF4444)), 'W' to white
             )
             EnemyId.SAND_MOTH -> PixelSprites.sandMothGrid to mapOf(
                 'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF422C1D)), 'C' to (if (isHitFlash) Color.White else SoulSeraphCyan), 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'W' to white
@@ -1003,7 +1259,13 @@ fun DrawScope.drawUndertaleBossPixelSprite(
                 'O' to lineCol, 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'P' to (if (isHitFlash) Color.White else Color(0xFFF472B6)), 'B' to Color(0xFF0A0A0D), 'W' to white
             )
             EnemyId.ASH_IMP -> PixelSprites.ashImpGrid to mapOf(
-                'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF2B1B24)), 'R' to (if (isHitFlash) Color.White else SoulParadoxCrimson), 'Y' to (if (isHitFlash) Color.White else Color(0xFFF59E0B)), 'W' to white
+                'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF331B24)), 'R' to (if (isHitFlash) Color.White else SoulParadoxCrimson), 'Y' to (if (isHitFlash) Color.White else Color(0xFFF59E0B)), 'W' to white
+            )
+            EnemyId.GOV_MONSTER_CHIEF -> PixelSprites.govMonsterChiefGrid to mapOf(
+                'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF1E293B)), 'G' to (if (isHitFlash) Color.White else Color(0xFF4ADE80)), 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'W' to white
+            )
+            EnemyId.GOV_DIRECTOR -> PixelSprites.govDirectorGrid to mapOf(
+                'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF1F1218)), 'R' to (if (isHitFlash) Color.White else Color(0xFFEF4444)), 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'W' to white
             )
         }
     }
@@ -1015,7 +1277,7 @@ fun DrawScope.drawUndertaleBossPixelSprite(
             isAngelWings = true,
             fillColor = when {
                 isHitFlash -> Color.White
-                monochromeBattle -> Color(0xFF16161C)
+                monochromeBattle -> Color(0xFF1E1E24)
                 else -> SoulSeraphCyan.copy(alpha = 0.25f)
             },
             outlineColor = lineCol
@@ -1026,7 +1288,7 @@ fun DrawScope.drawUndertaleBossPixelSprite(
             isAngelWings = false,
             fillColor = when {
                 isHitFlash -> Color.White
-                monochromeBattle -> Color(0xFF16161C)
+                monochromeBattle -> Color(0xFF1E1E24)
                 else -> SoulInfernalViolet.copy(alpha = 0.28f)
             },
             outlineColor = lineCol
@@ -1038,9 +1300,7 @@ fun DrawScope.drawUndertaleBossPixelSprite(
 }
 
 /**
- * Image 8 Top (أجنحة الملائكة & أجنحة الشياطين):
- *  - isAngelWings = true: crisp stepped rectangular horizontal feather tiers
- *  - isAngelWings = false: jagged zig-zag demon bat wings
+ * Stepped Angel & Devil Wing Pairs.
  */
 fun DrawScope.drawWingPair(
     center: Offset,
@@ -1075,12 +1335,12 @@ fun DrawScope.drawWingPair(
             }
         }
         drawPath(path, fillColor)
-        drawPath(path, outlineColor, style = Stroke(2.2f))
+        drawPath(path, outlineColor, style = Stroke(2.4f))
     }
 }
 
 /**
- * Image 8 Middle (كيس + صندوق) next to the Dummy in the Ruins.
+ * Undertale Ruins Chamber Props: Grain Sack ("كيس"), Wooden Crate ("صندوق"), & Stone Pillar Accent.
  */
 fun DrawScope.drawDummyRoomProps(
     dummyCenter: Offset,
@@ -1119,7 +1379,6 @@ fun DrawScope.drawDummyRoomProps(
     drawSteppedPixelShadow(Offset(crateLeft + crateSize * 0.5f, crateTop + crateSize * 1.02f), crateSize + 4f, unitPx * 0.45f)
     drawRect(Color(0xFF785135), Offset(crateLeft, crateTop), Size(crateSize, crateSize))
     drawRect(Color(0xFF9C6B43), Offset(crateLeft, crateTop), Size(crateSize, crateSize * 0.24f))
-    // Stepped pixel diagonal brace
     for (s in 0..4) {
         val bx = crateLeft + s * (crateSize / 5f)
         val by = crateTop + s * (crateSize / 5f)
@@ -1265,7 +1524,7 @@ fun DrawScope.drawDirectionalArrow(
 }
 
 /**
- * Overworld Pixel Art NPC Sprite (Human, Monster, Angel with halo + stepped wings, Devil with horns + jagged wings).
+ * Overworld Pixel Art NPC Sprite.
  */
 fun DrawScope.drawOverworldNpcSprite(
     npc: WorldNpc,
@@ -1441,7 +1700,6 @@ fun DrawScope.drawOverworldLandmarkSprite(
         LandmarkKind.MANSION -> {
             drawRect(Color(0xFF4B3832), Offset(center.x + half * 0.42f, center.y - half * 0.96f), Size(half * 0.24f, half * 0.52f))
             drawRect(rim, Offset(center.x + half * 0.42f, center.y - half * 0.96f), Size(half * 0.24f, half * 0.52f), style = Stroke(1.6f))
-            // Stepped pixel roof layers (Undertale Ruin-house silhouette)
             drawRect(accent, Offset(center.x - half * 1.10f, center.y - half * 0.36f), Size(half * 2.20f, half * 0.24f))
             drawRect(accent, Offset(center.x - half * 0.82f, center.y - half * 0.62f), Size(half * 1.64f, half * 0.26f))
             drawRect(accent, Offset(center.x - half * 0.48f, center.y - half * 0.86f), Size(half * 0.96f, half * 0.24f))
@@ -1476,7 +1734,6 @@ fun DrawScope.drawOverworldLandmarkSprite(
         }
 
         LandmarkKind.CAVE -> {
-            // Pure stepped Undertale pixel cave mound
             drawRect(Color(0xFF473729), Offset(center.x - half * 0.96f, center.y - half * 0.24f), Size(half * 1.92f, half * 1.00f))
             drawRect(Color(0xFF5D4837), Offset(center.x - half * 0.76f, center.y - half * 0.54f), Size(half * 1.52f, half * 0.32f))
             drawRect(Color(0xFF725943), Offset(center.x - half * 0.48f, center.y - half * 0.72f), Size(half * 0.96f, half * 0.20f))
@@ -1488,13 +1745,11 @@ fun DrawScope.drawOverworldLandmarkSprite(
         }
 
         LandmarkKind.HILLS -> {
-            // Stepped pixel mountain silhouette
             drawRect(accent.copy(alpha = 0.78f), Offset(center.x - half * 1.02f, center.y + half * 0.34f), Size(half * 2.04f, half * 0.40f))
             drawRect(accent.copy(alpha = 0.88f), Offset(center.x - half * 0.74f, center.y - half * 0.04f), Size(half * 1.48f, half * 0.38f))
             drawRect(accent, Offset(center.x - half * 0.42f, center.y - half * 0.40f), Size(half * 0.84f, half * 0.36f))
             drawRect(Color.White, Offset(center.x - half * 0.22f, center.y - half * 0.58f), Size(half * 0.44f, half * 0.18f))
             drawRect(rim, Offset(center.x - half * 1.02f, center.y + half * 0.34f), Size(half * 2.04f, half * 0.40f), style = Stroke(1.8f))
-            // Flag
             drawRect(Color.White, Offset(center.x - 1f, center.y - half * 1.06f), Size(2.5f, half * 0.48f))
             drawRect(if (completed) Color(0xFF4ADE80) else MercyYellow, Offset(center.x + 1f, center.y - half * 1.06f), Size(half * 0.46f, half * 0.26f))
         }
@@ -1534,7 +1789,7 @@ fun DrawScope.drawOverworldAshenSaveSprite(
         rows = PixelSprites.ashenFlowerNormal,
         palette = palette,
         center = Offset(center.x, center.y - sizePx * 0.04f),
-        targetSizePx = sizePx * 0.86f
+        targetSizePx = sizePx * 0.90f
     )
     drawPixelSaveStar(
         center = Offset(center.x + sizePx * 0.48f, center.y - sizePx * 0.38f + sin(ambientClock * 4.5f) * 2.5f),
@@ -1560,7 +1815,6 @@ fun DrawScope.drawOverworldAshenBurrow(
     )
     drawRect(Color(0xFF3F3F46), Offset(center.x - sizePx * 0.38f, center.y + sizePx * 0.10f), Size(sizePx * 0.76f, sizePx * 0.26f), style = Stroke(2f))
     drawRect(Color(0xFF040407), Offset(center.x - sizePx * 0.22f, center.y + sizePx * 0.15f), Size(sizePx * 0.44f, sizePx * 0.16f))
-    // Crisp stepped pixel progress bar waiting for Ashen's return
     val progress = (1f - (secondsRemaining / 75f)).coerceIn(0f, 1f)
     val barW = sizePx * 0.92f
     drawRect(Color(0xFF111116), Offset(center.x - barW * 0.5f, center.y - sizePx * 0.10f), Size(barW, 5.dp.toPx()))
@@ -1575,13 +1829,18 @@ fun DrawScope.drawZoneDoorway(
     door: ZoneDoorInfo,
     world: WorldId,
     center: Offset,
-    ambientClock: Float
+    ambientClock: Float,
+    hasUnresolvedBoss: Boolean = false
 ) {
-    val accent = when (world) {
-        WorldId.NORMAL_WORLD -> MercyYellow
-        WorldId.TRI_RACE_REALM -> SoulSeraphCyan
-        WorldId.SPLIT_REALM -> if (door.doorX < 0.5f) Color(0xFFEC4899) else Color(0xFFEF4444)
-        WorldId.GLITCHED_WORLD -> GlitchCyan
+    val isWorldGate = door.targetWorld != null
+    val accent = when {
+        isWorldGate -> GlitchCyan
+        hasUnresolvedBoss -> MercyYellow
+        world == WorldId.NORMAL_WORLD -> MercyYellow
+        world == WorldId.TRI_RACE_REALM -> SoulSeraphCyan
+        world == WorldId.SPLIT_REALM -> if (door.doorX < 0.5f) Color(0xFFEC4899) else Color(0xFFEF4444)
+        world == WorldId.GOVERNMENT_HQ -> SepiaGold
+        else -> GlitchCyan
     }
     val u = 8f
     val pulse = 0.75f + 0.25f * sin(ambientClock * 4f)
@@ -1602,7 +1861,10 @@ fun DrawScope.drawZoneDoorway(
 
     drawRect(Color(0xFF1A1B22), Offset(center.x - gw * 0.5f, center.y - gh * 0.5f), Size(gw, gh))
     drawRect(Color(0xFF050508), Offset(center.x - gw * 0.36f, center.y - gh * 0.36f), Size(gw * 0.72f, gh * 0.72f))
-    drawRect(accent.copy(alpha = pulse), Offset(center.x - gw * 0.5f, center.y - gh * 0.5f), Size(gw, gh), style = Stroke(2.2f))
+    if (isWorldGate) {
+        drawRect(MercyYellow.copy(alpha = pulse), Offset(center.x - gw * 0.58f, center.y - gh * 0.58f), Size(gw * 1.16f, gh * 1.16f), style = Stroke(2.4f))
+    }
+    drawRect(accent.copy(alpha = pulse), Offset(center.x - gw * 0.5f, center.y - gh * 0.5f), Size(gw, gh), style = Stroke(if (isWorldGate || hasUnresolvedBoss) 3f else 2.2f))
     val (dx, dy) = when (door.edge) {
         ZoneEdge.TOP -> 0f to -1f
         ZoneEdge.BOTTOM -> 0f to 1f
@@ -1616,6 +1878,9 @@ fun DrawScope.drawZoneDoorway(
         lengthPx = u * 1.7f,
         color = accent.copy(alpha = pulse)
     )
+    if (hasUnresolvedBoss || isWorldGate) {
+        drawPixelSaveStar(center = center, sizePx = u * 0.95f, color = if (isWorldGate) GlitchCyan else MercyYellow)
+    }
 }
 
 /**
@@ -1707,7 +1972,6 @@ fun DrawScope.drawPixelSpotlightBeam(
         }
     }
 
-    // Stepped pixel spotlight floor pool
     val poolW = bottomWidthPx * 1.24f
     val poolH = poolW * 0.30f
     drawSteppedPixelShadow(Offset(beamCenterX, floorCenterY), poolW, poolH, outerColor)
@@ -1715,7 +1979,7 @@ fun DrawScope.drawPixelSpotlightBeam(
 
     for (i in 0..5) {
         val sx = beamCenterX + sin(i * 2.1f + ambientClock * 0.7f) * bottomWidthPx * 0.48f
-        val sy = beamH * (0.18f + (i * 0.13f)) + cos(ambientClock * 1.6f + i) * 5f
+        val sy = beamH * (0.18f + (i * 0.13f)) + kotlin.math.cos(ambientClock * 1.6f + i) * 5f
         val twinkle = (0.4f + 0.6f * kotlin.math.abs(sin(ambientClock * 2.5f + i * 1.3f)))
         drawPixelSaveStar(
             center = Offset(sx, sy),
@@ -1742,7 +2006,6 @@ fun DrawScope.drawAmbientRuinArchway(
     drawRect(wallTint, Offset(left, top), Size(widthPx, heightPx))
     drawRect(trimTint, Offset(left, top), Size(widthPx, heightPx), style = Stroke(2.5f))
     val inset = widthPx * 0.22f
-    // Stepped pixel doorway arch
     drawRect(Color(0xFF040307), Offset(left + inset * 1.35f, top + heightPx * 0.16f), Size(widthPx - inset * 2.7f, heightPx * 0.10f))
     drawRect(Color(0xFF040307), Offset(left + inset, top + heightPx * 0.24f), Size(widthPx - inset * 2f, heightPx * 0.76f))
     drawRect(trimTint, Offset(centerX - widthPx * 0.14f, top + heightPx * 0.06f), Size(widthPx * 0.28f, heightPx * 0.06f))
@@ -1770,7 +2033,6 @@ fun DrawScope.drawPixelBrickSaveMonument(
     val left = center.x - w * 0.5f
     val top = center.y - h * 0.35f
 
-    // Stepped pixel mossy base
     drawSteppedPixelShadow(Offset(center.x, top + h * 0.85f), w * 1.36f, h * 0.58f, mossColor)
 
     drawRect(brickBase, Offset(left, top), Size(w, h))
@@ -1785,7 +2047,6 @@ fun DrawScope.drawPixelBrickSaveMonument(
     drawRect(Color(0xFF24110B), Offset(left + w * 0.20f, top + h * 0.52f), Size(w * 0.60f, h * 0.36f), style = Stroke(1.6f))
     drawRect(Color(0xFF472517), Offset(left + w * 0.28f, top + h * 0.66f), Size(w * 0.44f, 2f))
 
-    // Pixel golden flowers at moss corners
     listOf(left - w * 0.08f to top + h * 0.82f, left + w * 0.94f to top + h * 0.86f).forEach { (fx, fy) ->
         drawRect(Color(0xFF140E0A), Offset(fx - 4f, fy - 4f), Size(8f, 8f))
         drawRect(emblemColor, Offset(fx - 2.5f, fy - 2.5f), Size(5f, 5f))
@@ -1799,6 +2060,3 @@ fun DrawScope.drawPixelBrickSaveMonument(
         color = emblemColor
     )
 }
-
-
-

@@ -26,6 +26,7 @@ import com.example.model.WeaponEquipment
 import com.example.model.WorldContentCatalog
 import com.example.model.WorldId
 import com.example.ui.theme.GlitchCyan
+import com.example.ui.theme.MercyYellow
 import com.example.ui.theme.ParchmentInk
 import com.example.ui.theme.SepiaAmber
 import com.example.ui.theme.SoulAegisAmber
@@ -99,14 +100,9 @@ data class BattleUiState(
     val bossExpression: PortraitExpression = PortraitExpression.NEUTRAL,
     val speakerExpression: PortraitExpression = PortraitExpression.DETERMINED,
 
-    // Fight timing bar (Deltarune right-to-left sweep toward target box at x = 0.16f)
-    val fightCursorPos: Float = 0.96f,
-    val fightCursorDir: Float = -1f,
-
-    // Deltarune TP (Tension Points 0..100) & Defend guard state
-    val tpPercent: Int = 0,
-    val isDefending: Boolean = false,
-    val tpGrazeCooldownSec: Float = 0f,
+    // Classic Undertale Fight timing bar (sweeps back-and-forth toward center eye x = 0.50f)
+    val fightCursorPos: Float = 0.08f,
+    val fightCursorDir: Float = 1f,
 
     // Bullet-hell entities
     val phaseTimerSec: Float = 0f,
@@ -125,7 +121,8 @@ data class BattleUiState(
     // Inventory
     val items: List<BattleItem> = emptyList()
 ) {
-    val canSpare: Boolean get() = enemy.canBefriend && mercyProgress >= 100
+    val canMercyOrStop: Boolean get() = (enemy.canBefriend || enemy.canStopWithoutKilling) && mercyProgress >= 100
+    val canSpare: Boolean get() = canMercyOrStop
     val effectiveDefenseBonus: Int get() = defenseBonus + activeSoul.defenseBonus
     val activeSplitBoosted: Boolean
         get() = isSplitActive && ((controlledHalfIndex == 0 && splitBoostTimer0Sec > 0f) ||
@@ -164,13 +161,15 @@ class BattleViewModel : ViewModel() {
         val kidSpeed = 1f + kidAllies.sumOf { it.speedBonus.toDouble() }.toFloat()
 
         val brambleHp = if (EnemyId.BRAMBLE in allies) 4 else 0
+        val krogHp = if (EnemyId.GOV_MONSTER_CHIEF in allies) 3 else 0
         val brambleDef = if (EnemyId.BRAMBLE in allies) 1 else 0
-        val maxHp = 20 + armor.maxHpBonus + brambleHp + kidHp
+        val maxHp = 20 + armor.maxHpBonus + brambleHp + krogHp + kidHp
         val totalDef = armor.defenseBonus + brambleDef + kidDef
 
         var atkBonus = kidAtk + weapon.attackBonus
         if (EnemyId.VEX in allies) atkBonus += 2
         if (EnemyId.MALAKOR in allies) atkBonus += 4
+        if (EnemyId.GOV_MONSTER_CHIEF in allies) atkBonus += 3
         if (EnemyId.ECHO_LOKA in allies) atkBonus += 3
 
         val startShield = (EnemyId.SERAPHIEL in allies) && worldId != WorldId.GLITCHED_WORLD
@@ -246,9 +245,8 @@ class BattleViewModel : ViewModel() {
             it.copy(
                 phase = BattlePhase.FIGHT_MINIGAME,
                 subTab = MenuSubTab.ROOT,
-                fightCursorPos = 0.96f,
-                fightCursorDir = -1f,
-                isDefending = false,
+                fightCursorPos = 0.08f,
+                fightCursorDir = 1f,
                 lastStrikeDamage = null
             )
         }
@@ -257,27 +255,24 @@ class BattleViewModel : ViewModel() {
     fun commitFightStrike() {
         _state.update { s ->
             if (s.phase != BattlePhase.FIGHT_MINIGAME) return@update s
-            val targetX = 0.16f
+            val targetX = 0.50f
             val dist = abs(s.fightCursorPos - targetX)
-            val accuracy = (1f - (dist / 0.56f)).coerceIn(0.05f, 1f)
-            val critWindow = 0.048f + (s.equippedWeapon.critWindowBonus * 0.40f) +
+            val accuracy = (1f - (dist / 0.46f)).coerceIn(0.08f, 1f)
+            val critWindow = 0.055f + (s.equippedWeapon.critWindowBonus * 0.45f) +
                 (if (EnemyId.VEX in s.activeAllies) 0.015f else 0f)
             val isCrit = dist <= critWindow
 
-            val rawDamage = 13 + (accuracy * 18).toInt() + s.attackBonus
+            val rawDamage = 14 + (accuracy * 18).toInt() + s.attackBonus
             val weaponMultDamage = (rawDamage * s.equippedWeapon.strikeMultiplier * (if (isCrit) 1.35f else 1f)).toInt()
             val scaledDamage = (weaponMultDamage * s.activeSoul.damageMultiplier).toInt().coerceAtLeast(1)
             val finalDamage = s.activeSoul.flatDamageCap ?: scaledDamage
             val newHp = (s.enemyHp - finalDamage).coerceAtLeast(0)
-            val tpGain = if (isCrit) 18 else 10
-            val nextTp = (s.tpPercent + tpGain).coerceAtMost(100)
             RetroSoundEngine.playStrike(isCrit && s.activeSoul != SoulType.WHITE_SICK && s.activeSoul != SoulType.PURPLE)
             hitFlashTimer = 0.36f
 
             if (newHp <= 0) {
                 s.copy(
                     enemyHp = 0,
-                    tpPercent = nextTp,
                     lastStrikeDamage = finalDamage,
                     lastStrikeCritical = isCrit,
                     slashFxTimerSec = 0.55f,
@@ -291,14 +286,13 @@ class BattleViewModel : ViewModel() {
             } else {
                 val quip = s.enemy.attackQuips[(s.turnNumber - 1) % s.enemy.attackQuips.size]
                 val msg = when {
-                    s.activeSoul == SoulType.WHITE_SICK -> "Sick White Soul hit for ONLY 1 DMG! (+$tpGain% TP)  $quip"
-                    s.activeSoul == SoulType.PURPLE -> "Purple Soul swift strike ($finalDamage DMG, +$tpGain% TP)!  $quip"
-                    isCrit -> "${s.equippedWeapon.name} CRITICAL HIT! ($finalDamage DMG · +$tpGain% TP)  $quip"
-                    else -> "${s.equippedWeapon.name} hit for $finalDamage DMG! (+$tpGain% TP)  $quip"
+                    s.activeSoul == SoulType.WHITE_SICK -> "Sick White Soul hit for ONLY 1 DMG!  $quip"
+                    s.activeSoul == SoulType.PURPLE -> "Purple Soul swift strike ($finalDamage DMG)!  $quip"
+                    isCrit -> "${s.equippedWeapon.name} CRITICAL HIT! ($finalDamage DMG!)  $quip"
+                    else -> "${s.equippedWeapon.name} struck for $finalDamage DMG!  $quip"
                 }
                 s.copy(
                     enemyHp = newHp,
-                    tpPercent = nextTp,
                     lastStrikeDamage = finalDamage,
                     lastStrikeCritical = isCrit,
                     slashFxTimerSec = 0.48f,
@@ -312,86 +306,11 @@ class BattleViewModel : ViewModel() {
         }
     }
 
-    fun performDefend() {
-        _state.update { s ->
-            if (s.phase != BattlePhase.PLAYER_MENU) return@update s
-            val gainedTp = 16
-            val nextTp = (s.tpPercent + gainedTp).coerceAtMost(100)
-            RetroSoundEngine.playSoulSwitch(3)
-            s.copy(
-                tpPercent = nextTp,
-                isDefending = true,
-                subTab = MenuSubTab.ROOT,
-                speakerExpression = PortraitExpression.DETERMINED,
-                phase = BattlePhase.ENEMY_DIALOGUE,
-                dialogueText = "Loka guards firmly! +$gainedTp% TP gained and incoming attack DMG halved!"
-            )
-        }
-    }
-
-    fun performTpXSlash() {
-        _state.update { s ->
-            if (s.phase != BattlePhase.PLAYER_MENU || s.tpPercent < 50) return@update s
-            val nextTp = (s.tpPercent - 50).coerceAtLeast(0)
-            val baseDmg = ((28 + s.attackBonus * 2) * s.equippedWeapon.strikeMultiplier * s.activeSoul.damageMultiplier).toInt().coerceAtLeast(2)
-            val finalDamage = s.activeSoul.flatDamageCap ?: baseDmg
-            val newHp = (s.enemyHp - finalDamage).coerceAtLeast(0)
-            RetroSoundEngine.playStrike(true)
-            hitFlashTimer = 0.42f
-            if (newHp <= 0) {
-                s.copy(
-                    enemyHp = 0,
-                    tpPercent = nextTp,
-                    lastStrikeDamage = finalDamage,
-                    lastStrikeCritical = true,
-                    slashFxTimerSec = 0.62f,
-                    isEnemyHitFlash = true,
-                    bossExpression = PortraitExpression.SURPRISED,
-                    speakerExpression = PortraitExpression.DETERMINED,
-                    phase = BattlePhase.VICTORY,
-                    battleWonSpared = false,
-                    dialogueText = s.enemy.defeatLine
-                )
-            } else {
-                s.copy(
-                    enemyHp = newHp,
-                    tpPercent = nextTp,
-                    lastStrikeDamage = finalDamage,
-                    lastStrikeCritical = true,
-                    slashFxTimerSec = 0.56f,
-                    isEnemyHitFlash = true,
-                    subTab = MenuSubTab.ROOT,
-                    bossExpression = PortraitExpression.ANGRY,
-                    speakerExpression = PortraitExpression.DETERMINED,
-                    phase = BattlePhase.ENEMY_DIALOGUE,
-                    dialogueText = "X-SLASH (50% TP)! Unleashed $finalDamage twin-arc DMG! ${s.enemy.attackQuips[(s.turnNumber - 1) % s.enemy.attackQuips.size]}"
-                )
-            }
-        }
-    }
-
-    fun performTpMercyPulse() {
-        _state.update { s ->
-            if (s.phase != BattlePhase.PLAYER_MENU || s.tpPercent < 40 || !s.enemy.canBefriend) return@update s
-            val nextTp = (s.tpPercent - 40).coerceAtLeast(0)
-            val newMercy = (s.mercyProgress + 45).coerceAtMost(100)
-            RetroSoundEngine.playSpareChime()
-            s.copy(
-                tpPercent = nextTp,
-                mercyProgress = newMercy,
-                subTab = MenuSubTab.ROOT,
-                bossExpression = if (newMercy >= 100) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
-                speakerExpression = PortraitExpression.HAPPY,
-                phase = BattlePhase.ENEMY_DIALOGUE,
-                dialogueText = "HEART PULSE (40% TP)! Golden warmth reaches ${s.enemy.name}! (+45% Mercy)"
-            )
-        }
-    }
-
     fun performAct(optionId: String) {
         _state.update { s ->
             val act = s.enemy.actOptions.firstOrNull { it.id == optionId } ?: return@update s
-            val newMercy = if (s.enemy.canBefriend) {
+            val allowsNonLethal = s.enemy.canBefriend || s.enemy.canStopWithoutKilling
+            val newMercy = if (allowsNonLethal) {
                 (s.mercyProgress + act.mercyGain).coerceAtMost(100)
             } else {
                 0
@@ -401,11 +320,13 @@ class BattleViewModel : ViewModel() {
                 mercyProgress = newMercy,
                 subTab = MenuSubTab.ROOT,
                 bossExpression = when {
-                    !s.enemy.canBefriend -> PortraitExpression.ANGRY
-                    newMercy >= 100 -> PortraitExpression.HAPPY
-                    else -> PortraitExpression.SURPRISED
+                    !allowsNonLethal -> PortraitExpression.ANGRY
+                    newMercy >= 100 && s.enemy.canBefriend -> PortraitExpression.HAPPY
+                    newMercy >= 100 -> PortraitExpression.SURPRISED
+                    s.enemy.canBefriend -> PortraitExpression.SURPRISED
+                    else -> PortraitExpression.ANGRY
                 },
-                speakerExpression = if (s.enemy.canBefriend) PortraitExpression.HAPPY else PortraitExpression.DETERMINED,
+                speakerExpression = if (allowsNonLethal) PortraitExpression.DETERMINED else PortraitExpression.DETERMINED,
                 phase = BattlePhase.ENEMY_DIALOGUE,
                 dialogueText = act.response
             )
@@ -414,7 +335,8 @@ class BattleViewModel : ViewModel() {
 
     fun performSpare() {
         _state.update { s ->
-            if (!s.enemy.canBefriend) {
+            val allowsNonLethal = s.enemy.canBefriend || s.enemy.canStopWithoutKilling
+            if (!allowsNonLethal) {
                 return@update s.copy(
                     bossExpression = PortraitExpression.ANGRY,
                     speakerExpression = PortraitExpression.SURPRISED,
@@ -425,14 +347,18 @@ class BattleViewModel : ViewModel() {
                 return@update s.copy(
                     bossExpression = PortraitExpression.ANGRY,
                     speakerExpression = PortraitExpression.SURPRISED,
-                    dialogueText = "${s.enemy.name} isn't ready to become friends yet! (${s.mercyProgress}% Mercy)"
+                    dialogueText = if (s.enemy.canBefriend) {
+                        "${s.enemy.name} isn't ready to become friends yet! (${s.mercyProgress}% Mercy)"
+                    } else {
+                        "${s.enemy.name} won't surrender yet! Use ACT to expose/disarm (${s.mercyProgress}% Stop)."
+                    }
                 )
             }
             RetroSoundEngine.playSpareChime()
             s.copy(
                 phase = BattlePhase.VICTORY,
                 battleWonSpared = true,
-                bossExpression = PortraitExpression.HAPPY,
+                bossExpression = if (s.enemy.canBefriend) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
                 speakerExpression = PortraitExpression.HAPPY,
                 dialogueText = s.enemy.spareLine
             )
@@ -486,15 +412,19 @@ class BattleViewModel : ViewModel() {
                     )
                 }
                 else -> {
-                    if (s.enemy.canBefriend) {
+                    if (s.enemy.canBefriend || s.enemy.canStopWithoutKilling) {
                         val bonusMercy = (s.mercyProgress + 25).coerceAtMost(100)
                         s.copy(
                             mercyProgress = bonusMercy,
                             subTab = MenuSubTab.ROOT,
-                            bossExpression = if (bonusMercy >= 100) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
+                            bossExpression = if (bonusMercy >= 100 && s.enemy.canBefriend) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
                             speakerExpression = PortraitExpression.HAPPY,
                             phase = BattlePhase.ENEMY_DIALOGUE,
-                            dialogueText = "${ally.name} speaks up for Loka! Enemy Mercy +25%!"
+                            dialogueText = if (s.enemy.canBefriend) {
+                                "${ally.name} speaks up for Loka! Enemy Mercy +25%!"
+                            } else {
+                                "${ally.name} helps expose Citadel corruption! +25% Stop progress!"
+                            }
                         )
                     } else {
                         val healed = (s.playerHp + 4).coerceAtMost(s.maxPlayerHp)
@@ -541,8 +471,8 @@ class BattleViewModel : ViewModel() {
                     EnemyId.NORMAL_SLIME, EnemyId.SAND_MOTH, EnemyId.HALO_SCRIBE -> 4.8f
                     EnemyId.FERAL_HOUND, EnemyId.IRON_STALKER, EnemyId.ASH_IMP -> 5.4f
                     EnemyId.VEX, EnemyId.BRAMBLE -> 6.2f
-                    EnemyId.VESPERA, EnemyId.ORIN -> 6.8f
-                    EnemyId.SERAPHIEL, EnemyId.MALAKOR -> 7.4f
+                    EnemyId.VESPERA, EnemyId.ORIN, EnemyId.GOV_MONSTER_CHIEF -> 6.8f
+                    EnemyId.SERAPHIEL, EnemyId.MALAKOR, EnemyId.GOV_DIRECTOR -> 7.4f
                     EnemyId.ECHO_LOKA -> 7.0f
                     EnemyId.FUTURE_LOKA -> 8.0f
                 },
@@ -759,14 +689,19 @@ class BattleViewModel : ViewModel() {
             val nextSlash = (s.slashFxTimerSec - dt).coerceAtLeast(0f)
             when (s.phase) {
                 BattlePhase.FIGHT_MINIGAME -> {
-                    // Deltarune Fight Bar sweeps Right -> Left toward target box at x = 0.16f
-                    var nextPos = s.fightCursorPos - dt * 0.92f * s.equippedWeapon.cursorSpeedMultiplier
-                    if (nextPos <= 0.02f) {
-                        nextPos = 0.96f
+                    // Classic Undertale Fight Bar sweeps across the target eye [0.06 .. 0.94] toward center x = 0.50f
+                    var nextPos = s.fightCursorPos + s.fightCursorDir * dt * 0.95f * s.equippedWeapon.cursorSpeedMultiplier
+                    var nextDir = s.fightCursorDir
+                    if (nextPos >= 0.94f) {
+                        nextPos = 0.94f
+                        nextDir = -1f
+                    } else if (nextPos <= 0.06f) {
+                        nextPos = 0.06f
+                        nextDir = 1f
                     }
                     s.copy(
                         fightCursorPos = nextPos,
-                        fightCursorDir = -1f,
+                        fightCursorDir = nextDir,
                         isEnemyHitFlash = flashState,
                         slashFxTimerSec = nextSlash
                     )
@@ -792,7 +727,8 @@ class BattleViewModel : ViewModel() {
                 (baseHp <= (s.maxPlayerHp * 0.45f).toInt() || Random.nextFloat() < 0.35f)
             val finalHp = if (canAshenJoin) (baseHp + 5).coerceAtMost(s.maxPlayerHp) else baseHp
             val finalShield = s.hasGreenShield || canAshenJoin
-            val finalMercy = if (canAshenJoin && s.enemy.canBefriend) (s.mercyProgress + 12).coerceAtMost(100) else s.mercyProgress
+            val allowsNonLethal = s.enemy.canBefriend || s.enemy.canStopWithoutKilling
+            val finalMercy = if (canAshenJoin && allowsNonLethal) (s.mercyProgress + 12).coerceAtMost(100) else s.mercyProgress
             if (canAshenJoin) {
                 RetroSoundEngine.playAbility()
             }
@@ -803,8 +739,6 @@ class BattleViewModel : ViewModel() {
                 playerHp = finalHp,
                 hasGreenShield = finalShield,
                 mercyProgress = finalMercy,
-                tpPercent = (s.tpPercent + 10).coerceAtMost(100),
-                isDefending = false,
                 ashenHelpingThisTurn = canAshenJoin,
                 bullets = emptyList(),
                 lasers = emptyList(),
@@ -822,10 +756,13 @@ class BattleViewModel : ViewModel() {
                 isEnemyHitFlash = false,
                 dialogueText = when {
                     canAshenJoin && s.enemy.canBefriend -> "* Ashen joined the fight to help! +5 HP, Shield raised & +12% Mercy!"
+                    canAshenJoin && s.enemy.canStopWithoutKilling -> "* Ashen helps! +5 HP, Shield & +12% Stop progress! (Stop without killing or FIGHT)"
                     canAshenJoin -> "* Ashen helps! +5 HP & Shield raised! (${s.enemy.name} won't accept Mercy—FIGHT or FLEE!)"
-                    !s.enemy.canBefriend -> "Turn $nextTurn — Hostile monster! FIGHT, DEFEND (+TP), or FLEE!"
+                    !allowsNonLethal -> "Turn $nextTurn — Hostile monster! FIGHT, ITEM, or FLEE!"
+                    finalMercy >= 100 && !s.enemy.canBefriend -> "${s.enemy.name} is cornered! Press STOP (MERCY) to disarm without killing!"
                     finalMercy >= 100 -> "${s.enemy.name} is SPARE-ready! Press MERCY to befriend!"
-                    else -> "Turn $nextTurn — FIGHT, ACT, ITEM, MERCY, or DEFEND for TP!"
+                    !s.enemy.canBefriend -> "Turn $nextTurn — Cannot befriend! Use FIGHT, or ACT + STOP without killing."
+                    else -> "Turn $nextTurn — Choose FIGHT, ACT, ITEM, or MERCY."
                 }
             )
         }
@@ -866,7 +803,8 @@ class BattleViewModel : ViewModel() {
             EnemyId.FERAL_HOUND, EnemyId.IRON_STALKER, EnemyId.ASH_IMP -> 0.62f
             EnemyId.VEX, EnemyId.BRAMBLE -> 0.60f
             EnemyId.VESPERA, EnemyId.ORIN -> 0.54f
-            EnemyId.SERAPHIEL, EnemyId.MALAKOR -> 0.52f
+            EnemyId.SERAPHIEL, EnemyId.MALAKOR, EnemyId.GOV_MONSTER_CHIEF -> 0.50f
+            EnemyId.GOV_DIRECTOR -> 0.46f
             EnemyId.ECHO_LOKA -> 0.52f
             EnemyId.FUTURE_LOKA -> 0.46f
         }
@@ -1016,10 +954,7 @@ class BattleViewModel : ViewModel() {
         val hitRadius = 0.032f * s.activeSoul.hitboxScale * splitScale
 
         val totalDefense = s.defenseBonus + s.activeSoul.defenseBonus
-        val rawIncoming = (s.enemy.attackPower - totalDefense).coerceAtLeast(1) * s.activeSoul.incomingDamageMultiplier
-        val actualIncoming = if (s.isDefending) ((rawIncoming + 1) / 2).coerceAtLeast(1) else rawIncoming
-        var tpNow = s.tpPercent
-        var grazeCd = (s.tpGrazeCooldownSec - dt).coerceAtLeast(0f)
+        val actualIncoming = (s.enemy.attackPower - totalDefense).coerceAtLeast(1) * s.activeSoul.incomingDamageMultiplier
 
         fun applyDamageAt(hitX: Float, hitY: Float, hitOnControlledHalf: Boolean) {
             if (shield) {
@@ -1089,11 +1024,6 @@ class BattleViewModel : ViewModel() {
                 val blocked = shield
                 applyDamageAt(if (hitMain) sx else s.secondHalfX, if (hitMain) sy else s.secondHalfY, hitMain)
                 if (blocked) continue
-            } else if (grazeCd <= 0f && (distMain < hitThresh * 2.35f || distSecond < hitThresh * 2.35f)) {
-                // Deltarune Graze -> +TP tension sparks!
-                tpNow = (tpNow + 2).coerceAtMost(100)
-                grazeCd = 0.14f
-                extraParticles += ArenaParticle(sx, sy, 0f, -0.15f, 0.22f, 0.22f, Color.White, 4f)
             }
 
             nextBullets += b.copy(x = nx, y = ny, vx = nvx, vy = nvy, bouncesLeft = bounces, ageSec = b.ageSec + dt)
@@ -1184,8 +1114,6 @@ class BattleViewModel : ViewModel() {
             soulX = sx,
             soulY = sy,
             playerHp = hp,
-            tpPercent = tpNow,
-            tpGrazeCooldownSec = grazeCd,
             invulnTimerSec = invuln,
             hasGreenShield = shield,
             greenOrbitAngle = (s.greenOrbitAngle + dt * 210f) % 360f,
@@ -1469,6 +1397,45 @@ class BattleViewModel : ViewModel() {
                 }
                 else -> {
                     outLasers += LaserBeam(nextEntityId++, Random.nextBoolean(), 0.2f + Random.nextFloat() * 0.6f, warmupSec = 0.7f, color = GlitchCyan)
+                }
+            }
+
+            EnemyId.GOV_MONSTER_CHIEF -> when (pattern) {
+                0 -> {
+                    outJaws += MonsterJawAttack(nextEntityId++, soulX.coerceIn(0.22f, 0.78f), soulY.coerceIn(0.24f, 0.76f), -0.16f, color = Color(0xFF4ADE80))
+                }
+                1 -> {
+                    outArrows += ArrowTelegraph(nextEntityId++, 0.18f, 0.18f, 0.707f, 0.707f, color = Color(0xFF4ADE80))
+                    outArrows += ArrowTelegraph(nextEntityId++, 0.82f, 0.18f, -0.707f, 0.707f, color = MercyYellow)
+                }
+                2 -> {
+                    outBombs += ArenaBomb(nextEntityId++, 0.5f, 0.18f, (soulX - 0.5f) * 0.8f, (soulY - 0.18f) * 0.8f, color = Color(0xFF4ADE80))
+                }
+                else -> {
+                    outSideWarnings += SideWallShotWarning(nextEntityId++, Random.nextBoolean(), soulY.coerceIn(0.20f, 0.80f), color = Color(0xFF4ADE80))
+                }
+            }
+
+            EnemyId.GOV_DIRECTOR -> when (pattern) {
+                0 -> {
+                    outLanes += LaneTelegraph(nextEntityId++, soulX.coerceIn(0.16f, 0.84f), isUpward = true, color = Color(0xFFEF4444))
+                    outLanes += LaneTelegraph(nextEntityId++, (1f - soulX).coerceIn(0.16f, 0.84f), isUpward = false, color = MercyYellow)
+                }
+                1 -> {
+                    val fromRight = Random.nextBoolean()
+                    for (slot in listOf(0.25f, 0.50f, 0.75f)) {
+                        outSideWarnings += SideWallShotWarning(nextEntityId++, fromRight, slot, warmupSec = 0.60f, color = Color(0xFFEF4444))
+                    }
+                }
+                2 -> {
+                    outLasers += LaserBeam(nextEntityId++, Random.nextBoolean(), if (Random.nextBoolean()) soulY.coerceIn(0.2f, 0.8f) else soulX.coerceIn(0.2f, 0.8f), warmupSec = 0.68f, color = Color(0xFFEF4444))
+                }
+                else -> {
+                    val baseAng = phaseTime * 1.9f
+                    for (i in 0 until 6) {
+                        val a = baseAng + i * (2f * PI.toFloat() / 6f)
+                        outBullets += Bullet(nextEntityId++, 0.5f + cos(a) * 0.45f, 0.5f + sin(a) * 0.45f, -cos(a) * 0.36f, -sin(a) * 0.36f, kind = BulletKind.LANCE, color = Color(0xFFEF4444))
+                    }
                 }
             }
 

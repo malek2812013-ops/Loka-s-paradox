@@ -1,12 +1,6 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -86,8 +80,6 @@ import com.example.model.tr
 import com.example.ui.components.AshenFlowerCanvas
 import com.example.ui.components.BossSpriteCanvas
 import com.example.ui.components.ControllerPadOverlay
-import com.example.ui.components.LokaBattleStanceCanvas
-import com.example.ui.components.LokaPortraitCanvas
 import com.example.ui.components.UltraPixelArtEngine
 import com.example.ui.components.drawBossChompHeadAndClaw
 import com.example.ui.components.drawDirectionalArrow
@@ -95,7 +87,6 @@ import com.example.ui.components.drawPixelBomb
 import com.example.ui.components.drawPixelHeart
 import com.example.ui.components.drawPixelSaveStar
 import com.example.ui.components.drawSoulEmblem
-import com.example.ui.theme.ArenaBlack
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.GlitchCyan
 import com.example.ui.theme.HpBarGreen
@@ -104,7 +95,6 @@ import com.example.ui.theme.MutedSepiaInk
 import com.example.ui.theme.ParchmentInk
 import com.example.ui.theme.SepiaAmber
 import com.example.ui.theme.SepiaGold
-import com.example.ui.theme.SoulSeraphCyan
 import com.example.viewmodel.BattleUiState
 import com.example.viewmodel.BattleViewModel
 import kotlinx.coroutines.delay
@@ -112,9 +102,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val UndertaleOrange = Color(0xFFFF8C1A)
-private val DeltaruneTpOrange = Color(0xFFFFA040)
-private val DeltarunePurpleLine = Color(0xFFA855F7)
-private val DeltaruneCyan = Color(0xFF00E5FF)
 private val UndertaleHpYellow = Color(0xFFFFFF00)
 private val UndertaleHpRed = Color(0xFFC80000)
 
@@ -175,571 +162,397 @@ fun BattleScreen(
         }
     }
 
-    val gridTransition = rememberInfiniteTransition(label = "deltaruneGridScroll")
-    val gridScroll by gridTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Restart),
-        label = "gridScroll"
-    )
-
-    // FULL DELTARUNE BATTLE SCREEN (Top Animated Purple Grid Stage + Vertical TP Gauge; Bottom Deck + Party Bar)
+    // CLASSIC AUTHENTIC UNDERTALE BATTLE SCREEN (640x480 4:3 Vibe, Pure Black Ground, White Box, 4 Orange Commands)
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
-        // ==================== TOP: DELTARUNE STAGE AREA ====================
+        // 1. TOP UNDERTALE ENCOUNTER HEADER (Clear Boss vs Monster Badge + Stats + Controls)
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1.24f),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Far-Left Vertical TP Gauge (Tension Points 0% - 100%)
-            DeltaruneVerticalTpBar(
-                tpPercent = state.tpPercent,
-                modifier = Modifier
-                    .width(34.dp)
-                    .fillMaxHeight()
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                IconButton(
+                    onClick = onExitBattle,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .testTag("battle_back_button")
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Flee battle", tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+                val (typeLabel, typeColor) = when {
+                    state.enemy.id == EnemyId.ECHO_LOKA || state.enemy.id == EnemyId.FUTURE_LOKA ->
+                        tr(language, "★ FINAL BOSS", "★ زعيم نهائي") to GlitchCyan
+                    state.enemy.id == EnemyId.GOV_MONSTER_CHIEF ->
+                        tr(language, "★ GOV BOSS (FRIEND)", "★ زعيم الحكومة (صديق)") to MercyYellow
+                    state.enemy.id == EnemyId.GOV_DIRECTOR ->
+                        tr(language, "★ GOV LEADER", "★ رئيس الحكومة") to GlitchCyan
+                    !state.enemy.isNormalMonster ->
+                        tr(language, "★ BOSS", "★ زعيم") to MercyYellow
+                    state.enemy.canBefriend ->
+                        tr(language, "MONSTER", "وحش ودود") to HpBarGreen
+                    else ->
+                        tr(language, "HOSTILE", "وحش عدائي") to DangerRed
+                }
+                Box(
+                    modifier = Modifier
+                        .background(Color.Black)
+                        .border(1.5.dp, typeColor, RoundedCornerShape(0.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(text = typeLabel, style = MaterialTheme.typography.labelSmall, color = typeColor)
+                }
+                Column {
+                    Text(
+                        text = "${state.enemy.name.uppercase()} · ${tr(language, "TURN ${state.turnNumber}", "دور ${state.turnNumber}")}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${if (language == AppLanguage.AR) state.activeSoul.titleAr else state.activeSoul.title} · ATK +${state.attackBonus} · DEF +${state.effectiveDefenseBonus}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = state.activeSoul.color,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedButton(
+                    onClick = onToggleControls,
+                    shape = RoundedCornerShape(0.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    border = BorderStroke(1.5.dp, SepiaAmber),
+                    modifier = Modifier
+                        .height(32.dp)
+                        .testTag("battle_controls_toggle")
+                ) {
+                    Text(if (language == AppLanguage.AR) controlScheme.labelAr else controlScheme.label, style = MaterialTheme.typography.labelSmall, color = SepiaAmber)
+                }
+                OutlinedButton(
+                    onClick = onToggleLanguage,
+                    shape = RoundedCornerShape(0.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    border = BorderStroke(1.5.dp, Color.White),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Text(language.buttonLabel, style = MaterialTheme.typography.labelSmall, color = Color.White)
+                }
+            }
+        }
 
-            // Main Deltarune Purple Pixel Grid Backdrop & Combatants / Bullet Arena
+        // 2. MAIN STAGE + WHITE-BORDERED UNDERTALE BOX
+        if (state.phase == BattlePhase.BULLET_HELL) {
+            // Spacious Bullet Hell Stage: Soul Controls (Left) | Wide White-Bordered Undertale Dodge Box (Center) | Enemy Info + D-Pad (Right)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left Panel: World Soul Switcher + [C] Ability Button
+                Column(
+                    modifier = Modifier
+                        .weight(0.58f)
+                        .fillMaxHeight()
+                        .background(Color.Black)
+                        .border(2.dp, Color.White, RoundedCornerShape(0.dp))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = tr(language, "* DODGE!", "* تفادَ الطلقات!"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MercyYellow
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+                        state.allowedSouls.forEach { soul ->
+                            val active = soul == state.activeSoul
+                            Button(
+                                onClick = { battleViewModel.switchSoul(soul, duringBulletHell = true) },
+                                shape = RoundedCornerShape(0.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (active) soul.color else Color.Black,
+                                    contentColor = if (active) Color.Black else soul.color
+                                ),
+                                border = BorderStroke(1.5.dp, soul.color),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(34.dp)
+                                    .testTag("dodge_soul_${soul.name.lowercase()}")
+                            ) {
+                                Text(
+                                    text = if (language == AppLanguage.AR) soul.titleAr else soul.title,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                    val ready = state.abilityCooldownSec <= 0f
+                    val abilityLabel = when {
+                        !ready -> "${"%.1f".format(state.abilityCooldownSec)}s"
+                        state.activeSoul == SoulType.SPLIT_DUO && !state.isSplitActive ->
+                            tr(language, "[C] SPLIT", "[C] انقسام")
+                        state.activeSoul == SoulType.SPLIT_DUO && state.isSplitActive ->
+                            tr(language, "[C] SWAP", "[C] تبديل")
+                        else -> if (language == AppLanguage.AR) state.activeSoul.abilityNameAr else state.activeSoul.abilityName
+                    }
+                    Button(
+                        onClick = battleViewModel::triggerSoulAbility,
+                        enabled = ready,
+                        shape = RoundedCornerShape(0.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (ready) state.activeSoul.color else Color(0xFF16161B),
+                            contentColor = Color.Black
+                        ),
+                        border = BorderStroke(2.dp, if (ready) Color.White else Color(0xFF4B5563)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp)
+                            .testTag("battle_ability_button")
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text(text = abilityLabel.uppercase(), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    }
+                }
+
+                // Center: Classic Wide Undertale Solid-White Bordered Bullet Arena
+                Box(
+                    modifier = Modifier
+                        .weight(1.38f)
+                        .fillMaxHeight()
+                        .background(Color.Black, RoundedCornerShape(0.dp))
+                        .border(4.dp, Color.White, RoundedCornerShape(0.dp))
+                ) {
+                    BulletHellArena(
+                        state = state,
+                        controlScheme = controlScheme,
+                        onMoveByDelta = battleViewModel::moveSoulByDelta
+                    )
+                    if (state.isRewindingTime) {
+                        Text(
+                            text = "<< REWINDING <<",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = GlitchCyan,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 4.dp)
+                        )
+                    }
+                }
+
+                // Right Panel: Monochrome Enemy Preview + HP Bar + Optional Controller Pad
+                Column(
+                    modifier = Modifier
+                        .weight(0.64f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    BossSpriteCanvas(
+                        enemyId = state.enemy.id,
+                        isHitFlash = state.isEnemyHitFlash,
+                        isSpareReady = state.canSpare,
+                        expression = state.bossExpression,
+                        monochromeBattle = true,
+                        modifier = Modifier.size(if (controlScheme == ControlScheme.TOUCH_DRAG) 118.dp else 72.dp)
+                    )
+                    UndertaleEnemyCompactStatus(language = language, state = state)
+                    if (controlScheme != ControlScheme.TOUCH_DRAG) {
+                        ControllerPadOverlay(
+                            controlScheme = controlScheme,
+                            accentColor = state.activeSoul.color,
+                            padSize = 98.dp,
+                            onDirectionChanged = battleViewModel::setDpadDirection
+                        )
+                    }
+                }
+            }
+        } else {
+            // NON-DODGE CLASSIC UNDERTALE VIEW: Centered 512x512 Monochrome Boss on 640x480 Encounter Grid + Spacious White Box Below
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .background(Color(0xFF06030C))
-                    .border(2.dp, Color(0xFF4C1D95), RoundedCornerShape(0.dp))
+                    .fillMaxWidth()
+                    .weight(1.02f)
+                    .background(Color.Black)
             ) {
-                // Deltarune Scrolling Purple Horizon & Floor Perspective Grid
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    val bgBitmap = UltraPixelArtEngine.getDeltaruneBattleBgBitmap()
+                    val bgBitmap = UltraPixelArtEngine.getUndertaleBattleBgBitmap()
                     drawImage(
                         image = bgBitmap,
                         dstOffset = IntOffset.Zero,
                         dstSize = IntSize(size.width.roundToInt().coerceAtLeast(1), size.height.roundToInt().coerceAtLeast(1)),
                         filterQuality = FilterQuality.None
                     )
-                    // Animated scrolling purple/indigo grid lines
-                    val cols = 10
-                    val stepW = size.width / cols
-                    val offsetPx = (gridScroll * stepW)
-                    for (c in -1..cols + 1) {
-                        val x = c * stepW - offsetPx
-                        drawLine(
-                            color = DeltarunePurpleLine.copy(alpha = 0.28f),
-                            start = Offset(x, 0f),
-                            end = Offset(x, size.height),
-                            strokeWidth = 2f
-                        )
-                    }
-                    val horizonY = size.height * 0.42f
-                    drawLine(DeltarunePurpleLine.copy(alpha = 0.45f), Offset(0f, horizonY), Offset(size.width, horizonY), strokeWidth = 2.5f)
-                    for (r in 1..4) {
-                        val y = horizonY + ((size.height - horizonY) * ((r / 4f + gridScroll * 0.25f) % 1f))
-                        drawLine(DeltarunePurpleLine.copy(alpha = 0.26f), Offset(0f, y), Offset(size.width, y), strokeWidth = 1.8f)
-                    }
                 }
 
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    // Compact Top Header Strip inside Stage
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            IconButton(
-                                onClick = onExitBattle,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .testTag("battle_back_button")
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Flee battle", tint = Color.White, modifier = Modifier.size(18.dp))
-                            }
-                            Column {
-                                Text(
-                                    text = "${state.enemy.name.uppercase()} · ${tr(language, "TURN ${state.turnNumber}", "دور ${state.turnNumber}")}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = state.enemy.accentColor,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "${if (language == AppLanguage.AR) state.activeSoul.titleAr else state.activeSoul.title} · ATK +${state.attackBonus} · DEF +${state.effectiveDefenseBonus}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = state.activeSoul.color,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            OutlinedButton(
-                                onClick = onToggleControls,
-                                shape = RoundedCornerShape(0.dp),
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                border = BorderStroke(1.5.dp, SepiaAmber),
-                                modifier = Modifier
-                                    .height(30.dp)
-                                    .testTag("battle_controls_toggle")
-                            ) {
-                                Text(if (language == AppLanguage.AR) controlScheme.labelAr else controlScheme.label, style = MaterialTheme.typography.labelSmall, color = SepiaAmber)
-                            }
-                            OutlinedButton(
-                                onClick = onToggleLanguage,
-                                shape = RoundedCornerShape(0.dp),
-                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                border = BorderStroke(1.5.dp, Color.White),
-                                modifier = Modifier.height(30.dp)
-                            ) {
-                                Text(language.buttonLabel, style = MaterialTheme.typography.labelSmall, color = Color.White)
-                            }
-                        }
-                    }
-
-                    // STAGE BODY: Either Left-vs-Right Combat Stage OR Central Bullet Box flanked by Loka + Monster/Controls
-                    if (state.phase == BattlePhase.BULLET_HELL) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Left Side: Loka Stance + compact World Soul Buttons + [C] Ability
-                            Column(
-                                modifier = Modifier
-                                    .weight(0.68f)
-                                    .fillMaxHeight(),
-                                verticalArrangement = Arrangement.SpaceBetween,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                LokaBattleStanceCanvas(
-                                    isGlitched = state.worldId == WorldId.GLITCHED_WORLD,
-                                    isDefending = state.isDefending,
-                                    isSlashing = state.slashFxTimerSec > 0f,
-                                    weaponAccent = state.equippedWeapon.accentColor,
-                                    expression = state.speakerExpression,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                )
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxWidth()) {
-                                        state.allowedSouls.forEach { soul ->
-                                            val active = soul == state.activeSoul
-                                            Button(
-                                                onClick = { battleViewModel.switchSoul(soul, duringBulletHell = true) },
-                                                shape = RoundedCornerShape(0.dp),
-                                                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 0.dp),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = if (active) soul.color else Color.Black,
-                                                    contentColor = if (active) Color.Black else soul.color
-                                                ),
-                                                border = BorderStroke(1.5.dp, soul.color),
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(34.dp)
-                                                    .testTag("dodge_soul_${soul.name.lowercase()}")
-                                            ) {
-                                                Text(
-                                                    text = soul.title.replace(" Soul", "").uppercase(),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    maxLines = 1
-                                                )
-                                            }
-                                        }
-                                    }
-                                    val ready = state.abilityCooldownSec <= 0f
-                                    val abilityLabel = when {
-                                        !ready -> "${"%.1f".format(state.abilityCooldownSec)}s"
-                                        state.activeSoul == SoulType.SPLIT_DUO && !state.isSplitActive ->
-                                            tr(language, "[C] SPLIT", "[C] انقسام")
-                                        state.activeSoul == SoulType.SPLIT_DUO && state.isSplitActive ->
-                                            tr(language, "[C] SWAP", "[C] تبديل")
-                                        else -> if (language == AppLanguage.AR) state.activeSoul.abilityNameAr else state.activeSoul.abilityName
-                                    }
-                                    Button(
-                                        onClick = battleViewModel::triggerSoulAbility,
-                                        enabled = ready,
-                                        shape = RoundedCornerShape(0.dp),
-                                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (ready) state.activeSoul.color else Color(0xFF16161B),
-                                            contentColor = Color.Black
-                                        ),
-                                        border = BorderStroke(1.5.dp, if (ready) Color.White else Color(0xFF4B5563)),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(36.dp)
-                                            .testTag("battle_ability_button")
-                                    ) {
-                                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(14.dp))
-                                        Spacer(Modifier.width(3.dp))
-                                        Text(text = abilityLabel.uppercase(), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                                    }
-                                }
-                            }
-
-                            // Center: Bright Green / Soul-Bordered Deltarune Bullet Box Arena!
-                            Box(
-                                modifier = Modifier
-                                    .weight(1.22f)
-                                    .fillMaxHeight()
-                                    .background(Color.Black, RoundedCornerShape(0.dp))
-                                    .border(
-                                        width = 3.5.dp,
-                                        color = if (state.activeSoul == SoulType.RED) Color(0xFF22C55E) else state.activeSoul.color,
-                                        shape = RoundedCornerShape(0.dp)
-                                    )
-                            ) {
-                                BulletHellArena(
-                                    state = state,
-                                    controlScheme = controlScheme,
-                                    onMoveByDelta = battleViewModel::moveSoulByDelta
-                                )
-                                if (state.isRewindingTime) {
-                                    Text(
-                                        text = "<< REWINDING <<",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = GlitchCyan,
-                                        modifier = Modifier
-                                            .align(Alignment.TopCenter)
-                                            .padding(top = 3.dp)
-                                    )
-                                }
-                            }
-
-                            // Right Side: Monochrome Undertale Enemy Sprite + HP/Mercy + Optional Controller Pad
-                            Column(
-                                modifier = Modifier
-                                    .weight(0.68f)
-                                    .fillMaxHeight(),
-                                verticalArrangement = Arrangement.SpaceBetween,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                BossSpriteCanvas(
-                                    enemyId = state.enemy.id,
-                                    isHitFlash = state.isEnemyHitFlash,
-                                    isSpareReady = state.canSpare,
-                                    expression = state.bossExpression,
-                                    monochromeBattle = true,
-                                    modifier = Modifier.size(if (controlScheme == ControlScheme.TOUCH_DRAG) 112.dp else 68.dp)
-                                )
-                                DeltaruneEnemyCompactMeters(language = language, state = state)
-                                if (controlScheme != ControlScheme.TOUCH_DRAG) {
-                                    ControllerPadOverlay(
-                                        controlScheme = controlScheme,
-                                        accentColor = state.activeSoul.color,
-                                        padSize = 94.dp,
-                                        onDirectionChanged = battleViewModel::setDpadDirection
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        // NON-DODGE STAGE: Classic Deltarune Left Loka vs Right Undertale-Monochrome Enemy + Meters & Speech Bubble!
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .padding(horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // LEFT PARTY FIGHTER: Loka Battle Stance
-                            Box(
-                                modifier = Modifier
-                                    .weight(0.85f)
-                                    .fillMaxHeight(),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                LokaBattleStanceCanvas(
-                                    isGlitched = state.worldId == WorldId.GLITCHED_WORLD,
-                                    isDefending = state.isDefending,
-                                    isSlashing = state.slashFxTimerSec > 0f,
-                                    weaponAccent = state.equippedWeapon.accentColor,
-                                    expression = state.speakerExpression,
-                                    modifier = Modifier
-                                        .size(134.dp)
-                                        .padding(start = 10.dp)
-                                )
-                                if (state.ashenHelpingThisTurn) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .background(Color.Black, RoundedCornerShape(0.dp))
-                                            .border(1.5.dp, Color(0xFFD4D4D8), RoundedCornerShape(0.dp))
-                                            .padding(4.dp)
-                                    ) {
-                                        AshenFlowerCanvas(
-                                            isCreepySmirk = false,
-                                            expression = PortraitExpression.HAPPY,
-                                            modifier = Modifier.size(34.dp)
-                                        )
-                                        Text(
-                                            text = tr(language, "ASHEN!", "آشن!"),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = Color(0xFFD4D4D8)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // CENTER-RIGHT: Enemy Speech Bubble (when talking) + Deltarune Slash FX
-                            if (state.phase == BattlePhase.ENEMY_DIALOGUE) {
-                                val enemyVoicePitch = when (state.enemy.id) {
-                                    EnemyId.RUINS_DUMMY -> 280f
-                                    EnemyId.NORMAL_SLIME -> 360f
-                                    EnemyId.FERAL_HOUND -> 150f
-                                    EnemyId.SAND_MOTH -> 440f
-                                    EnemyId.IRON_STALKER -> 140f
-                                    EnemyId.HALO_SCRIBE -> 480f
-                                    EnemyId.ASH_IMP -> 320f
-                                    EnemyId.VEX -> 240f
-                                    EnemyId.BRAMBLE -> 185f
-                                    EnemyId.VESPERA -> 410f
-                                    EnemyId.ORIN -> 165f
-                                    EnemyId.SERAPHIEL -> 455f
-                                    EnemyId.MALAKOR -> 170f
-                                    EnemyId.ECHO_LOKA -> 215f
-                                    EnemyId.FUTURE_LOKA -> 295f
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .weight(0.95f)
-                                        .fillMaxHeight()
-                                        .padding(vertical = 8.dp)
-                                        .background(Color.White, RoundedCornerShape(0.dp))
-                                        .border(2.5.dp, Color(0xFF1F2937), RoundedCornerShape(0.dp))
-                                        .padding(8.dp)
-                                        .verticalScroll(rememberScrollState())
-                                ) {
-                                    TypewriterBattleText(
-                                        fullText = state.dialogueText,
-                                        voicePitchHz = enemyVoicePitch,
-                                        textColor = Color.Black
-                                    )
-                                }
-                            }
-
-                            // RIGHT OPPONENT: Undertale Monochrome Enemy Sprite + Deltarune Compact HP / MERCY Gauges
-                            Row(
-                                modifier = Modifier
-                                    .weight(1.1f)
-                                    .fillMaxHeight(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(134.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    BossSpriteCanvas(
-                                        enemyId = state.enemy.id,
-                                        isHitFlash = state.isEnemyHitFlash,
-                                        isSpareReady = state.canSpare,
-                                        expression = state.bossExpression,
-                                        monochromeBattle = true,
-                                        modifier = Modifier.size(124.dp)
-                                    )
-                                    if (state.slashFxTimerSec > 0f && state.lastStrikeDamage != null) {
-                                        val progress = (1f - (state.slashFxTimerSec / 0.50f)).coerceIn(0f, 1f)
-                                        Canvas(modifier = Modifier.fillMaxSize()) {
-                                            val cx = size.width * 0.5f
-                                            val cy = size.height * 0.5f
-                                            val span = minOf(size.width, size.height) * 0.42f
-                                            val sweepStart = Offset(cx - span, cy - span * 0.85f)
-                                            val sweepEnd = Offset(
-                                                cx - span + (span * 2f) * progress,
-                                                cy - span * 0.85f + (span * 1.7f) * progress
-                                            )
-                                            drawLine(
-                                                color = if (state.lastStrikeCritical) MercyYellow else state.equippedWeapon.accentColor,
-                                                start = sweepStart,
-                                                end = sweepEnd,
-                                                strokeWidth = if (state.lastStrikeCritical) 9f else 5.5f
-                                            )
-                                            drawLine(Color.White, sweepStart, sweepEnd, strokeWidth = 2.5f)
-                                            if (state.equippedWeapon.style == WeaponStyle.DUAL_BLADE || state.lastStrikeCritical) {
-                                                drawLine(
-                                                    color = MercyYellow,
-                                                    start = Offset(cx + span, cy - span * 0.75f),
-                                                    end = Offset(cx + span - (span * 2f) * progress, cy - span * 0.75f + (span * 1.5f) * progress),
-                                                    strokeWidth = 4f
-                                                )
-                                            }
-                                        }
-                                        Text(
-                                            text = if (state.lastStrikeCritical) "CRIT! -${state.lastStrikeDamage}" else "-${state.lastStrikeDamage}",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = if (state.lastStrikeCritical) MercyYellow else DangerRed,
-                                            modifier = Modifier
-                                                .align(Alignment.TopCenter)
-                                                .background(Color.Black)
-                                                .padding(horizontal = 4.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.width(8.dp))
-                                DeltaruneEnemyCompactMeters(
-                                    language = language,
-                                    state = state,
-                                    modifier = Modifier.width(126.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ==================== BOTTOM: DELTARUNE PARTY STATUS & COMMAND DECK ====================
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.95f)
-                .background(Color.Black)
-                .border(2.5.dp, Color.White, RoundedCornerShape(0.dp)),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Deltarune Top Bar of Bottom Deck: Loka Status Card + Iconic Deltarune Command Row!
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF0A0810))
-                    .border(
-                        width = 2.dp,
-                        color = if (state.isDefending) DeltaruneCyan else state.activeSoul.color,
-                        shape = RoundedCornerShape(0.dp)
-                    )
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Loka Portrait + Name + Deltarune HP Bar
-                Row(
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(0.85f)
+                    horizontalArrangement = Arrangement.Center
                 ) {
+                    // Optional Left Slot: Ashen Flower Helper if active + Enemy HP/Mercy Meter
+                    Column(
+                        modifier = Modifier
+                            .weight(0.72f)
+                            .fillMaxHeight(),
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        horizontalAlignment = Alignment.Start
+                    ) {
+                        UndertaleEnemyCompactStatus(
+                            language = language,
+                            state = state,
+                            modifier = Modifier.width(156.dp)
+                        )
+                        if (state.ashenHelpingThisTurn) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier
+                                    .background(Color.Black)
+                                    .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                            ) {
+                                AshenFlowerCanvas(
+                                    isCreepySmirk = false,
+                                    expression = PortraitExpression.HAPPY,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                                Text(
+                                    text = tr(language, "* Ashen is helping!", "* آشن يساعدك!"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MercyYellow
+                                )
+                            }
+                        }
+                    }
+
+                    // Centerpiece: Large 512x512 Monochrome White-on-Black Undertale Opponent Sprite + Slash FX
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .background(Color.Black)
-                            .border(1.5.dp, DeltaruneCyan, RoundedCornerShape(0.dp)),
+                            .size(164.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        LokaPortraitCanvas(
-                            saveCount = 0,
-                            isSickGlitched = state.worldId == WorldId.GLITCHED_WORLD,
-                            expression = state.speakerExpression,
-                            modifier = Modifier.size(32.dp)
+                        BossSpriteCanvas(
+                            enemyId = state.enemy.id,
+                            isHitFlash = state.isEnemyHitFlash,
+                            isSpareReady = state.canSpare,
+                            expression = state.bossExpression,
+                            monochromeBattle = true,
+                            modifier = Modifier.size(152.dp)
                         )
-                    }
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        if (state.slashFxTimerSec > 0f && state.lastStrikeDamage != null) {
+                            val progress = (1f - (state.slashFxTimerSec / 0.50f)).coerceIn(0f, 1f)
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val cx = size.width * 0.5f
+                                val cy = size.height * 0.5f
+                                val span = minOf(size.width, size.height) * 0.44f
+                                val sweepStart = Offset(cx - span, cy - span * 0.85f)
+                                val sweepEnd = Offset(
+                                    cx - span + (span * 2f) * progress,
+                                    cy - span * 0.85f + (span * 1.7f) * progress
+                                )
+                                drawLine(
+                                    color = if (state.lastStrikeCritical) MercyYellow else state.equippedWeapon.accentColor,
+                                    start = sweepStart,
+                                    end = sweepEnd,
+                                    strokeWidth = if (state.lastStrikeCritical) 9f else 5.5f
+                                )
+                                drawLine(Color.White, sweepStart, sweepEnd, strokeWidth = 2.5f)
+                                if (state.equippedWeapon.style == WeaponStyle.DUAL_BLADE || state.lastStrikeCritical) {
+                                    drawLine(
+                                        color = MercyYellow,
+                                        start = Offset(cx + span, cy - span * 0.75f),
+                                        end = Offset(cx + span - (span * 2f) * progress, cy - span * 0.75f + (span * 1.5f) * progress),
+                                        strokeWidth = 4f
+                                    )
+                                }
+                            }
                             Text(
-                                text = if (state.isDefending) "LOKA [GUARD]" else "LOKA",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (state.isDefending) DeltaruneCyan else Color.White,
-                                maxLines = 1
-                            )
-                            Text(
-                                text = "HP ${state.playerHp}/${state.maxPlayerHp}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (state.playerHp <= 6) DangerRed else Color.White
+                                text = if (state.lastStrikeCritical) "CRIT! -${state.lastStrikeDamage}" else "-${state.lastStrikeDamage}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (state.lastStrikeCritical) MercyYellow else DangerRed,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .background(Color.Black)
+                                    .padding(horizontal = 6.dp)
                             )
                         }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(10.dp)
-                                .background(UndertaleHpRed)
-                                .border(1.dp, Color.White, RoundedCornerShape(0.dp))
-                        ) {
-                            val ratio = (state.playerHp.toFloat() / state.maxPlayerHp).coerceIn(0f, 1f)
+                    }
+
+                    // Right Slot: Classic White Undertale Monster Speech Bubble during Enemy Dialogue
+                    Box(
+                        modifier = Modifier
+                            .weight(0.95f)
+                            .fillMaxHeight()
+                            .padding(start = 10.dp),
+                        contentAlignment = Alignment.CenterEnd
+                    ) {
+                        if (state.phase == BattlePhase.ENEMY_DIALOGUE) {
+                            val enemyVoicePitch = when (state.enemy.id) {
+                                EnemyId.RUINS_DUMMY -> 280f
+                                EnemyId.NORMAL_SLIME -> 360f
+                                EnemyId.FERAL_HOUND -> 150f
+                                EnemyId.SAND_MOTH -> 440f
+                                EnemyId.IRON_STALKER -> 140f
+                                EnemyId.HALO_SCRIBE -> 480f
+                                EnemyId.ASH_IMP -> 320f
+                                EnemyId.VEX -> 240f
+                                EnemyId.BRAMBLE -> 185f
+                                EnemyId.VESPERA -> 410f
+                                EnemyId.ORIN -> 165f
+                                EnemyId.SERAPHIEL -> 455f
+                                EnemyId.MALAKOR -> 170f
+                                EnemyId.ECHO_LOKA -> 215f
+                                EnemyId.FUTURE_LOKA -> 295f
+                                EnemyId.GOV_MONSTER_CHIEF -> 155f
+                                EnemyId.GOV_DIRECTOR -> 190f
+                            }
                             Box(
                                 modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(ratio)
-                                    .background(DeltaruneCyan)
-                            )
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(0.86f)
+                                    .background(Color.White, RoundedCornerShape(4.dp))
+                                    .border(2.5.dp, Color(0xFF1F2937), RoundedCornerShape(4.dp))
+                                    .padding(10.dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                TypewriterBattleText(
+                                    fullText = state.dialogueText,
+                                    voicePitchHz = enemyVoicePitch,
+                                    textColor = Color.Black
+                                )
+                            }
                         }
                     }
-                }
-
-                // Deltarune Square Command Icons Row (FIGHT · ACT · ITEM · SPARE · DEFEND · SOUL · ALLY)
-                if (state.phase == BattlePhase.PLAYER_MENU) {
-                    Row(
-                        modifier = Modifier.weight(1.75f),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        DeltaruneCmdBtn(tr(language, "FIGHT", "هجوم"), UndertaleOrange, false, battleViewModel::startFightMinigame, Modifier.weight(1f).testTag("battle_fight_btn"))
-                        DeltaruneCmdBtn(tr(language, "ACT", "تصرّف"), UndertaleOrange, state.subTab == MenuSubTab.ACT_LIST, {
-                            battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.ACT_LIST) MenuSubTab.ROOT else MenuSubTab.ACT_LIST)
-                        }, Modifier.weight(1f).testTag("battle_act_btn"))
-                        DeltaruneCmdBtn(tr(language, "ITEM", "حقيبة"), UndertaleOrange, state.subTab == MenuSubTab.ITEM_LIST, {
-                            battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.ITEM_LIST) MenuSubTab.ROOT else MenuSubTab.ITEM_LIST)
-                        }, Modifier.weight(1f).testTag("battle_item_btn"))
-                        DeltaruneCmdBtn(
-                            label = if (state.canSpare) tr(language, "SPARE!", "عفو!") else tr(language, "MERCY", "رحمة"),
-                            accent = if (state.canSpare) MercyYellow else UndertaleOrange,
-                            highlighted = state.canSpare,
-                            onClick = battleViewModel::performSpare,
-                            modifier = Modifier.weight(1f).testTag("battle_spare_button")
-                        )
-                        DeltaruneCmdBtn(tr(language, "DEFEND", "دفاع"), DeltaruneCyan, false, battleViewModel::performDefend, Modifier.weight(1f).testTag("battle_defend_btn"))
-                        DeltaruneCmdBtn(tr(language, "SOUL", "الروح"), state.activeSoul.color, state.subTab == MenuSubTab.SOUL_SELECT, {
-                            battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.SOUL_SELECT) MenuSubTab.ROOT else MenuSubTab.SOUL_SELECT)
-                        }, Modifier.weight(0.95f).testTag("battle_soul_btn"))
-                        DeltaruneCmdBtn(tr(language, "ALLY", "حليف"), HpBarGreen, state.subTab == MenuSubTab.ALLY_LIST, {
-                            battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.ALLY_LIST) MenuSubTab.ROOT else MenuSubTab.ALLY_LIST)
-                        }, Modifier.weight(0.95f).testTag("battle_ally_btn"))
-                    }
-                } else {
-                    val phaseLabel = when (state.phase) {
-                        BattlePhase.FIGHT_MINIGAME -> tr(language, ">> DELTARUNE ATTACK TIMING — HIT LEFT TARGET BOX!", ">> شريط قتال ديلتا رون — اضرب عند المربع الأيسر!")
-                        BattlePhase.ENEMY_DIALOGUE -> tr(language, ">> ENEMY TURN — TAP DODGE!", ">> دور العدو — اضغط تفادَ الآن!")
-                        BattlePhase.BULLET_HELL -> tr(language, ">> DODGE & GRAZE FOR +TP!", ">> تفادَ واقترب من الطلقات لزيادة الـ TP!")
-                        BattlePhase.VICTORY -> tr(language, ">> BATTLE WON!", ">> انتصرت في القتال!")
-                        BattlePhase.DEFEAT -> tr(language, ">> SOUL SHATTERED...", ">> تحطمت الروح...")
-                        BattlePhase.PLAYER_MENU -> ""
-                    }
-                    Text(
-                        text = phaseLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MercyYellow,
-                        modifier = Modifier.weight(1.75f),
-                        textAlign = TextAlign.End
-                    )
                 }
             }
 
-            // Lower Main Panel Content (Deltarune Fight Bar / Dialogue / ACTs / Items / Dodge Continue / Victory)
+            // Spacious Classic Undertale White-Bordered Battle Text / Fight Eye Box
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .background(ArenaBlack)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .weight(0.78f)
+                    .background(Color.Black)
+                    .border(3.5.dp, Color.White, RoundedCornerShape(0.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 when (state.phase) {
                     BattlePhase.PLAYER_MENU -> PlayerMenuInsideBox(
@@ -749,15 +562,13 @@ fun BattleScreen(
                         onSwitchSoul = { battleViewModel.switchSoul(it, duringBulletHell = false) },
                         onPerformAct = battleViewModel::performAct,
                         onPerformSpare = battleViewModel::performSpare,
-                        onPerformTpXSlash = battleViewModel::performTpXSlash,
-                        onPerformTpMercy = battleViewModel::performTpMercyPulse,
                         onFleeBattle = onExitBattle,
                         onUseItem = battleViewModel::useItem,
                         onCallAlly = battleViewModel::callFriendAid,
                         onCallKidAlly = battleViewModel::callLostKidAid
                     )
 
-                    BattlePhase.FIGHT_MINIGAME -> DeltaruneFightBarInsideBox(
+                    BattlePhase.FIGHT_MINIGAME -> UndertaleFightEyeBarInsideBox(
                         language = language,
                         cursorPos = state.fightCursorPos,
                         soulColor = state.activeSoul.color,
@@ -781,13 +592,6 @@ fun BattleScreen(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = Color.White
                             )
-                            if (state.isDefending) {
-                                Text(
-                                    text = tr(language, "* GUARD ACTIVE: 50% damage reduction this turn!", "* وضع الدفاع مفعّل: تقليل الضرر للنصف!"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = DeltaruneCyan
-                                )
-                            }
                         }
                         Spacer(Modifier.width(12.dp))
                         Button(
@@ -803,33 +607,6 @@ fun BattleScreen(
                         }
                     }
 
-                    BattlePhase.BULLET_HELL -> Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = tr(
-                                language,
-                                "* Stay close to bullets without getting hit to build TP! Press [C] for ${state.activeSoul.abilityName}.",
-                                "* اقترب من الطلقات دون لمسها لشحن الـ TP! واضغط [C] لتفعيل قدرة الروح."
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (state.isDefending) {
-                            Text(
-                                text = "GUARD 50%",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = DeltaruneCyan,
-                                modifier = Modifier
-                                    .border(1.5.dp, DeltaruneCyan, RoundedCornerShape(0.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-
                     BattlePhase.VICTORY, BattlePhase.DEFEAT -> Row(
                         modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -839,12 +616,14 @@ fun BattleScreen(
                             Text(
                                 text = when {
                                     state.phase == BattlePhase.DEFEAT -> tr(language, "SOUL SHATTERED", "تحطّمت الروح")
+                                    state.battleWonSpared && !state.enemy.canBefriend -> tr(language, "YOU WON! STOPPED WITHOUT KILLING!", "فزت! تم إيقافه بدون قتل!")
                                     state.battleWonSpared -> tr(language, "YOU WON! FRIENDSHIP FORGED!", "فزت! صداقة جديدة!")
                                     else -> tr(language, "YOU WON!", "انتصار!")
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 color = when {
                                     state.phase == BattlePhase.DEFEAT -> DangerRed
+                                    state.battleWonSpared && !state.enemy.canBefriend -> GlitchCyan
                                     state.battleWonSpared -> MercyYellow
                                     else -> SepiaGold
                                 }
@@ -885,55 +664,134 @@ fun BattleScreen(
                             }
                         }
                     }
+
+                    BattlePhase.BULLET_HELL -> Unit
                 }
+            }
+        }
+
+        // 3. CLASSIC UNDERTALE BOTTOM BAR: LOKA   LV 1   HP [YELLOW/RED BAR]   20 / 20  +  SOUL / ALLY
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("LOKA", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                Text("LV 1", style = MaterialTheme.typography.labelMedium, color = Color.White)
+                Text("HP", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                Box(
+                    modifier = Modifier
+                        .width(128.dp)
+                        .height(16.dp)
+                        .background(UndertaleHpRed)
+                        .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
+                ) {
+                    val ratio = (state.playerHp.toFloat() / state.maxPlayerHp).coerceIn(0f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(ratio)
+                            .background(UndertaleHpYellow)
+                    )
+                }
+                Text(
+                    text = "${state.playerHp} / ${state.maxPlayerHp}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (state.playerHp <= 6) DangerRed else Color.White
+                )
+            }
+
+            if (state.phase == BattlePhase.PLAYER_MENU) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.SOUL_SELECT) MenuSubTab.ROOT else MenuSubTab.SOUL_SELECT)
+                        },
+                        shape = RoundedCornerShape(0.dp),
+                        border = BorderStroke(1.5.dp, state.activeSoul.color),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .testTag("battle_soul_btn")
+                    ) {
+                        Text(tr(language, "SOUL", "الروح"), style = MaterialTheme.typography.labelSmall, color = state.activeSoul.color)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.ALLY_LIST) MenuSubTab.ROOT else MenuSubTab.ALLY_LIST)
+                        },
+                        shape = RoundedCornerShape(0.dp),
+                        border = BorderStroke(1.5.dp, HpBarGreen),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .testTag("battle_ally_btn")
+                    ) {
+                        Text(tr(language, "ALLY", "حليف"), style = MaterialTheme.typography.labelSmall, color = HpBarGreen)
+                    }
+                }
+            }
+        }
+
+        // 4. FOUR ICONIC UNDERTALE ORANGE COMMAND BUTTONS: [FIGHT]  [ACT]  [ITEM]  [MERCY]
+        if (state.phase == BattlePhase.PLAYER_MENU) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                UndertaleCmdBtn(
+                    label = tr(language, "FIGHT", "هجوم"),
+                    selected = false,
+                    soulColor = state.activeSoul.color,
+                    onClick = battleViewModel::startFightMinigame,
+                    modifier = Modifier.weight(1f).testTag("battle_fight_btn")
+                )
+                UndertaleCmdBtn(
+                    label = tr(language, "ACT", "تصرّف"),
+                    selected = state.subTab == MenuSubTab.ACT_LIST,
+                    soulColor = state.activeSoul.color,
+                    onClick = {
+                        battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.ACT_LIST) MenuSubTab.ROOT else MenuSubTab.ACT_LIST)
+                    },
+                    modifier = Modifier.weight(1f).testTag("battle_act_btn")
+                )
+                UndertaleCmdBtn(
+                    label = tr(language, "ITEM", "حقيبة"),
+                    selected = state.subTab == MenuSubTab.ITEM_LIST,
+                    soulColor = state.activeSoul.color,
+                    onClick = {
+                        battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.ITEM_LIST) MenuSubTab.ROOT else MenuSubTab.ITEM_LIST)
+                    },
+                    modifier = Modifier.weight(1f).testTag("battle_item_btn")
+                )
+                val isStopOnlyEnemy = !state.enemy.canBefriend && state.enemy.canStopWithoutKilling
+                val mercyBtnLabel = when {
+                    isStopOnlyEnemy && state.canSpare -> tr(language, "STOP!", "إيقاف!")
+                    isStopOnlyEnemy -> tr(language, "STOP", "إيقاف")
+                    state.canSpare -> tr(language, "SPARE!", "عفو!")
+                    else -> tr(language, "MERCY", "رحمة")
+                }
+                UndertaleCmdBtn(
+                    label = mercyBtnLabel,
+                    selected = state.canSpare,
+                    soulColor = if (isStopOnlyEnemy) GlitchCyan else MercyYellow,
+                    onClick = battleViewModel::performSpare,
+                    modifier = Modifier.weight(1f).testTag("battle_spare_button")
+                )
             }
         }
     }
 }
 
 @Composable
-private fun DeltaruneVerticalTpBar(
-    tpPercent: Int,
-    modifier: Modifier = Modifier
-) {
-    val fillRatio = (tpPercent / 100f).coerceIn(0f, 1f)
-    Column(
-        modifier = modifier
-            .background(Color.Black)
-            .border(2.dp, Color.White, RoundedCornerShape(0.dp))
-            .padding(vertical = 4.dp, horizontal = 3.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text("T", style = MaterialTheme.typography.labelMedium, color = DeltaruneTpOrange)
-        Text("P", style = MaterialTheme.typography.labelMedium, color = DeltaruneTpOrange)
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .width(14.dp)
-                .padding(vertical = 3.dp)
-                .background(Color(0xFF450A0A))
-                .border(1.dp, Color.White, RoundedCornerShape(0.dp)),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(fillRatio)
-                    .background(if (tpPercent >= 100) MercyYellow else DeltaruneTpOrange)
-            )
-        }
-        Text(
-            text = if (tpPercent >= 100) "MAX" else "$tpPercent%",
-            style = MaterialTheme.typography.labelSmall,
-            color = if (tpPercent >= 100) MercyYellow else Color.White,
-            maxLines = 1
-        )
-    }
-}
-
-@Composable
-private fun DeltaruneEnemyCompactMeters(
+private fun UndertaleEnemyCompactStatus(
     language: AppLanguage,
     state: BattleUiState,
     modifier: Modifier = Modifier
@@ -941,19 +799,19 @@ private fun DeltaruneEnemyCompactMeters(
     val hpRatio = (state.enemyHp.toFloat() / state.enemy.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
     Column(
         modifier = modifier
-            .background(Color(0xCC000000))
+            .background(Color(0xDD000000))
             .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
-            .padding(6.dp),
+            .padding(7.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("HP", style = MaterialTheme.typography.labelSmall, color = Color.White)
-            Text("${(hpRatio * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = HpBarGreen)
+            Text("${state.enemyHp}/${state.enemy.maxHp}", style = MaterialTheme.typography.labelSmall, color = HpBarGreen)
         }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(7.dp)
+                .height(8.dp)
                 .background(UndertaleHpRed)
                 .border(1.dp, Color.White, RoundedCornerShape(0.dp))
         ) {
@@ -974,9 +832,24 @@ private fun DeltaruneEnemyCompactMeters(
                 val mercyRatio = (state.mercyProgress / 100f).coerceIn(0f, 1f)
                 Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(mercyRatio).background(MercyYellow))
             }
+        } else if (state.enemy.canStopWithoutKilling) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(tr(language, "STOP (NO FRIEND)", "إيقاف (بلا صداقة)"), style = MaterialTheme.typography.labelSmall, color = GlitchCyan)
+                Text("${state.mercyProgress}%", style = MaterialTheme.typography.labelSmall, color = GlitchCyan)
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .background(Color(0xFF27272E))
+                    .border(1.dp, GlitchCyan.copy(alpha = 0.7f), RoundedCornerShape(0.dp))
+            ) {
+                val stopRatio = (state.mercyProgress / 100f).coerceIn(0f, 1f)
+                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(stopRatio).background(GlitchCyan))
+            }
         } else {
             Text(
-                text = tr(language, "NO MERCY", "بلا رحمة"),
+                text = tr(language, "HOSTILE · NO MERCY", "عدائي · بلا رحمة"),
                 style = MaterialTheme.typography.labelSmall,
                 color = DangerRed
             )
@@ -985,31 +858,40 @@ private fun DeltaruneEnemyCompactMeters(
 }
 
 @Composable
-private fun DeltaruneCmdBtn(
+private fun UndertaleCmdBtn(
     label: String,
-    accent: Color,
-    highlighted: Boolean,
+    selected: Boolean,
+    soulColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val activeColor = if (highlighted) MercyYellow else accent
+    val borderColor = if (selected) MercyYellow else UndertaleOrange
+    val textColor = if (selected) MercyYellow else UndertaleOrange
     OutlinedButton(
         onClick = onClick,
         shape = RoundedCornerShape(0.dp),
-        border = BorderStroke(2.dp, activeColor),
+        border = BorderStroke(2.5.dp, borderColor),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (highlighted) activeColor.copy(alpha = 0.20f) else Color.Black
+            containerColor = if (selected) borderColor.copy(alpha = 0.14f) else Color.Black
         ),
-        contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
+        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
         modifier = modifier.height(48.dp)
     ) {
-        Text(
-            text = if (highlighted) "♥$label" else label,
-            style = MaterialTheme.typography.labelSmall,
-            color = activeColor,
-            maxLines = 1,
-            overflow = TextOverflow.Clip
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (selected) {
+                Text("♥", style = MaterialTheme.typography.labelLarge, color = soulColor)
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Clip
+            )
+        }
     }
 }
 
@@ -1021,8 +903,6 @@ private fun PlayerMenuInsideBox(
     onSwitchSoul: (SoulType) -> Unit,
     onPerformAct: (String) -> Unit,
     onPerformSpare: () -> Unit,
-    onPerformTpXSlash: () -> Unit,
-    onPerformTpMercy: () -> Unit,
     onFleeBattle: () -> Unit,
     onUseItem: (String) -> Unit,
     onCallAlly: (EnemyId) -> Unit,
@@ -1041,46 +921,15 @@ private fun PlayerMenuInsideBox(
                     voicePitchHz = if (state.ashenHelpingThisTurn) 195f else 335f,
                     textColor = Color.White
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr(
-                            language,
-                            "* ${state.equippedWeapon.name} (+${state.equippedWeapon.attackBonus} ATK) · ${state.equippedArmorName}",
-                            "* ${state.equippedWeapon.nameAr} (+${state.equippedWeapon.attackBonus} هجوم) · ${state.equippedArmorName}"
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MutedSepiaInk,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (state.tpPercent >= 50) {
-                        Button(
-                            onClick = onPerformTpXSlash,
-                            shape = RoundedCornerShape(0.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = DeltaruneTpOrange, contentColor = Color.Black),
-                            border = BorderStroke(1.5.dp, Color.White),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Text(tr(language, "X-SLASH (50% TP)", "ضربة إكس (50% TP)"), style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                    if (state.tpPercent >= 40 && state.enemy.canBefriend && !state.canSpare) {
-                        Button(
-                            onClick = onPerformTpMercy,
-                            shape = RoundedCornerShape(0.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MercyYellow, contentColor = Color.Black),
-                            border = BorderStroke(1.5.dp, Color.White),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Text(tr(language, "PACIFY (40% TP)", "تهدئة (40% TP)"), style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
+                Text(
+                    text = tr(
+                        language,
+                        "* ${state.equippedWeapon.name} (+${state.equippedWeapon.attackBonus} ATK) · ${state.equippedArmorName}",
+                        "* ${state.equippedWeapon.nameAr} (+${state.equippedWeapon.attackBonus} هجوم) · ${state.equippedArmorName}"
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedSepiaInk
+                )
             }
 
             MenuSubTab.SOUL_SELECT -> {
@@ -1114,32 +963,37 @@ private fun PlayerMenuInsideBox(
                         border = BorderStroke(1.5.dp, Color.White),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        val actLabel = if (state.enemy.canBefriend && act.mercyGain > 0) {
-                            "* ${act.title} (+${act.mercyGain}% ${tr(language, "Mercy", "رحمة")})"
-                        } else {
-                            "* ${act.title}"
+                        val actLabel = when {
+                            state.enemy.canBefriend && act.mercyGain > 0 ->
+                                "* ${act.title} (+${act.mercyGain}% ${tr(language, "Mercy", "رحمة")})"
+                            state.enemy.canStopWithoutKilling && act.mercyGain > 0 ->
+                                "* ${act.title} (+${act.mercyGain}% ${tr(language, "Stop", "إيقاف")})"
+                            else -> "* ${act.title}"
                         }
                         Text(actLabel, style = MaterialTheme.typography.labelMedium, color = Color.White)
                     }
                 }
                 if (state.enemy.id != EnemyId.FUTURE_LOKA) {
-                    if (state.enemy.canBefriend) {
+                    if (state.enemy.canBefriend || state.enemy.canStopWithoutKilling) {
+                        val readyBg = if (state.enemy.canBefriend) MercyYellow else GlitchCyan
                         Button(
                             onClick = onPerformSpare,
                             shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (state.canSpare) MercyYellow else Color(0xFF18181D),
+                                containerColor = if (state.canSpare) readyBg else Color(0xFF18181D),
                                 contentColor = if (state.canSpare) Color.Black else Color(0xFF9CA3AF)
                             ),
-                            border = BorderStroke(2.dp, if (state.canSpare) Color.White else UndertaleOrange),
+                            border = BorderStroke(2.dp, if (state.canSpare) Color.White else if (state.enemy.canBefriend) UndertaleOrange else GlitchCyan),
                             modifier = Modifier.fillMaxWidth()
                         ) {
+                            val btnText = when {
+                                state.enemy.canBefriend && state.canSpare -> tr(language, "* SPARE & BEFRIEND!", "* اعفُ وصادِقه!")
+                                state.enemy.canBefriend -> tr(language, "* SPARE (${state.mercyProgress}%/100%)", "* عفو (${state.mercyProgress}%/100%)")
+                                state.canSpare -> tr(language, "* STOP WITHOUT KILLING!", "* إيقاف بدون قتل!")
+                                else -> tr(language, "* STOP GOVERNMENT (${state.mercyProgress}%/100%)", "* إيقاف بدون قتل (${state.mercyProgress}%/100%)")
+                            }
                             Text(
-                                text = if (state.canSpare) {
-                                    tr(language, "* SPARE & BEFRIEND!", "* اعفُ وصادِقه!")
-                                } else {
-                                    tr(language, "* SPARE (${state.mercyProgress}%/100%)", "* عفو (${state.mercyProgress}%/100%)")
-                                },
+                                text = btnText,
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
@@ -1283,21 +1137,21 @@ private fun TypewriterBattleText(
 }
 
 /**
- * AUTHENTIC DELTARUNE FIGHT BAR:
- * - Left portrait icon slot (Cyan Loka frame)
- * - Left Target Zone rectangle at x = 0.16f (glows bright Gold/Cyan when timing bar aligns!)
- * - Crisp Right-to-Left sweeping attack cursor with fading pixel afterimage trail
+ * CLASSIC UNDERTALE OVAL TARGET EYE FIGHT BAR:
+ * - Iconic Undertale `target_spr` concentric oval target centered at x = 0.50f
+ * - Bright vertical white/black cursor bar sweeping back and forth across the eye
+ * - Tap the bar directly or tap [STRIKE!] to deal critical center hit!
  */
 @Composable
-private fun DeltaruneFightBarInsideBox(
+private fun UndertaleFightEyeBarInsideBox(
     language: AppLanguage,
     cursorPos: Float,
     soulColor: Color,
     weapon: WeaponEquipment = WeaponCatalog.byId("worn_stick"),
     onStrike: () -> Unit
 ) {
-    val targetX = 0.16f
-    val inCritZone = abs(cursorPos - targetX) <= (0.048f + weapon.critWindowBonus * 0.40f)
+    val targetX = 0.50f
+    val inCritZone = abs(cursorPos - targetX) <= (0.055f + weapon.critWindowBonus * 0.45f)
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceBetween,
@@ -1309,9 +1163,9 @@ private fun DeltaruneFightBarInsideBox(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = tr(language, "← TAP STRIKE INSIDE THE LEFT BOX!", "← اضغط اضرب عندما يصل الخط للمربع الأيسر!"),
+                text = tr(language, "* TAP STRIKE AT THE CENTER EYE!", "* اضغط اضرب عندما يصل الخط لمنتصف العين!"),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (inCritZone) MercyYellow else DeltaruneCyan
+                color = if (inCritZone) MercyYellow else Color.White
             )
             Text(
                 text = if (language == AppLanguage.AR) weapon.nameAr else weapon.name,
@@ -1326,25 +1180,13 @@ private fun DeltaruneFightBarInsideBox(
                 .weight(1f)
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Left Deltarune Fighter Icon Slot
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(Color(0xFF0A0D18))
-                    .border(2.dp, DeltaruneCyan, RoundedCornerShape(0.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                LokaPortraitCanvas(saveCount = 0, modifier = Modifier.size(48.dp))
-            }
-
-            // Deltarune Horizontal Rectangular Track (Tap directly on bar or press STRIKE!)
             Canvas(
                 modifier = Modifier
                     .weight(1f)
-                    .height(62.dp)
-                    .border(2.dp, DeltaruneCyan, RoundedCornerShape(0.dp))
+                    .fillMaxHeight()
+                    .background(Color.Black)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -1353,68 +1195,58 @@ private fun DeltaruneFightBarInsideBox(
             ) {
                 val w = size.width
                 val h = size.height
-                drawRect(color = Color(0xFF06060C))
+                drawRect(Color.Black)
 
-                // Subtle vertical Deltarune timing guide ticks across track
-                for (i in 1..10) {
-                    val tx = w * (i / 11f)
-                    drawLine(
-                        color = Color(0xFF1F2937),
-                        start = Offset(tx, h * 0.16f),
-                        end = Offset(tx, h * 0.84f),
-                        strokeWidth = 2f
-                    )
-                }
-
-                // Target Hit Box on the Left (x = 0.16f)
-                val targetHalfW = (0.048f + weapon.critWindowBonus * 0.40f) * w
-                val txLeft = (targetX * w) - targetHalfW
-                val targetFill = if (inCritZone) MercyYellow.copy(alpha = 0.42f) else DeltaruneCyan.copy(alpha = 0.22f)
-                val targetOutline = if (inCritZone) MercyYellow else DeltaruneCyan
-                drawRect(
-                    color = targetFill,
-                    topLeft = Offset(txLeft, 4.dp.toPx()),
-                    size = Size(targetHalfW * 2f, h - 8.dp.toPx())
-                )
-                drawRect(
-                    color = targetOutline,
-                    topLeft = Offset(txLeft, 4.dp.toPx()),
-                    size = Size(targetHalfW * 2f, h - 8.dp.toPx()),
+                // Classic Undertale Concentric Target Oval Rings
+                drawOval(
+                    color = Color.White,
+                    topLeft = Offset(w * 0.04f, h * 0.08f),
+                    size = Size(w * 0.92f, h * 0.84f),
                     style = Stroke(width = 3f)
                 )
+                drawOval(
+                    color = Color(0xFF22C55E).copy(alpha = 0.55f),
+                    topLeft = Offset(w * 0.22f, h * 0.16f),
+                    size = Size(w * 0.56f, h * 0.68f),
+                    style = Stroke(width = 2.5f)
+                )
 
-                // Secondary Dual-Blade track line if equipped weapon has DUAL_BLADE style
-                if (weapon.style == WeaponStyle.DUAL_BLADE) {
+                // Center sweet-spot eye band
+                val centerHalfW = (0.055f + weapon.critWindowBonus * 0.45f) * w
+                drawRect(
+                    color = if (inCritZone) MercyYellow.copy(alpha = 0.40f) else Color(0xFF16A34A).copy(alpha = 0.35f),
+                    topLeft = Offset(w * 0.5f - centerHalfW, h * 0.10f),
+                    size = Size(centerHalfW * 2f, h * 0.80f)
+                )
+                drawRect(
+                    color = if (inCritZone) MercyYellow else Color.White,
+                    topLeft = Offset(w * 0.5f - centerHalfW, h * 0.10f),
+                    size = Size(centerHalfW * 2f, h * 0.80f),
+                    style = Stroke(2.2f)
+                )
+
+                // Classic Undertale Target Eye Vertical Tick Lines
+                for (i in 1..11) {
+                    val tx = w * (i / 12f)
                     drawLine(
-                        color = MercyYellow.copy(alpha = 0.45f),
-                        start = Offset(0f, h * 0.5f),
-                        end = Offset(w, h * 0.5f),
+                        color = Color.White.copy(alpha = 0.35f),
+                        start = Offset(tx, h * 0.24f),
+                        end = Offset(tx, h * 0.76f),
                         strokeWidth = 2f
                     )
                 }
 
-                // Trailing Deltarune Ghost Afterimages moving right -> left
-                val barColor = if (weapon.style == WeaponStyle.SINGLE_BAR) soulColor else weapon.accentColor
-                for (trail in 3 downTo 1) {
-                    val ghostX = (cursorPos + trail * 0.032f).coerceIn(0f, 1f) * w
-                    drawRect(
-                        color = barColor.copy(alpha = 0.16f * (4 - trail)),
-                        topLeft = Offset(ghostX - 4.dp.toPx(), 4.dp.toPx()),
-                        size = Size(8.dp.toPx(), h - 8.dp.toPx())
-                    )
-                }
-
-                // Primary Moving Rectangular Timing Bar
+                // Sweeping Undertale White/Black Strike Cursor Bar
                 val cx = cursorPos * w
                 drawRect(
                     color = if (inCritZone) MercyYellow else Color.White,
-                    topLeft = Offset(cx - 5.dp.toPx(), 2.dp.toPx()),
-                    size = Size(10.dp.toPx(), h - 4.dp.toPx())
+                    topLeft = Offset(cx - 6.dp.toPx(), 4.dp.toPx()),
+                    size = Size(12.dp.toPx(), h - 8.dp.toPx())
                 )
                 drawRect(
-                    color = if (inCritZone) Color.White else barColor,
-                    topLeft = Offset(cx - 3.dp.toPx(), 5.dp.toPx()),
-                    size = Size(6.dp.toPx(), h - 10.dp.toPx())
+                    color = if (inCritZone) soulColor else Color.Black,
+                    topLeft = Offset(cx - 2.5.dp.toPx(), 7.dp.toPx()),
+                    size = Size(5.dp.toPx(), h - 14.dp.toPx())
                 )
             }
 
@@ -1422,7 +1254,7 @@ private fun DeltaruneFightBarInsideBox(
                 onClick = onStrike,
                 shape = RoundedCornerShape(0.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (inCritZone) MercyYellow else weapon.accentColor,
+                    containerColor = if (inCritZone) MercyYellow else UndertaleOrange,
                     contentColor = Color.Black
                 ),
                 border = BorderStroke(2.dp, Color.White),
@@ -1457,7 +1289,6 @@ private fun BulletHellArena(
             }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            // Vertical Rectangular Lane Telegraphs with Stepped Up/Down Arrows
             state.laneTelegraphs.forEach { lane ->
                 val centerX = lane.xNorm * size.width
                 val laneW = lane.widthNorm * size.width
@@ -1480,7 +1311,6 @@ private fun BulletHellArena(
                 }
             }
 
-            // Laser beams
             state.lasers.forEach { laser ->
                 val centerCoord = laser.positionNorm * (if (laser.isHorizontal) size.height else size.width)
                 val halfThick = laser.thicknessNorm * (if (laser.isHorizontal) size.height else size.width) * 0.5f
@@ -1503,7 +1333,6 @@ private fun BulletHellArena(
                 }
             }
 
-            // Pixel Monster Chomp Head + Claw Strike
             state.jawAttacks.forEach { jaw ->
                 val jc = Offset(jaw.xNorm * size.width, jaw.yNorm * size.height)
                 val cc = Offset((jaw.xNorm + jaw.clawOffsetX) * size.width, jaw.yNorm * size.height)
@@ -1517,7 +1346,6 @@ private fun BulletHellArena(
                 )
             }
 
-            // Crossed Stepped Arrow Telegraphs
             state.arrowTelegraphs.forEach { arw ->
                 drawDirectionalArrow(
                     origin = Offset(arw.originX * size.width, arw.originY * size.height),
@@ -1528,7 +1356,6 @@ private fun BulletHellArena(
                 )
             }
 
-            // Pixel Fuse Bombs
             state.bombs.forEach { bomb ->
                 drawPixelBomb(
                     center = Offset(bomb.x * size.width, bomb.y * size.height),
@@ -1538,7 +1365,6 @@ private fun BulletHellArena(
                 )
             }
 
-            // Side Wall "! <-" / "-> !" Shot Warnings
             state.sideWarnings.forEach { sw ->
                 val edgeX = if (sw.fromRightEdge) size.width - 14.dp.toPx() else 14.dp.toPx()
                 val cy = sw.yNorm * size.height
@@ -1554,7 +1380,6 @@ private fun BulletHellArena(
                 )
             }
 
-            // Crisp Stepped Pixel Bullets
             state.bullets.forEach { b ->
                 val cx = b.x * size.width
                 val cy = b.y * size.height
@@ -1565,7 +1390,6 @@ private fun BulletHellArena(
                         drawRect(b.color, Offset(cx - r * 0.35f, cy - r * 1.1f), Size(r * 0.7f, r * 2.2f))
                     }
                     BulletKind.LANCE -> {
-                        // Stepped pixel diamond lance
                         drawRect(Color.White, Offset(cx - r * 0.45f, cy - r * 1.3f), Size(r * 0.9f, r * 2.6f))
                         drawRect(Color.White, Offset(cx - r * 0.9f, cy - r * 0.55f), Size(r * 1.8f, r * 1.1f))
                         drawRect(b.color, Offset(cx - r * 0.35f, cy - r * 0.9f), Size(r * 0.7f, r * 1.8f))

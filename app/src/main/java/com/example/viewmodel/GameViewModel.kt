@@ -94,6 +94,8 @@ data class AppUiState(
     val battleFromRuins: Boolean = false,
     val defeatedEnemies: Set<EnemyId> = emptySet(),
     val friendAllies: Set<EnemyId> = emptySet(),
+    val stoppedEnemies: Set<EnemyId> = emptySet(),
+    val angelAidClaimed: Boolean = false,
     val escortingKidIds: Set<String> = emptySet(),
     val rescuedToNormalKidIds: Set<String> = emptySet(),
     val killedKidIds: Set<String> = emptySet(),
@@ -141,13 +143,25 @@ data class AppUiState(
     val saveMysteryDiscovered: Boolean
         get() = secretTapesFound > 0 || teleportControlMastered
 
+    val governmentBossIds: Set<EnemyId>
+        get() = setOf(EnemyId.GOV_MONSTER_CHIEF, EnemyId.GOV_DIRECTOR)
+
+    val governmentStoppedCount: Int
+        get() = governmentBossIds.count { it in friendAllies || it in stoppedEnemies || it in defeatedEnemies }
+
+    val totalGovernmentTargets: Int
+        get() = governmentBossIds.size
+
+    val isGovernmentStopped: Boolean
+        get() = governmentStoppedCount >= totalGovernmentTargets
+
     val totalStandardBosses: Int
         get() = EnemyRoster.standardPlayableRoster().size
 
     val resolvedBossCount: Int
         get() {
             val standardIds = EnemyRoster.standardPlayableRoster().map { it.id }.toSet()
-            return standardIds.count { it in friendAllies || it in defeatedEnemies }
+            return standardIds.count { it in friendAllies || it in stoppedEnemies || it in defeatedEnemies }
         }
 
     val isJourneyCompleteForEcho: Boolean
@@ -157,16 +171,16 @@ data class AppUiState(
         get() {
             val standardIds = EnemyRoster.standardPlayableRoster().map { it.id }.toSet()
             val killedStd = defeatedEnemies.intersect(standardIds)
-            val sparedStd = friendAllies.intersect(standardIds)
+            val peacefulStd = (friendAllies + stoppedEnemies).intersect(standardIds)
             val anyKidKilled = killedKidIds.isNotEmpty()
             val anyKidHelped = escortingKidIds.isNotEmpty() || rescuedToNormalKidIds.isNotEmpty()
             return when {
                 secretTapesFound >= totalSecretTapes -> RouteType.LOST_TAPES
-                sparedStd.size == standardIds.size && killedStd.isEmpty() && !anyKidKilled -> RouteType.PERFECT
-                killedStd.size == standardIds.size && sparedStd.isEmpty() && !anyKidHelped -> RouteType.NO_MERCY
-                (killedStd.size + sparedStd.size) >= 2 ||
+                peacefulStd.size == standardIds.size && killedStd.isEmpty() && !anyKidKilled -> RouteType.PERFECT
+                killedStd.size == standardIds.size && peacefulStd.isEmpty() && !anyKidHelped -> RouteType.NO_MERCY
+                (killedStd.size + peacefulStd.size) >= 2 ||
                     (killedStd.size == standardIds.size && anyKidHelped) ||
-                    (sparedStd.size == standardIds.size && anyKidKilled) -> RouteType.MOST_EXPECTED
+                    (peacefulStd.size == standardIds.size && anyKidKilled) -> RouteType.MOST_EXPECTED
                 else -> null
             }
         }
@@ -197,6 +211,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
                 defeatedEnemies = snap.defeatedEnemies,
                 friendAllies = snap.friendAllies,
+                stoppedEnemies = snap.stoppedEnemies,
+                angelAidClaimed = snap.angelAidClaimed,
                 escortingKidIds = snap.escortingKidIds,
                 rescuedToNormalKidIds = snap.rescuedToNormalKidIds,
                 killedKidIds = snap.killedKidIds,
@@ -253,6 +269,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 playerMapY = state.playerMapY,
                 defeatedEnemies = state.defeatedEnemies,
                 friendAllies = state.friendAllies,
+                stoppedEnemies = state.stoppedEnemies,
+                angelAidClaimed = state.angelAidClaimed,
                 escortingKidIds = state.escortingKidIds,
                 rescuedToNormalKidIds = state.rescuedToNormalKidIds,
                 killedKidIds = state.killedKidIds,
@@ -367,15 +385,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * After meeting Ashen, the first uncontrollable random paradox warp pulls Loka into a random world!
+     * After meeting Ashen, Loka begins at the connected Normal World hub with a clear mission to reach & stop The Government!
      */
     fun finishAshenMeetingToRandomWorld() {
-        val candidates = listOf(WorldId.NORMAL_WORLD, WorldId.TRI_RACE_REALM, WorldId.SPLIT_REALM)
-        val randomFirstWorld = candidates.random()
-        RetroSoundEngine.playSoulSwitch(2)
+        val startWorld = WorldId.NORMAL_WORLD
+        RetroSoundEngine.playSoulSwitch(0)
         _uiState.update { state ->
             state.copy(
-                activeWorld = randomFirstWorld,
+                activeWorld = startWorld,
                 activeZone = WorldZone.CENTER,
                 zoneCooldownSec = 0.65f,
                 currentScreen = AppScreen.WORLD_EXPLORE,
@@ -386,12 +403,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 glitchedCountdownSec = 10f,
                 ashenHiddenTimerSec = 0f,
                 glitchGhosts = emptyList(),
-                roamingMonsters = roamingForWorld(randomFirstWorld),
+                roamingMonsters = roamingForWorld(startWorld),
                 roamGraceTimerSec = 2.6f,
                 worldBannerMessage = if (state.language == AppLanguage.AR) {
-                    "انتقال مفاجئ! سحبتك المفارقة عشوائياً إلى ${randomFirstWorld.title} (لديك 10 دقائق)"
+                    "الهدف: أوصل إلى الحكومة (شمالاً عبر البوابات) وأوقفهم! العوالم متصلة معاً، والعالم المقلتش شاذ."
                 } else {
-                    "Paradox Jump! Pulled into ${randomFirstWorld.title} (10:00 timer active)."
+                    "GOAL: Travel via World Gates to The Government (North) and stop them! Worlds are connected; Glitched Void is an anomaly."
                 }
             ).also(::persist)
         }
@@ -406,9 +423,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             RetroSoundEngine.playSaveChime()
             val incremented = state.saveCounter + 1
 
-            // 8 Ashen saves trigger a Paradox Warp (unless Teleport is mastered)!
+            // 8 Ashen saves pull Loka specifically into the Glitched Void anomaly (unless Teleport is mastered)!
             if (fromAshen && inOverworld && incremented >= 8 && !state.teleportControlMastered) {
-                val warped = warpToRandomWorld(
+                val warped = warpToGlitchedVoid(
                     state.copy(
                         saveCounter = 0,
                         ashenHiddenTimerSec = ASHEN_UNDERGROUND_SECONDS,
@@ -417,9 +434,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 return@update warped.copy(
                     worldBannerMessage = if (state.language == AppLanguage.AR) {
-                        "الحفظ رقم 8! نزل آشن تحت الأرض وسحبتك المفارقة إلى ${warped.activeWorld.title}!"
+                        "الحفظ رقم 8! نزل آشن تحت الأرض وسحبك الشذوذ إلى العالم المقلتش!"
                     } else {
-                        "Save #8! Ashen burrowed underground & the Paradox warped you to ${warped.activeWorld.title}!"
+                        "Save #8! Ashen burrowed underground & a Glitch Anomaly pulled you into the Glitched Void!"
                     }
                 ).also(::persist)
             }
@@ -480,19 +497,32 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 if (crossedDoor != null) {
-                    RetroSoundEngine.playSoulSwitch(0)
-                    return@update state.copy(
+                    val destWorld = crossedDoor.targetWorld ?: state.activeWorld
+                    val changedWorld = destWorld != state.activeWorld
+                    RetroSoundEngine.playSoulSwitch(if (changedWorld) destWorld.ordinal else 0)
+                    val movedState = state.copy(
+                        activeWorld = destWorld,
                         activeZone = crossedDoor.targetZone,
                         playerMapX = crossedDoor.spawnX,
                         playerMapY = crossedDoor.spawnY,
                         zoneCooldownSec = 0.65f,
-                        roamGraceTimerSec = 1.6f,
-                        worldBannerMessage = if (state.language == AppLanguage.AR) {
-                            "${state.activeWorld.title} — ${crossedDoor.targetZone.titleAr}"
+                        roamingMonsters = if (changedWorld) roamingForWorld(destWorld) else state.roamingMonsters,
+                        roamGraceTimerSec = 1.8f,
+                        worldBannerMessage = if (changedWorld) {
+                            if (state.language == AppLanguage.AR) {
+                                "🌐 عبرت بوابة العوالم إلى ${destWorld.title} — ${crossedDoor.targetZone.titleAr}"
+                            } else {
+                                "🌐 Crossed World Gate to ${destWorld.title} — ${crossedDoor.targetZone.titleEn}"
+                            }
                         } else {
-                            "${state.activeWorld.title} — ${crossedDoor.targetZone.titleEn}"
+                            if (state.language == AppLanguage.AR) {
+                                "${destWorld.title} — ${crossedDoor.targetZone.titleAr}"
+                            } else {
+                                "${destWorld.title} — ${crossedDoor.targetZone.titleEn}"
+                            }
                         }
-                    ).also(::persist)
+                    )
+                    return@update applyNormalWorldDropOff(movedState).also(::persist)
                 }
             }
 
@@ -503,7 +533,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun triggerManualRiftJump() {
         _uiState.update { state ->
             if (state.currentScreen != AppScreen.WORLD_EXPLORE) return@update state
-            warpToRandomWorld(state).also(::persist)
+            warpToGlitchedVoid(state).also(::persist)
         }
     }
 
@@ -527,8 +557,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             if (state.activeWorld == WorldId.GLITCHED_WORLD) {
                 val nextTime = if (state.teleportControlMastered) state.glitchedCountdownSec else state.glitchedCountdownSec - dt
                 if (!state.teleportControlMastered && nextTime <= 0f) {
-                    val otherWorlds = listOf(WorldId.NORMAL_WORLD, WorldId.TRI_RACE_REALM, WorldId.SPLIT_REALM)
-                    val dest = otherWorlds.random()
+                    val dest = WorldId.NORMAL_WORLD
                     RetroSoundEngine.playGlitchNoise(120)
                     val base = state.copy(
                         activeWorld = dest,
@@ -544,9 +573,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         roamingMonsters = roamingForWorld(dest),
                         roamGraceTimerSec = 2.6f,
                         worldBannerMessage = if (state.language == AppLanguage.AR) {
-                            "انتقال مفاجئ! عدت إلى ${dest.title}."
+                            "انتهى الشذوذ! عدت إلى ${dest.title}."
                         } else {
-                            "Paradox warp! Returned to ${dest.title}."
+                            "Glitch anomaly ended — returned to ${dest.title}."
                         }
                     )
                     return@update applyNormalWorldDropOff(base)
@@ -641,30 +670,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
 
-                if (state.teleportControlMastered) {
-                    return@update state.copy(
-                        zoneCooldownSec = nextZoneCooldown,
-                        ashenHiddenTimerSec = nextHidden,
-                        roamGraceTimerSec = nextGrace,
-                        roamingMonsters = movedRoamers,
-                        worldBannerMessage = returnNotice
-                    )
-                }
-                val nextWarp = state.randomWarpCountdownSec - dt
-                if (nextWarp <= 0f) {
-                    return@update warpToRandomWorld(
-                        state.copy(
-                            zoneCooldownSec = nextZoneCooldown,
-                            ashenHiddenTimerSec = nextHidden,
-                            roamGraceTimerSec = nextGrace,
-                            roamingMonsters = movedRoamers
-                        )
-                    )
-                }
+                // Physical worlds stay connected via World Gates — no forced 10-minute random warp!
                 return@update state.copy(
                     zoneCooldownSec = nextZoneCooldown,
                     ashenHiddenTimerSec = nextHidden,
-                    randomWarpCountdownSec = nextWarp,
                     roamGraceTimerSec = nextGrace,
                     roamingMonsters = movedRoamers,
                     worldBannerMessage = returnNotice
@@ -673,28 +682,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun warpToRandomWorld(state: AppUiState): AppUiState {
-        val candidates = WorldId.entries.filter { it != state.activeWorld }
-        val echoPending = state.isJourneyCompleteForEcho &&
-            EnemyId.ECHO_LOKA !in state.friendAllies &&
-            EnemyId.ECHO_LOKA !in state.defeatedEnemies
-        val dest = if (echoPending && WorldId.GLITCHED_WORLD in candidates && Random.nextFloat() < 0.55f) {
-            WorldId.GLITCHED_WORLD
-        } else {
-            candidates.random()
-        }
+    private fun warpToGlitchedVoid(state: AppUiState): AppUiState {
+        val dest = WorldId.GLITCHED_WORLD
         val firstMem = WorldContentCatalog.glitchedMemories.random()
-        if (dest == WorldId.GLITCHED_WORLD) {
-            RetroSoundEngine.playGlitchNoise(130)
-            RetroSoundEngine.playWhisper()
-        } else {
-            RetroSoundEngine.playSoulSwitch(dest.ordinal)
-        }
-        val echoPos = if (dest == WorldId.GLITCHED_WORLD) {
-            (0.24f + Random.nextFloat() * 0.52f) to (0.24f + Random.nextFloat() * 0.45f)
-        } else state.echoLokaPos
+        RetroSoundEngine.playGlitchNoise(130)
+        RetroSoundEngine.playWhisper()
+        val echoPos = (0.24f + Random.nextFloat() * 0.52f) to (0.24f + Random.nextFloat() * 0.45f)
 
-        val warped = state.copy(
+        return state.copy(
             activeWorld = dest,
             activeZone = WorldZone.CENTER,
             zoneCooldownSec = 0.65f,
@@ -704,22 +699,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             randomWarpCountdownSec = DEFAULT_WARP_SECONDS,
             glitchedCountdownSec = 10f,
             glitchGhosts = emptyList(),
-            roamingMonsters = roamingForWorld(dest),
+            roamingMonsters = emptyList(),
             roamGraceTimerSec = 2.6f,
             activeGlitchMemory = firstMem,
             glitchMemoryCycleSec = 0f,
             echoLokaPos = echoPos,
-            worldBannerMessage = if (dest == WorldId.GLITCHED_WORLD) {
-                if (state.isJourneyCompleteForEcho) {
-                    if (state.language == AppLanguage.AR) "العالم المقلتش — اكتملت رحلتك! Echo-Loka ينتظرك كآخر عدو!" else "GLITCHED VOID — Journey complete! Echo-Loka awaits as your FINAL battle!"
-                } else {
-                    if (state.language == AppLanguage.AR) "العالم المقلتش — 10 ثوانٍ وسط ذكريات الماضي!" else "GLITCHED VOID — 10s among fractured past memories!"
-                }
+            worldBannerMessage = if (state.isJourneyCompleteForEcho) {
+                if (state.language == AppLanguage.AR) "العالم المقلتش — اكتملت رحلتك! Echo-Loka ينتظرك كآخر عدو!" else "GLITCHED VOID — Journey complete! Echo-Loka awaits as your FINAL battle!"
             } else {
-                if (state.language == AppLanguage.AR) "انتقال زمني عشوائي إلى ${dest.title}!" else "Random Paradox Warp! Pulled into ${dest.title}."
+                if (state.language == AppLanguage.AR) "العالم المقلتش (شذوذ معزول) — 10 ثوانٍ وسط ذكريات الماضي!" else "GLITCHED VOID (Disconnected Anomaly) — 10s among fractured past memories!"
             }
         )
-        return applyNormalWorldDropOff(warped)
     }
 
     /**
@@ -813,6 +803,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val rewardItem = npc.eventRewardItemId ?: return
         _uiState.update { state ->
             if (npcId in state.claimedNpcEvents) return@update state
+            if (npcId == "npc_angel_leader") {
+                RetroSoundEngine.playSaveChime()
+                val newItems = state.itemCounts.toMutableMap()
+                newItems["sepia_ration"] = (newItems["sepia_ration"] ?: 0) + 2
+                newItems["chrono_shard"] = (newItems["chrono_shard"] ?: 0) + 2
+                return@update state.copy(
+                    claimedNpcEvents = state.claimedNpcEvents + npcId,
+                    angelAidClaimed = true,
+                    unlockedArmorIds = state.unlockedArmorIds + "angel_seal_mail",
+                    equippedArmorId = "angel_seal_mail",
+                    itemCounts = newItems,
+                    worldBannerMessage = if (state.language == AppLanguage.AR) {
+                        "★ زعيم الملائكة كاسييل ساعدك! لبست درع الختم (+3 دفاع، +8 دم) وحصلت على +2 شفاء و+2 شظية!"
+                    } else {
+                        "★ Angel Leader Cassiel aids you! Equipped Angel Leader's Seal (+3 DEF, +8 HP) & +2 Rations, +2 Shards!"
+                    }
+                ).also(::persist)
+            }
             RetroSoundEngine.playSoulSwitch(1)
             val newItems = state.itemCounts.toMutableMap()
             newItems[rewardItem] = (newItems[rewardItem] ?: 0) + 1
@@ -897,7 +905,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             if (state.activeWorld == WorldId.GLITCHED_WORLD) {
-                val safeWorld = listOf(WorldId.NORMAL_WORLD, WorldId.TRI_RACE_REALM, WorldId.SPLIT_REALM).random()
+                val safeWorld = WorldId.NORMAL_WORLD
                 val nextState = state.copy(
                     activeWorld = safeWorld,
                     activeZone = WorldZone.CENTER,
@@ -909,9 +917,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     roamGraceTimerSec = 2.6f,
                     currentScreen = AppScreen.WORLD_EXPLORE,
                     worldBannerMessage = if (state.language == AppLanguage.AR) {
-                        "انتقلت عشوائياً إلى ${safeWorld.title}."
+                        "عدت من العالم المقلتش إلى ${safeWorld.title}."
                     } else {
-                        "Warped randomly into ${safeWorld.title}."
+                        "Returned from Glitched Void to ${safeWorld.title}."
                     }
                 )
                 return@update applyNormalWorldDropOff(nextState)
@@ -942,8 +950,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     currentScreen = AppScreen.ROUTE_FINALE
                 ).also(::persist)
             }
+            val profile = EnemyRoster.byId(enemyId)
+            val isNonFriendStop = spared && !profile.canBefriend && profile.canStopWithoutKilling
             state.copy(
-                friendAllies = if (spared) state.friendAllies + enemyId else state.friendAllies,
+                friendAllies = if (spared && !isNonFriendStop) state.friendAllies + enemyId else state.friendAllies,
+                stoppedEnemies = if (isNonFriendStop) state.stoppedEnemies + enemyId else state.stoppedEnemies,
                 defeatedEnemies = if (!spared) state.defeatedEnemies + enemyId else state.defeatedEnemies,
                 itemCounts = remainingItems
             ).also(::persist)
@@ -988,7 +999,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { state ->
             RetroSoundEngine.playSoulSwitch(3)
             val allStd = EnemyRoster.standardPlayableRoster().map { it.id }.toSet()
-            val newFriends = if (targetPath == RouteType.PERFECT) allStd else emptySet()
+            val newFriends = if (targetPath == RouteType.PERFECT) {
+                allStd.filter { EnemyRoster.byId(it).canBefriend }.toSet()
+            } else emptySet()
+            val newStopped = if (targetPath == RouteType.PERFECT) {
+                allStd.filter { !EnemyRoster.byId(it).canBefriend && EnemyRoster.byId(it).canStopWithoutKilling }.toSet()
+            } else emptySet()
             val newKills = if (targetPath == RouteType.NO_MERCY) allStd else emptySet()
             state.copy(
                 unlockedRoutes = state.unlockedRoutes + RouteType.LOST_TAPES,
@@ -997,7 +1013,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 peaceSacrificeEnding = false,
                 isFutureTransformed = (targetPath == RouteType.PERFECT),
                 friendAllies = newFriends,
+                stoppedEnemies = newStopped,
                 defeatedEnemies = newKills,
+                angelAidClaimed = false,
                 escortingKidIds = emptySet(),
                 rescuedToNormalKidIds = emptySet(),
                 killedKidIds = emptySet(),
