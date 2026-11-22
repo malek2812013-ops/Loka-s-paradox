@@ -34,6 +34,7 @@ import com.example.ui.theme.GlitchCyan
 import com.example.ui.theme.MercyYellow
 import com.example.ui.theme.ParchmentInk
 import com.example.ui.theme.SepiaAmber
+import com.example.ui.theme.SepiaGold
 import com.example.ui.theme.SoulAegisAmber
 import com.example.ui.theme.SoulInfernalViolet
 import com.example.ui.theme.SoulParadoxCrimson
@@ -132,12 +133,18 @@ data class BattleUiState(
     val sideWarnings: List<SideWallShotWarning> = emptyList(),
     val particles: List<ArenaParticle> = emptyList(),
 
+    // Ruins Dummy 2-Phase FIGHT animation state
+    val dummyPhase: Int = 1,
+    val dummyHatFallTimerSec: Float = 0f,
+
     // Inventory
     val items: List<BattleItem> = emptyList()
 ) {
     val canMercyOrStop: Boolean get() = (enemy.canBefriend || enemy.canStopWithoutKilling) && mercyProgress >= 100
     val canSpare: Boolean get() = canMercyOrStop
     val effectiveDefenseBonus: Int get() = defenseBonus + activeSoul.defenseBonus
+    val dummyHatFallProgress: Float
+        get() = if (dummyPhase >= 2) (dummyHatFallTimerSec / 0.85f).coerceIn(0f, 1f) else 0f
     val activeSplitBoosted: Boolean
         get() = isSplitActive && ((controlledHalfIndex == 0 && splitBoostTimer0Sec > 0f) ||
             (controlledHalfIndex == 1 && splitBoostTimer1Sec > 0f))
@@ -276,16 +283,23 @@ class BattleViewModel : ViewModel() {
             )
             val finalDamage = strike.damage
             val isCrit = strike.isCritical
-            val newHp = (s.enemyHp - finalDamage).coerceAtLeast(0)
+            val triggeredDummyPhase2 = s.enemy.id == EnemyId.RUINS_DUMMY && s.dummyPhase == 1
+            val rawNewHp = (s.enemyHp - finalDamage).coerceAtLeast(0)
+            // Guarantee Phase 2 hat-fall & cotton-spill plays out before Dummy can be defeated
+            val newHp = if (triggeredDummyPhase2) rawNewHp.coerceAtLeast(1) else rawNewHp
+            val nextDummyPhase = if (triggeredDummyPhase2) 2 else s.dummyPhase
+            val nextHatTimer = if (triggeredDummyPhase2) 0.01f else s.dummyHatFallTimerSec
             RetroSoundEngine.playStrike(isCrit && s.activeSoul != SoulType.WHITE_SICK && s.activeSoul != SoulType.PURPLE)
             hitFlashTimer = 0.36f
 
-            val shakeT = if (isCrit) 0.34f else 0.22f
-            val shakeAmt = if (isCrit) 1.0f else 0.60f
+            val shakeT = if (isCrit || triggeredDummyPhase2) 0.34f else 0.22f
+            val shakeAmt = if (isCrit || triggeredDummyPhase2) 1.0f else 0.60f
 
             if (newHp <= 0) {
                 s.copy(
                     enemyHp = 0,
+                    dummyPhase = nextDummyPhase,
+                    dummyHatFallTimerSec = nextHatTimer,
                     lastStrikeDamage = finalDamage,
                     lastStrikeCritical = isCrit,
                     slashFxTimerSec = 0.55f,
@@ -301,6 +315,7 @@ class BattleViewModel : ViewModel() {
             } else {
                 val quip = s.enemy.attackQuips[(s.turnNumber - 1) % s.enemy.attackQuips.size]
                 val msg = when {
+                    triggeredDummyPhase2 -> "Phase 2! The Dummy's hat flies off & cotton bursts everywhere! ($finalDamage DMG)  $quip"
                     s.activeSoul == SoulType.WHITE_SICK -> "Sick White Soul hit for ONLY 1 DMG!  $quip"
                     s.activeSoul == SoulType.PURPLE -> "Purple Soul swift strike ($finalDamage DMG)!  $quip"
                     isCrit -> "${s.equippedWeapon.name} CRITICAL HIT! ($finalDamage DMG!)  $quip"
@@ -308,13 +323,15 @@ class BattleViewModel : ViewModel() {
                 }
                 s.copy(
                     enemyHp = newHp,
+                    dummyPhase = nextDummyPhase,
+                    dummyHatFallTimerSec = nextHatTimer,
                     lastStrikeDamage = finalDamage,
                     lastStrikeCritical = isCrit,
                     slashFxTimerSec = 0.48f,
                     isEnemyHitFlash = true,
                     arenaShakeTimerSec = shakeT,
                     arenaShakeIntensity = shakeAmt,
-                    bossExpression = PortraitExpression.ANGRY,
+                    bossExpression = if (triggeredDummyPhase2) PortraitExpression.SURPRISED else PortraitExpression.ANGRY,
                     speakerExpression = if (isCrit) PortraitExpression.DETERMINED else PortraitExpression.ANGRY,
                     phase = BattlePhase.ENEMY_DIALOGUE,
                     dialogueText = msg
@@ -526,7 +543,8 @@ class BattleViewModel : ViewModel() {
                     EnemyId.HALO_SCRIBE,
                     EnemyId.FERAL_HOUND,
                     EnemyId.IRON_STALKER,
-                    EnemyId.ASH_IMP -> 45.0f
+                    EnemyId.ASH_IMP,
+                    EnemyId.HUMAN_DRIFTER -> 45.0f
 
                     EnemyId.VEX,
                     EnemyId.BRAMBLE,
@@ -755,6 +773,9 @@ class BattleViewModel : ViewModel() {
             val nextShakeIntensity = if (nextShake > 0f) s.arenaShakeIntensity else 0f
             val nextDmgPop = (s.playerDamagePopTimerSec - dt).coerceAtLeast(0f)
             val nextShieldPop = (s.shieldBlockedTimerSec - dt).coerceAtLeast(0f)
+            val nextHatTimer = if (s.dummyPhase >= 2 && s.dummyHatFallTimerSec < 0.85f) {
+                (s.dummyHatFallTimerSec + dt).coerceAtMost(0.85f)
+            } else s.dummyHatFallTimerSec
             when (s.phase) {
                 BattlePhase.FIGHT_MINIGAME -> {
                     // Classic Undertale Fight Bar sweeps across the target eye [0.06 .. 0.94] toward center x = 0.50f
@@ -770,6 +791,7 @@ class BattleViewModel : ViewModel() {
                     s.copy(
                         fightCursorPos = nextPos,
                         fightCursorDir = nextDir,
+                        dummyHatFallTimerSec = nextHatTimer,
                         isEnemyHitFlash = flashState,
                         slashFxTimerSec = nextSlash,
                         playerHitFlashTimerSec = nextPlayerHit,
@@ -782,6 +804,7 @@ class BattleViewModel : ViewModel() {
 
                 BattlePhase.BULLET_HELL -> simulateBulletHell(
                     s = s.copy(
+                        dummyHatFallTimerSec = nextHatTimer,
                         playerHitFlashTimerSec = nextPlayerHit,
                         arenaShakeTimerSec = nextShake,
                         arenaShakeIntensity = nextShakeIntensity,
@@ -793,6 +816,7 @@ class BattleViewModel : ViewModel() {
                 ).copy(slashFxTimerSec = nextSlash)
 
                 else -> if (
+                    s.dummyHatFallTimerSec != nextHatTimer ||
                     s.isEnemyHitFlash != flashState ||
                     s.slashFxTimerSec != nextSlash ||
                     s.playerHitFlashTimerSec != nextPlayerHit ||
@@ -801,6 +825,7 @@ class BattleViewModel : ViewModel() {
                     s.shieldBlockedTimerSec != nextShieldPop
                 ) {
                     s.copy(
+                        dummyHatFallTimerSec = nextHatTimer,
                         isEnemyHitFlash = flashState,
                         slashFxTimerSec = nextSlash,
                         playerHitFlashTimerSec = nextPlayerHit,
@@ -902,7 +927,7 @@ class BattleViewModel : ViewModel() {
 
         val spawnInterval = when (s.enemy.id) {
             EnemyId.RUINS_DUMMY -> 1.15f
-            EnemyId.NORMAL_SLIME, EnemyId.SAND_MOTH, EnemyId.HALO_SCRIBE -> 0.88f
+            EnemyId.NORMAL_SLIME, EnemyId.SAND_MOTH, EnemyId.HALO_SCRIBE, EnemyId.HUMAN_DRIFTER -> 0.88f
             EnemyId.FERAL_HOUND, EnemyId.IRON_STALKER, EnemyId.ASH_IMP -> 0.78f
             EnemyId.VEX, EnemyId.BRAMBLE -> 0.72f
             EnemyId.VESPERA, EnemyId.ORIN, EnemyId.GOV_MONSTER_CHIEF -> 0.66f
@@ -1509,6 +1534,19 @@ class BattleViewModel : ViewModel() {
                 else -> {
                     val ang = Random.nextFloat() * PI.toFloat()
                     outBullets += Bullet(nextEntityId++, 0.5f, 0.10f, cos(ang) * 0.44f, sin(ang) * 0.44f + 0.14f, kind = BulletKind.BOUNCER, color = Color(0xFFF59E0B), bouncesLeft = 2)
+                }
+            }
+
+            EnemyId.HUMAN_DRIFTER -> when (pattern) {
+                0 -> {
+                    val fromRight = Random.nextBoolean()
+                    outSideWarnings += SideWallShotWarning(nextEntityId++, fromRight, soulY.coerceIn(0.22f, 0.78f), color = SepiaGold)
+                }
+                1 -> {
+                    outArrows += ArrowTelegraph(nextEntityId++, 0.20f, 0.20f, 0.68f, 0.68f, color = SepiaGold)
+                }
+                else -> {
+                    outBullets += Bullet(nextEntityId++, 0.2f + Random.nextFloat() * 0.6f, -0.04f, (soulX - 0.5f) * 0.25f, 0.36f, kind = BulletKind.ORB, color = Color(0xFFFDE047))
                 }
             }
 

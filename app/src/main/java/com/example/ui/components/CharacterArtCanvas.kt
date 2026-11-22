@@ -269,6 +269,8 @@ fun BossSpriteCanvas(
     isSpareReady: Boolean,
     expression: PortraitExpression = PortraitExpression.NEUTRAL,
     monochromeBattle: Boolean = false,
+    dummyPhase: Int = 1,
+    dummyHatFallProgress: Float = 0f,
     modifier: Modifier = Modifier
 ) {
     val transition = rememberInfiniteTransition(label = "bossPixelSprite")
@@ -310,7 +312,9 @@ fun BossSpriteCanvas(
             sizePx = targetPx,
             isHitFlash = isHitFlash,
             isSpareReady = isSpareReady,
-            monochromeBattle = monochromeBattle
+            monochromeBattle = monochromeBattle,
+            dummyPhase = dummyPhase,
+            dummyHatFallProgress = dummyHatFallProgress
         )
     }
 }

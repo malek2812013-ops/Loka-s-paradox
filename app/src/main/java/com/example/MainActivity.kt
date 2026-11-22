@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
                         }
                         AppScreen.BATTLE -> when (state.selectedEnemyId) {
                             EnemyId.RUINS_DUMMY -> BgmTrack.BATTLE_DUMMY
-                            EnemyId.VEX, EnemyId.BRAMBLE, EnemyId.NORMAL_SLIME, EnemyId.FERAL_HOUND -> BgmTrack.BATTLE
+                            EnemyId.VEX, EnemyId.BRAMBLE, EnemyId.NORMAL_SLIME, EnemyId.FERAL_HOUND, EnemyId.HUMAN_DRIFTER -> BgmTrack.BATTLE
                             EnemyId.VESPERA, EnemyId.ORIN, EnemyId.SAND_MOTH, EnemyId.IRON_STALKER -> BgmTrack.BATTLE_OUTLANDS
                             EnemyId.SERAPHIEL, EnemyId.MALAKOR, EnemyId.HALO_SCRIBE, EnemyId.ASH_IMP -> BgmTrack.BATTLE_SPLIT
                             EnemyId.GOV_MONSTER_CHIEF, EnemyId.GOV_DIRECTOR -> BgmTrack.BATTLE_FUTURE

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -204,7 +205,9 @@ fun AshenMeetingScreen(
                         },
                         shape = RoundedCornerShape(0.dp),
                         border = BorderStroke(1.5.dp, Color(0xFFFACC15)),
-                        modifier = Modifier.testTag("ashen_save_button")
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("ashen_save_button")
                     ) {
                         Text(
                             text = if (savedByAshen > 0) tr(language, "SAVED ♥", "تم الحفظ ♥") else tr(language, "SAVE", "حفظ التقدم"),
@@ -216,7 +219,9 @@ fun AshenMeetingScreen(
                         onClick = onToggleLanguage,
                         shape = RoundedCornerShape(0.dp),
                         border = BorderStroke(1.5.dp, Color(0xFFA1A1AA)),
-                        modifier = Modifier.testTag("ashen_language_button")
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("ashen_language_button")
                     ) {
                         Text(language.buttonLabel, style = MaterialTheme.typography.labelSmall, color = ParchmentInk)
                     }

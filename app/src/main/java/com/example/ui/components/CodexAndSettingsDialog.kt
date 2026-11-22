@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -494,9 +496,12 @@ fun CodexAndSettingsDialog(
                                     OutlinedButton(
                                         onClick = { onSaveToSlot(slot.slotIndex) },
                                         shape = RoundedCornerShape(0.dp),
-                                        modifier = Modifier.testTag("save_slot_btn_${slot.slotIndex}")
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier
+                                            .heightIn(min = 48.dp)
+                                            .testTag("save_slot_btn_${slot.slotIndex}")
                                     ) {
-                                        Text(tr(lang, "SAVE", "حفظ"), style = MaterialTheme.typography.labelSmall, color = HpBarGreen)
+                                        Text(tr(lang, "SAVE", "حفظ"), style = MaterialTheme.typography.labelSmall, color = HpBarGreen, maxLines = 1)
                                     }
                                     OutlinedButton(
                                         onClick = {
@@ -504,15 +509,21 @@ fun CodexAndSettingsDialog(
                                             onDismiss()
                                         },
                                         shape = RoundedCornerShape(0.dp),
-                                        modifier = Modifier.testTag("load_slot_btn_${slot.slotIndex}")
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                        modifier = Modifier
+                                            .heightIn(min = 48.dp)
+                                            .testTag("load_slot_btn_${slot.slotIndex}")
                                     ) {
-                                        Text(tr(lang, "LOAD", "فتح"), style = MaterialTheme.typography.labelSmall, color = GlitchCyan)
+                                        Text(tr(lang, "LOAD", "فتح"), style = MaterialTheme.typography.labelSmall, color = GlitchCyan, maxLines = 1)
                                     }
                                     if (!slot.isEmpty) {
                                         OutlinedButton(
                                             onClick = { onClearSlot(slot.slotIndex) },
                                             shape = RoundedCornerShape(0.dp),
-                                            modifier = Modifier.testTag("clear_slot_btn_${slot.slotIndex}")
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier
+                                                .heightIn(min = 48.dp)
+                                                .testTag("clear_slot_btn_${slot.slotIndex}")
                                         ) {
                                             Text("✕", style = MaterialTheme.typography.labelSmall, color = DangerRed)
                                         }

@@ -7,6 +7,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -645,40 +646,97 @@ object PixelSprites {
 
     // ==================== 32x32 UNDERTALE ENEMIES & BOSSES (512x512 @ 16x SCALE) ====================
 
-    // 32x32 Stitched Cotton Training Dummy: cloth-knot crown, button eyes, stitched smile, tied scarf & wooden cross-post
+    // 32x32 Ruins Training Dummy Phase 1: Blue top hat, peanut stitched body, X X eyes, 2 thin legs & oval base
     val ruinsDummyGrid = listOf(
-        ".............OOOOOO.............",
-        "............OLCCCCLO............",
+        "...........OOOOOOOOOO...........",
+        "..........OHHhhhhHHHO...........",
+        "..........OHHHHHHHHHHO..........",
+        "..........OHBBBBBBBBHO..........",
+        "........OOOHHHHHHHHHHOOO........",
+        ".......OHHhhhhhhhhhhhhHHO.......",
+        "........OOOOOOOOOOOOOOOO........",
         "..........OOLLLLLLLLOO..........",
-        "........OOLLCCCCCCCCLLOO........",
-        ".......OLCCCCCCCCCCCCCCLO.......",
-        "......OLCCCCBWCCCCWBCCCCLO......",
-        "......OCCCCCBBCCCCBBCCCCCO......",
-        "......OCCMCCCCCCCCCCCMCCCO......",
-        ".......OCMMCCBBBBBBCCMMCO.......",
+        ".........OLCCCCCCCCCCLO.........",
+        "........OLCBBCBBBBCCBCLO........",
+        "........OCCCBCBBBBCCCBCO........",
+        "........OCCBBCBBBBCCBBCO........",
         "........OCCCCCCCCCCCCCCO........",
-        "........OOWWWWWWWWWWWWOO........",
-        ".......OOWWWMMWWWWMMWWWOO.......",
-        ".....OOCCCCCCCCCCCCCCCCCCOO.....",
-        "...OOLLCCCCMCCCCCCCCMCCCCLLOO...",
-        "..OLLCCCCCCMCCCWWCCCMCCCCCCLLO..",
-        "..OCCOCCCCCMCCWWWWCCMCCCCCOCCO..",
-        "...OO.OCCCCMCCWWWWCCMCCCCO.OO...",
-        "......OCCCCMCCCCCCCCMCCCCO......",
-        "......OCCCCCMCCCCCCMCCCCCO......",
-        ".......OCCCCCCCCCCCCCCCCO.......",
+        ".......OOCCCCCCCCCCCCCCOO.......",
+        "......OOLLCCBMCCCCCCCCCCOO......",
+        "....OOLCCCCMBMBCCCCCCCCCCCO.....",
+        "....OLCCCCCMBMCCCCCCCCCCCCCO....",
+        ".....OOCBCCCBMCCCCCCCCCCCCCO....",
+        "......OCCCCCCBMCCCCCCCCCCCCO....",
+        "......OCCCCCCCBMCCCCCCCCCCCO....",
+        ".......OCCCCCCCBMCCCCCCCCCO.....",
+        "........OCCCCCCCCCCCCCCCCO......",
+        "........OOOOOOOOOOOOOOOOOO......",
+        "...........OCCO....OCCO.........",
+        "...........OCCO....OCCO.........",
+        "...........OCCO....OCCO.........",
+        "...........OCCO....OCCO.........",
+        ".........OOOHHHHHHHHOOO.........",
+        ".......OHHHHHHHHHHHHHHHHO.......",
+        ".......OHHhhhhhhhhhhhhHHO.......",
         "........OOOOOOOOOOOOOOOO........",
-        ".............OWMMWO.............",
-        ".............OWMMWO.............",
-        ".............OWMMWO.............",
-        "...........OOOWMMWOOO...........",
-        ".........OOWWWWMMWWWWOO.........",
-        "........OMMMMMMMMMMMMMMO........",
-        "........OOOOOOOOOOOOOOOO........",
+        "................................"
+    )
+
+    // 32x32 Ruins Training Dummy Phase 2: Bare torn head (hat knocked off), shocked X/> eyes & white cotton bursting from tears
+    val ruinsDummyPhase2Grid = listOf(
         "................................",
         "................................",
+        "................................",
+        "................................",
+        "................................",
+        "..........OOOWWOOOOOO...........",
+        ".........OLLWWWWCCCCOO..........",
+        "........OLCCWWWWCCCCCCLO........",
+        "........OLCBCWWWWCCCBCCO........",
+        "........OCBCCWWWWCCBBCBO........",
+        "........OCBCCWCCCCCBCCCO........",
+        "........OCCCCCCCCCCCCCCO........",
+        ".......OOCCCCCCCCCCCCCCOO.......",
+        "......OOLLCCWWWWCCCCCCCCOO......",
+        "....OOLCCCWWWWWWWCCCCCCCCCO.....",
+        "....OLCCCWWWWWWWWWWCCCCCCCCO....",
+        ".....OOCBWWWWWWWWWWCCCCCCCCO....",
+        "......OCCCCWWWWWWWCCCCCCCCCO....",
+        "......OCCCCCCWWWWBCCCCCCCCCO....",
+        ".......OCCCCCCCMBMCCCCCCCCO.....",
+        "........OCCCCCCCCCCCCCCCCO......",
+        "........OOOOOOOOOOOOOOOOOO......",
+        "...........OCCO....OCCO.........",
+        "...........OCCO....OCCO.........",
+        "...........OCCO....OCCO.........",
+        "...........OCCO....OCCO.........",
+        ".........OOOHHHHHHHHOOO.........",
+        ".......OHHHHHHHHHHHHHHHHO.......",
+        ".......OHHhhhhhhhhhhhhHHO.......",
+        "........OOOOOOOOOOOOOOOO........",
         "................................",
         "................................"
+    )
+
+    // 14x8 Top Hat grid for Phase 2 falling animation
+    val dummyTopHatGrid = listOf(
+        "...OOOOOOOO...",
+        "..OHHhhhhHHO..",
+        "..OHHHHHHHHO..",
+        "..OHBBBBBBHO..",
+        "OOOHHHHHHHHOOO",
+        "OHHhhhhhhhhHHO",
+        ".OOOOOOOOOOOO."
+    )
+
+    // 10x7 Fluffy Cotton Puff grid for Phase 2 floor & tear scatter
+    val cottonPuffGrid = listOf(
+        "..OOOOOO..",
+        ".OWWWWWWO.",
+        "OWWWWWWWWO",
+        "OWWWCCWWWO",
+        ".OWWWWWWO.",
+        "..OOOOOO.."
     )
 
     // Commander Vex (32x32): Armored Paradox Officer with angular visor & tactical coat
@@ -969,36 +1027,36 @@ object PixelSprites {
         "................................"
     )
 
-    // 32x32 Undertale Normal Monsters (sculpted to 64x64 with richer silhouettes, glints & shading)
+    // 32x32 Pumb (user sketch): two round ears + bent top antenna, giant expressive eyes, dark oval body, clawed outstretched arms & legs
     val normalSlimeGrid = listOf(
-        "................................",
-        "............OOOOOOOO............",
-        "...........OGGWWWWGGO...........",
-        "..........OGGGDDDDGGGO..........",
-        "...........OOOOGGOOOO...........",
-        "........OOOOOOOOOOOOOOOO........",
-        "......OOGGGGGGGGGGGGGGGGOO......",
-        ".....OGGGWWWWGGGGGGGGGGGGGO.....",
-        "....OGGGWWGGGGGGGGGGGGGGGGGO....",
-        "...OGGGGGGGGGGGGGGGGGGGGGGGGO...",
-        "...OGGGGGGBWGGGGGGGGGBWGGGGGO...",
-        "..OGGGGGGGGBBGGGGGGGGBBGGGGGGGO.",
-        "..OGGGGGGGGGGGGGGGGGGGGGGGGGGGO.",
-        "..OGGGGGGGGDDGWWWWGGDDGGGGGGGGO.",
-        "..OGGGGGGGGGGGDDDDGGGGGGGGGGGGO.",
-        "..OGGGGGGGGGGGGGGGGGGGGGGGGGGGO.",
-        "...OGGGGGGGDDDDDDDDDDGGGGGGGGO..",
-        "...OOGGGGGDDDDDDDDDDDDGGGGGOO...",
-        "....OOOOOOOOOOOOOOOOOOOOOOOO....",
-        "..OOO......................OOO..",
-        ".OGWGO....................OGGGO.",
-        "..OOO......................OOO..",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
+        ".............OOOOOO.............",
+        ".............OGWWGO.............",
+        ".......OOOO..OGGOOO.OOOO........",
+        "......OGWWGO.OGGO..OGWWGO.......",
+        "......OGGGGO.OGGO..OGGGGO.......",
+        ".......OOOOGGGGGGGGOOOOO........",
+        "......OGGGGGGGGGGGGGGGGGO.......",
+        ".....OGGWWWWWWGGGWWWWWWGGO......",
+        ".....OGGWWBBWWGGGWWBBWWGGO......",
+        ".....OGGWWBBWWGGGWWBBWWGGO......",
+        ".....OGGWWWWWWGGGWWWWWWGGO......",
+        "......OGGGGGGGGGGGGGGGGGO.......",
+        ".......OOOGDDDDDDDDGOOOO........",
+        "....OO..OGDDDDDDDDDDGO..OO......",
+        "..OOGGOOOGDDDDWWDDDDGOOOGGOO....",
+        ".OGWWGOOOGDDDDDDDDDDGOOOGWWGO...",
+        "OGGGGGGGGGDDDDDDDDDDGGGGGGGGGO..",
+        ".OGGGGGGGODDDDDDDDDDOGGGGGGGO...",
+        "..OOGGGO.ODDDDDDDDDDO.OGGGOO....",
+        ".........ODDDDDDDDDDO...........",
+        "..........ODDDDDDDDO............",
+        "..........OODDDDDDOO............",
+        "...........OGGOOGGO.............",
+        "...........OGGOOGGO.............",
+        "...........OGGOOGGO.............",
+        ".........OOGGGOOGGGOO...........",
+        ".........OGGWGOOGWGGO...........",
+        ".........OOOOOO.OOOOO...........",
         "................................",
         "................................",
         "................................",
@@ -1040,33 +1098,34 @@ object PixelSprites {
         "................................"
     )
 
+    // 32x32 Cyan Moth / Butterfly (user sketch): two curved antennae, cute dot eyes, slender abdomen & 4 rounded wings with ring eyespots
     val sandMothGrid = listOf(
-        "...OOO....................OOO...",
-        "....OYYO....OOOOOOOO....OYYO....",
-        ".....OCCO..ODDDDDDDDO..OCCO.....",
-        ".OOOOOOCCCOODWWDDWWDOOCCCOOOOOO.",
-        "OCCCCCCCCCOODDDDDDDDOOCCCCCCCCCO",
-        "OCCCYYYCCCOODWWDDWWDOOCCCYYYCCCO",
-        "OCCYWWWYCCCOODDDDDDOOCCCYWWWYCCO",
-        "OCCCYYYCCCCOODYYYYDOOCCCCYYYCCCO",
-        "OCCCCCCCCCCOOODDDDOOOCCCCCCCCCCO",
-        ".OCCCCCCCCCO.ODYYDO.OCCCCCCCCCO.",
-        "..OCCCCCCCO..ODDDDO..OCCCCCCCO..",
-        "...OOOOOOCC..ODYYDO..CCOOOOOO...",
-        "........OO...ODDDDO...OO........",
-        "..............ODDO..............",
+        "..........OO......OO............",
+        "..........OYO....OYO............",
+        "...........OYO..OYO.............",
+        "............OOOOOO..............",
+        "...........ODDDDDDO.............",
+        "..........ODDWWDDWWDO...........",
+        "..........ODDBBDDDBDO...........",
+        "....OOOOOOODDDDDDDDOOOOOOOO.....",
+        "..OOCCCCCCCCOODDDDOOCCCCCCCCOO..",
+        ".OCCCCCCCCCCCOODDDOCCCCCCCCCCCO.",
+        "OCCCCYYYYCCCCOODDDOCCCCYYYYCCCCO",
+        "OCCYYWWWWYYCCOODDDOOCCYYWWWWYYCO",
+        "OCCYWWOOOWYCCOODDDOOCCYWWOOOWYCO",
+        "OCCYYWWWWYYCCOODDDOOCCYYWWWWYYCO",
+        "OCCCCYYYYCCCCOODDDOCCCCYYYYCCCCO",
+        ".OCCCCCCCCCCCOODDDOCCCCCCCCCCCO.",
+        "..OOOOOOCCCOOODDDDOOOCCCOOOOOO..",
+        "...OOCCCCCCOOODDDDOOOCCCCCCOO...",
+        "..OCCCCYYYCCOODDDDOOCCYYYCCCCO..",
+        "..OCCYWWWWYCOODDDDOOCYWWWWYCCO..",
+        "..OCCYWOOWYCOODDDDOOCYWOOWYCCO..",
+        "..OCCYWWWWYCOODDDDOOCYWWWWYCCO..",
+        "..OCCCCYYYCCOOODDDOOCCYYYCCCCO..",
+        "...OOCCCCCCOO.ODDO.OOCCCCCCOO...",
+        ".....OOOOOO...ODDO...OOOOOO.....",
         "..............OOOO..............",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
         "................................",
         "................................",
         "................................",
@@ -1145,22 +1204,30 @@ object PixelSprites {
         "................................"
     )
 
+    // 32x32 Devil / Cinder Imp (user sketch): pointed horns, V-brow over huge eyes, 3-claw spread bat wings, standing legs & long curved arrow tail
     val ashImpGrid = listOf(
-        "..OOO......................OOO..",
-        "..OYYO......OOOOOOOO......OYYO..",
-        "...ORROOOODDDDDDDDDDDDOOOORRO...",
-        "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
-        "..ODDDDDDYYDDDDDDDDDDYYDDDDDDO..",
-        "..ODDDDDDYWDDDDDDDDDDWYDDDDDDO..",
-        "...ODDDDDWWWWWWWWWWWWWWDDDDDO...",
-        "..OODDDDDDDDDDDDDDDDDDDDDDDDOO..",
-        ".ORRRODDDDDDRRRRRRRRDDDDDDORRRO.",
-        ".ORRRODDDDDRYYYYYYYYRDDDDDORRRO.",
-        "..OOO..ODDDDDD....DDDDDDO..OOO..",
-        ".......ODDDDD......DDDDDO....O..",
-        "......OODDDD........DDDDOO..OYO.",
-        "......ORRROO........OORRRO..OO..",
-        "......OOOOOO........OOOOOO......",
+        ".....OO..................OO.....",
+        ".....ORRO....OOOOOO....ORRO.....",
+        "......ORROOODDDDDDDDOOORRO......",
+        ".......ODDDDDDDDDDDDDDDDO.......",
+        "......ODDDDDDDDDDDDDDDDDDO......",
+        "......ODDDWWYDDDDDDYWWDDDO......",
+        "......ODDDWRWDDDDDDWRWDDDO......",
+        ".......ODDDDDDDDDDDDDDDDO.......",
+        ".......OODDDDDDDDDDDDDDOO.......",
+        "....OOOOOODDDDDDDDDDDDOOOOOO....",
+        "..OORRRRRRODDDDDDDDDDORRRRRROO..",
+        ".ORRROORRRRODDDDDDDDORRRROORRRO.",
+        "ORRO.ORRO.ODDDDDDDDDDO.ORRO.ORRO",
+        ".OO..OO...ODDDDDDDDDDO...OO..OO.",
+        "..........ODDDDDDDDDDO..........",
+        "...........ODDDDDDDDO.........OO",
+        "...........ODDD..DDDO........OYO",
+        "..........ODDD....DDDO......ORRO",
+        "..........ORRO....ORRO.....ORRO.",
+        "........OOORRO....ORRROO..ORRO..",
+        "........ORRRRO....ORRRROOORRO...",
+        "........OOOOOO....OOOOOOOOOO....",
         "................................",
         "................................",
         "................................",
@@ -1170,6 +1237,35 @@ object PixelSprites {
         "................................",
         "................................",
         "................................",
+        "................................"
+    )
+
+    // 32x32 Stray Walker Human (user sketch): big round head, tall large eyes, compact body, straight raised arms & legs
+    val humanDrifterGrid = listOf(
+        "..........OOOOOOOOOOOO..........",
+        "........OODSSSSSSSSSSDOO........",
+        ".......ODSSSSSSSSSSSSSSDO.......",
+        "......ODSSSSSSWWWWSSSSSSDO......",
+        "......ODSSSOWWSSSSWWOOSSDO......",
+        "......ODSSSWBBSSSSWBBWSSDO......",
+        "......ODSSSWBBSSSSWBBWSSDO......",
+        "......ODSSSWWWSSSSWWWWSSDO......",
+        ".......ODSSSSSSSSSSSSSSDO.......",
+        "........OODSSSSSSSSSSDOO........",
+        "..........OOOOOOOOOOOO..........",
+        "....OO....ODDDDDDDDDDO....OO....",
+        "..OORROO..ODDDDDDDDDDO..OORROO..",
+        ".ORRRRROOOODDDDDDDDDDOOOORRRRRO.",
+        "..OOOO...OODDDDDDDDDDOO...OOOO..",
+        "..........ODDDDDDDDDDO..........",
+        "..........ODDDDDDDDDDO..........",
+        "...........ODDDDDDDDO...........",
+        "...........ODDO..ODDO...........",
+        "...........ODDO..ODDO...........",
+        "...........ODDO..ODDO...........",
+        "...........ODDO..ODDO...........",
+        "..........OODDO..ODDOO..........",
+        "..........OOOOO..OOOOO..........",
         "................................",
         "................................",
         "................................",
@@ -1304,13 +1400,17 @@ fun DrawScope.drawUndertaleBossPixelSprite(
     sizePx: Float,
     isHitFlash: Boolean,
     isSpareReady: Boolean,
-    monochromeBattle: Boolean = false
+    monochromeBattle: Boolean = false,
+    dummyPhase: Int = 1,
+    dummyHatFallProgress: Float = 0f
 ) {
     val lineCol = when {
         isHitFlash -> Color.White
         isSpareReady -> MercyYellow
         else -> Color.White
     }
+
+    val dummyGrid = if (dummyPhase >= 2) PixelSprites.ruinsDummyPhase2Grid else PixelSprites.ruinsDummyGrid
 
     val (grid, palette) = if (monochromeBattle) {
         // 100% Authentic Undertale White-on-Black Battle Sprite Palette:
@@ -1331,6 +1431,16 @@ fun DrawScope.drawUndertaleBossPixelSprite(
             else -> Color(0xFF9CA3AF)
         }
         val darkSeam = if (isHitFlash) Color.White else Color(0xFF000000)
+        val hatColor = when {
+            isHitFlash -> Color.White
+            isSpareReady -> MercyYellow
+            else -> Color(0xFF3B82F6)
+        }
+        val hatHighlight = when {
+            isHitFlash -> Color.White
+            isSpareReady -> Color(0xFFFDE047)
+            else -> Color(0xFF93C5FD)
+        }
         val eyeGlint = when {
             isHitFlash -> Color.White
             enemyId == EnemyId.ECHO_LOKA -> GlitchCyan
@@ -1345,9 +1455,10 @@ fun DrawScope.drawUndertaleBossPixelSprite(
         }
 
         when (enemyId) {
-            EnemyId.RUINS_DUMMY -> PixelSprites.ruinsDummyGrid to mapOf(
+            EnemyId.RUINS_DUMMY -> dummyGrid to mapOf(
                 'O' to lineCol, 'L' to mainBody, 'C' to lightShade,
-                'W' to Color.White, 'B' to darkSeam, 'M' to midShade
+                'W' to Color.White, 'B' to darkSeam, 'M' to midShade,
+                'H' to hatColor, 'h' to hatHighlight
             )
             EnemyId.VEX -> PixelSprites.vexBossGrid to mapOf(
                 'O' to lineCol, 'D' to mainBody, 'A' to lightShade, 'W' to darkSeam
@@ -1376,13 +1487,13 @@ fun DrawScope.drawUndertaleBossPixelSprite(
                 'S' to lightShade, 'C' to eyeGlint, 'Y' to brightAccent
             )
             EnemyId.NORMAL_SLIME -> PixelSprites.normalSlimeGrid to mapOf(
-                'O' to lineCol, 'G' to mainBody, 'D' to midShade, 'B' to darkSeam, 'W' to darkSeam
+                'O' to lineCol, 'G' to mainBody, 'D' to midShade, 'B' to darkSeam, 'W' to Color.White
             )
             EnemyId.FERAL_HOUND -> PixelSprites.feralHoundGrid to mapOf(
                 'O' to lineCol, 'D' to mainBody, 'R' to darkSeam, 'W' to darkSeam
             )
             EnemyId.SAND_MOTH -> PixelSprites.sandMothGrid to mapOf(
-                'O' to lineCol, 'D' to mainBody, 'C' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
+                'O' to lineCol, 'D' to mainBody, 'C' to lightShade, 'Y' to midShade, 'W' to mainBody, 'B' to darkSeam
             )
             EnemyId.IRON_STALKER -> PixelSprites.ironStalkerGrid to mapOf(
                 'O' to lineCol, 'D' to mainBody, 'R' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
@@ -1391,7 +1502,10 @@ fun DrawScope.drawUndertaleBossPixelSprite(
                 'O' to lineCol, 'Y' to brightAccent, 'P' to mainBody, 'B' to darkSeam, 'W' to darkSeam
             )
             EnemyId.ASH_IMP -> PixelSprites.ashImpGrid to mapOf(
-                'O' to lineCol, 'D' to mainBody, 'R' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
+                'O' to lineCol, 'D' to mainBody, 'R' to lightShade, 'Y' to midShade, 'W' to darkSeam
+            )
+            EnemyId.HUMAN_DRIFTER -> PixelSprites.humanDrifterGrid to mapOf(
+                'O' to lineCol, 'S' to mainBody, 'D' to lightShade, 'R' to midShade, 'W' to Color.White, 'B' to darkSeam
             )
             EnemyId.GOV_MONSTER_CHIEF -> PixelSprites.govMonsterChiefGrid to mapOf(
                 'O' to lineCol, 'D' to mainBody, 'G' to lightShade, 'Y' to darkSeam, 'W' to darkSeam
@@ -1405,13 +1519,15 @@ fun DrawScope.drawUndertaleBossPixelSprite(
         val darkFill = if (isHitFlash) Color.White else Color(0xFF0E0E14)
         val white = if (isSpareReady && !isHitFlash) MercyYellow else Color.White
         when (enemyId) {
-            EnemyId.RUINS_DUMMY -> PixelSprites.ruinsDummyGrid to mapOf(
+            EnemyId.RUINS_DUMMY -> dummyGrid to mapOf(
                 'O' to lineCol,
                 'L' to (if (isHitFlash) Color.White else Color(0xFFF3E8D2)),
                 'C' to (if (isHitFlash) Color.White else Color(0xFFD6C29F)),
                 'W' to white,
                 'B' to Color(0xFF1F1624),
-                'M' to (if (isHitFlash) Color.White else Color(0xFF8B5E3C))
+                'M' to (if (isHitFlash) Color.White else Color(0xFF8B5E3C)),
+                'H' to (if (isHitFlash) Color.White else Color(0xFF2563EB)),
+                'h' to (if (isHitFlash) Color.White else Color(0xFF93C5FD))
             )
             EnemyId.VEX -> PixelSprites.vexBossGrid to mapOf(
                 'O' to lineCol, 'D' to Color(0xFF1E293B), 'A' to (if (isHitFlash) Color.White else SoulAegisAmber), 'W' to white
@@ -1441,13 +1557,13 @@ fun DrawScope.drawUndertaleBossPixelSprite(
                 'Y' to (if (isHitFlash) Color.White else SepiaGold)
             )
             EnemyId.NORMAL_SLIME -> PixelSprites.normalSlimeGrid to mapOf(
-                'O' to lineCol, 'G' to (if (isHitFlash) Color.White else Color(0xFF4ADE80)), 'D' to (if (isHitFlash) Color.White else Color(0xFF166534)), 'B' to Color(0xFF0A0A0D), 'W' to white
+                'O' to lineCol, 'G' to (if (isHitFlash) Color.White else Color(0xFF4ADE80)), 'D' to (if (isHitFlash) Color.White else Color(0xFF14532D)), 'B' to Color(0xFF0A0A0D), 'W' to white
             )
             EnemyId.FERAL_HOUND -> PixelSprites.feralHoundGrid to mapOf(
                 'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF27222D)), 'R' to (if (isHitFlash) Color.White else Color(0xFFEF4444)), 'W' to white
             )
             EnemyId.SAND_MOTH -> PixelSprites.sandMothGrid to mapOf(
-                'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF422C1D)), 'C' to (if (isHitFlash) Color.White else SoulSeraphCyan), 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'W' to white
+                'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF422C1D)), 'C' to (if (isHitFlash) Color.White else SoulSeraphCyan), 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'W' to white, 'B' to Color(0xFF0A0A0D)
             )
             EnemyId.IRON_STALKER -> PixelSprites.ironStalkerGrid to mapOf(
                 'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF334155)), 'R' to (if (isHitFlash) Color.White else Color(0xFFF97316)), 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'W' to white
@@ -1457,6 +1573,9 @@ fun DrawScope.drawUndertaleBossPixelSprite(
             )
             EnemyId.ASH_IMP -> PixelSprites.ashImpGrid to mapOf(
                 'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF331B24)), 'R' to (if (isHitFlash) Color.White else SoulParadoxCrimson), 'Y' to (if (isHitFlash) Color.White else Color(0xFFF59E0B)), 'W' to white
+            )
+            EnemyId.HUMAN_DRIFTER -> PixelSprites.humanDrifterGrid to mapOf(
+                'O' to lineCol, 'S' to (if (isHitFlash) Color.White else Color(0xFFEBC7A8)), 'D' to (if (isHitFlash) Color.White else Color(0xFF334155)), 'R' to (if (isHitFlash) Color.White else SepiaGold), 'W' to white, 'B' to Color(0xFF0A0A0D)
             )
             EnemyId.GOV_MONSTER_CHIEF -> PixelSprites.govMonsterChiefGrid to mapOf(
                 'O' to lineCol, 'D' to (if (isHitFlash) Color.White else Color(0xFF1E293B)), 'G' to (if (isHitFlash) Color.White else Color(0xFF4ADE80)), 'Y' to (if (isHitFlash) Color.White else MercyYellow), 'W' to white
@@ -1495,6 +1614,101 @@ fun DrawScope.drawUndertaleBossPixelSprite(
 
     val refinedGrid = PixelSprites.sculptGridTo64(grid)
     drawPixelMatrix(rows = refinedGrid, palette = palette, center = center, targetSizePx = sizePx)
+
+    if (enemyId == EnemyId.RUINS_DUMMY && dummyPhase >= 2) {
+        drawDummyPhase2Overlay(
+            center = center,
+            sizePx = sizePx,
+            hatFallProgress = dummyHatFallProgress,
+            isHitFlash = isHitFlash,
+            monochromeBattle = monochromeBattle
+        )
+    }
+}
+
+/**
+ * Draws Phase 2 Ruins Dummy effects: the blue top hat arcing from the head to the left floor
+ * ("انيميشن سقوط الطاقية") plus crisp pixel cotton puffs ("قطن") bursting around the pedestal base.
+ */
+fun DrawScope.drawDummyPhase2Overlay(
+    center: Offset,
+    sizePx: Float,
+    hatFallProgress: Float,
+    isHitFlash: Boolean,
+    monochromeBattle: Boolean
+) {
+    val t = hatFallProgress.coerceIn(0f, 1f)
+    val inv = 1f - t
+    // Quadratic bezier arc from head crown -> high left peak -> left ground next to base
+    val p0 = Offset(center.x, center.y - sizePx * 0.38f)
+    val pCtrl = Offset(center.x - sizePx * 0.28f, center.y - sizePx * 0.56f)
+    val pEnd = Offset(center.x - sizePx * 0.39f, center.y + sizePx * 0.34f)
+    val hatPos = Offset(
+        x = inv * inv * p0.x + 2f * inv * t * pCtrl.x + t * t * pEnd.x,
+        y = inv * inv * p0.y + 2f * inv * t * pCtrl.y + t * t * pEnd.y
+    )
+    // Gentle wobble angle mid-air settling flat at 0 deg on landing
+    val tiltDeg = -28f * sin(t * Math.PI.toFloat())
+
+    val hatPalette = mapOf(
+        'O' to Color.White,
+        'H' to if (isHitFlash) Color.White else if (monochromeBattle) Color(0xFF3B82F6) else Color(0xFF2563EB),
+        'h' to if (isHitFlash) Color.White else Color(0xFF93C5FD),
+        'B' to Color(0xFF0A0A0E)
+    )
+
+    rotate(degrees = tiltDeg, pivot = hatPos) {
+        drawPixelMatrix(
+            rows = PixelSprites.dummyTopHatGrid,
+            palette = hatPalette,
+            center = hatPos,
+            targetSizePx = sizePx * 0.28f
+        )
+    }
+
+    // Motion trail dots behind the falling hat while airborne
+    if (t in 0.05f..0.90f) {
+        for (i in 1..3) {
+            val tt = (t - i * 0.08f).coerceAtLeast(0f)
+            val ti = 1f - tt
+            val trailPos = Offset(
+                x = ti * ti * p0.x + 2f * ti * tt * pCtrl.x + tt * tt * pEnd.x,
+                y = ti * ti * p0.y + 2f * ti * tt * pCtrl.y + tt * tt * pEnd.y
+            )
+            val dotPx = sizePx * 0.03f
+            drawRect(
+                color = Color(0xFF93C5FD).copy(alpha = (1f - i * 0.25f) * 0.75f),
+                topLeft = Offset(trailPos.x - dotPx * 0.5f, trailPos.y - dotPx * 0.5f),
+                size = Size(dotPx, dotPx)
+            )
+        }
+    }
+
+    // Cotton puffs ("قطن") bursting onto the floor around the dummy base & waist
+    val cottonScale = (t * 1.45f).coerceIn(0.25f, 1f)
+    val cottonPalette = mapOf(
+        'O' to Color.White,
+        'W' to Color.White,
+        'C' to Color(0xFFE4E4E7)
+    )
+    val puffOffsets = listOf(
+        Offset(-0.22f, 0.36f),
+        Offset(0.26f, 0.35f),
+        Offset(0.36f, 0.27f)
+    )
+    puffOffsets.forEachIndexed { idx, rel ->
+        val popLift = (1f - cottonScale) * (0.14f + idx * 0.04f)
+        val pc = Offset(
+            center.x + rel.x * sizePx,
+            center.y + (rel.y - popLift) * sizePx
+        )
+        drawPixelMatrix(
+            rows = PixelSprites.cottonPuffGrid,
+            palette = cottonPalette,
+            center = pc,
+            targetSizePx = sizePx * (0.14f + (idx % 2) * 0.03f) * cottonScale
+        )
+    }
 }
 
 /**

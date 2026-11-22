@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -136,6 +137,7 @@ fun RouteFinaleScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
@@ -147,7 +149,8 @@ fun RouteFinaleScreen(
                     OutlinedButton(
                         onClick = onToggleLanguage,
                         shape = RoundedCornerShape(0.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White)
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White),
+                        modifier = Modifier.heightIn(min = 48.dp)
                     ) {
                         Text(lang.buttonLabel, style = MaterialTheme.typography.labelSmall, color = ParchmentInk)
                     }
@@ -339,7 +342,9 @@ fun RouteFinaleScreen(
                 onClick = onReturnToWorlds,
                 shape = RoundedCornerShape(0.dp),
                 border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
             ) {
                 Text(tr(lang, "RETURN TO WORLDS", "العودة إلى العوالم"), style = MaterialTheme.typography.labelLarge, color = ParchmentInk)
             }

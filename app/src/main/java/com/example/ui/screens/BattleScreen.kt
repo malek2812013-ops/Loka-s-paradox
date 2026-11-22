@@ -157,7 +157,8 @@ fun BattleScreen(
         state.arenaShakeTimerSec > 0f ||
         state.playerHitFlashTimerSec > 0f ||
         state.playerDamagePopTimerSec > 0f ||
-        state.shieldBlockedTimerSec > 0f
+        state.shieldBlockedTimerSec > 0f ||
+        (state.dummyPhase >= 2 && state.dummyHatFallTimerSec < 0.85f)
 
     LaunchedEffect(state.phase, hasActiveFx) {
         if (state.phase == BattlePhase.FIGHT_MINIGAME || state.phase == BattlePhase.BULLET_HELL || hasActiveFx) {
@@ -616,6 +617,8 @@ fun BattleScreen(
                             isSpareReady = state.canSpare,
                             expression = state.bossExpression,
                             monochromeBattle = true,
+                            dummyPhase = state.dummyPhase,
+                            dummyHatFallProgress = state.dummyHatFallProgress,
                             modifier = Modifier.size(152.dp)
                         )
                         if (state.slashFxTimerSec > 0f && state.lastStrikeDamage != null) {
@@ -689,6 +692,7 @@ fun BattleScreen(
                                 EnemyId.IRON_STALKER -> 140f
                                 EnemyId.HALO_SCRIBE -> 480f
                                 EnemyId.ASH_IMP -> 320f
+                                EnemyId.HUMAN_DRIFTER -> 335f
                                 EnemyId.VEX -> 240f
                                 EnemyId.BRAMBLE -> 185f
                                 EnemyId.VESPERA -> 410f

@@ -6,6 +6,7 @@ import com.example.R
 import com.example.ui.theme.GlitchCyan
 import com.example.ui.theme.ParchmentInk
 import com.example.ui.theme.SepiaAmber
+import com.example.ui.theme.SepiaGold
 import com.example.ui.theme.SoulAegisAmber
 import com.example.ui.theme.SoulInfernalViolet
 import com.example.ui.theme.SoulParadoxCrimson
@@ -587,6 +588,7 @@ enum class EnemyId {
     IRON_STALKER,
     HALO_SCRIBE,
     ASH_IMP,
+    HUMAN_DRIFTER,
     ECHO_LOKA, // ONLY spawns inside the Glitched World & unlocked after journey ends!
     FUTURE_LOKA // Final confrontation in Route finales
 }
@@ -879,38 +881,38 @@ object EnemyRoster {
         EnemyProfile(
             id = EnemyId.NORMAL_SLIME,
             worldId = WorldId.NORMAL_WORLD,
-            name = "Mossy Puff",
-            raceTitle = "Slime Monster · Ordered Calm Method",
+            name = "Pumb",
+            raceTitle = "Pumb · Clawed Antenna Monster",
             difficultyLabel = "NORMAL MONSTER",
             maxHp = 48,
             attackPower = 2,
             accentColor = Color(0xFF86EFAC),
             xNorm = 0.18f,
             yNorm = 0.42f,
-            spareMethodHintEn = "Strict Order: 1.Observe (+15%) -> 2.Cool Dew (+35%) -> 3.Pat Cap (+50%).",
-            spareMethodHintAr = "ترتيب إجباري: 1.مراقبة (+15%) -> 2.ندى (+35%) -> 3.ربت (+50%).",
-            allyBonusTitle = "Mossy Dew",
-            allyBonusDesc = "Cheery park slime befriended by soothing its wobble!",
-            introLine = "A bouncy Mossy Puff wobbles nervously! Follow the right calm order to befriend it!",
+            spareMethodHintEn = "Strict Order: 1.Observe (+15%) -> 2.Cool Dew (+35%) -> 3.Pat Antenna (+50%).",
+            spareMethodHintAr = "ترتيب إجباري: 1.مراقبة (+15%) -> 2.ندى (+35%) -> 3.تهدئة (+50%).",
+            allyBonusTitle = "Pumb's Dew",
+            allyBonusDesc = "Playful wide-eyed monster befriended by calming its antenna!",
+            introLine = "A wide-eyed Pumb waves its clawed arms nervously! Follow the calm order to befriend it!",
             attackQuips = listOf(
-                "*bloop!* \"Watch how I bounce before touching!\"",
-                "*jiggle!* \"Catch these springy dewdrops!\""
+                "*bzz-bloop!* \"Don't touch my antenna till you observe me!\"",
+                "*jiggle!* \"Catch these bouncy dewdrops!\""
             ),
-            spareLine = "Mossy Puff settles peacefully and joins your friends!",
-            defeatLine = "Mossy Puff dissolves into a puddle of grass dew.",
+            spareLine = "Pumb settles peacefully and joins your friends!",
+            defeatLine = "Pumb scampers away into the park grass.",
             actOptions = listOf(
-                EnemyActOption("check", "1. Observe Wobble", "MOSSY PUFF — 48 HP. Step 1 done: you learn its nervous rhythm! (+15%)", 15),
+                EnemyActOption("check", "1. Observe Wobble", "PUMB — 48 HP. Step 1 done: you read its antenna flicks! (+15%)", 15),
                 EnemyActOption(
                     "soothe", "2. Offer Cool Dew",
-                    "You sprinkle cool dew along its bounce! It slows down happily! (+35%)", 35,
+                    "You sprinkle cool dew along its paws! Pumb calms down happily! (+35%)", 35,
                     requiredPrevActId = "check",
-                    outOfOrderReply = "* Sploosh! It got startled because you didn't Observe its wobble first! (+0%)"
+                    outOfOrderReply = "* Sploosh! Pumb startled because you didn't Observe its rhythm first! (+0%)"
                 ),
                 EnemyActOption(
-                    "pet", "3. Pat Leafy Cap",
-                    "Gentle final touch! Mossy Puff purrs like a mossy kitten! (+50%)", 50,
+                    "pet", "3. Pat Round Ears",
+                    "Gentle final touch! Pumb purrs happily between its antennae! (+50%)", 50,
                     requiredPrevActId = "soothe",
-                    outOfOrderReply = "* Too jittery! Soothe it with Cool Dew before patting its cap! (+0%)"
+                    outOfOrderReply = "* Too jittery! Soothe Pumb with Cool Dew before patting its ears! (+0%)"
                 )
             ),
             isNormalMonster = true,
@@ -1122,6 +1124,47 @@ object EnemyRoster {
             isNormalMonster = true,
             canBefriend = true,
             zone = WorldZone.EAST
+        ),
+        EnemyProfile(
+            id = EnemyId.HUMAN_DRIFTER,
+            worldId = WorldId.NORMAL_WORLD,
+            name = "Stray Walker",
+            raceTitle = "Human · Wandering Crossroads Method",
+            difficultyLabel = "NORMAL HUMAN",
+            maxHp = 54,
+            attackPower = 3,
+            accentColor = SepiaGold,
+            xNorm = 0.68f,
+            yNorm = 0.44f,
+            spareMethodHintEn = "Strict Order: 1.Greet (+20%) -> 2.Share Water (+30%) -> 3.Guide Home (+50%).",
+            spareMethodHintAr = "ترتيب إجباري: 1.تحية (+20%) -> 2.تقديم ماء (+30%) -> 3.إرشاد للطريق (+50%).",
+            allyBonusTitle = "Traveler's Scarf",
+            allyBonusDesc = "Lost human traveler guided safely through the Normal World.",
+            introLine = "A startled Stray Walker blocks the south passage with raised arms! Calm them down step by step!",
+            attackQuips = listOf(
+                "\"Stay back! Is this a Government patrol?!\"",
+                "\"I just want to find a safe street out of here!\""
+            ),
+            spareLine = "The Stray Walker lowers their arms and nods gratefully as your friend!",
+            defeatLine = "The Stray Walker sprints into an alley to escape.",
+            actOptions = listOf(
+                EnemyActOption("greet", "1. Wave Peacefully", "STRAY WALKER — 54 HP. You lower your weapon and greet them calmly! (+20%)", 20),
+                EnemyActOption(
+                    "water", "2. Share Cool Water",
+                    "You pass a canteen over—they catch their breath and relax! (+30%)", 30,
+                    requiredPrevActId = "greet",
+                    outOfOrderReply = "* \"Whoa, keep back! At least wave first before rushing closer!\" (+0%)"
+                ),
+                EnemyActOption(
+                    "guide", "3. Show Safe Lanterns",
+                    "You point toward the safe Normal Plaza! They trust you completely! (+50%)", 50,
+                    requiredPrevActId = "water",
+                    outOfOrderReply = "* Too panicked to listen! Share some water to calm them first! (+0%)"
+                )
+            ),
+            isNormalMonster = true,
+            canBefriend = true,
+            zone = WorldZone.SOUTH
         ),
         EnemyProfile(
             id = EnemyId.GOV_MONSTER_CHIEF,

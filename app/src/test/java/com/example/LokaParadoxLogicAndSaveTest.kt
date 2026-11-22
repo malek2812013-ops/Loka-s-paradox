@@ -8,6 +8,7 @@ import com.example.engine.BattleEngine
 import com.example.engine.LokaStatsCalculator
 import com.example.engine.TimelineManager
 import com.example.model.AppLanguage
+import com.example.model.AppScreen
 import com.example.model.ArmorCatalog
 import com.example.model.BattlePhase
 import com.example.model.EnemyId
@@ -17,6 +18,7 @@ import com.example.model.RelicCatalog
 import com.example.model.SoulType
 import com.example.model.WeaponCatalog
 import com.example.model.WorldId
+import com.example.model.WorldZone
 import com.example.ui.components.PixelSprites
 import com.example.ui.components.UltraPixelArtEngine
 import com.example.viewmodel.BattleViewModel
@@ -393,5 +395,197 @@ class LokaParadoxLogicAndSaveTest {
         battleVm.advanceFromDialogueToDodging()
         assertEquals(BattlePhase.BULLET_HELL, battleVm.state.value.phase)
         assertEquals(60.0f, battleVm.state.value.phaseDurationSec, 0.01f)
+    }
+
+    @Test
+    fun ruinsDummy_fightTriggersPhase2AndAnimatesHatFall() {
+        val battleVm = BattleViewModel()
+        battleVm.initEncounter(
+            encounterId = 200L,
+            enemyId = EnemyId.RUINS_DUMMY,
+            worldId = WorldId.NORMAL_WORLD,
+            armor = ArmorCatalog.byId("casual_jacket"),
+            weapon = WeaponCatalog.byId("void_edge"), // High ATK — still must show Phase 2 before defeat
+            relic = RelicCatalog.byId("golden_locket"),
+            difficulty = GameDifficulty.NORMAL,
+            allies = emptySet(),
+            helpedKidIds = emptySet(),
+            itemCounts = emptyMap()
+        )
+        assertEquals(1, battleVm.state.value.dummyPhase)
+        assertEquals(0f, battleVm.state.value.dummyHatFallProgress, 0.001f)
+
+        battleVm.startFightMinigame()
+        battleVm.commitFightStrike()
+
+        val afterStrike = battleVm.state.value
+        assertEquals(2, afterStrike.dummyPhase)
+        assertTrue(afterStrike.enemyHp >= 1)
+        assertEquals(BattlePhase.ENEMY_DIALOGUE, afterStrike.phase)
+        assertTrue(afterStrike.dummyHatFallProgress > 0f && afterStrike.dummyHatFallProgress < 1f)
+
+        // Ticking during ENEMY_DIALOGUE drives the falling top-hat & cotton burst to completion (1.0f)
+        repeat(25) { battleVm.tick(0.04f) }
+        assertEquals(1.0f, battleVm.state.value.dummyHatFallProgress, 0.001f)
+    }
+
+    @Test
+    fun spriteGrids_updatedMonstersAre32x32AndSculptCleanlyTo64() {
+        val grids = listOf(
+            PixelSprites.ruinsDummyGrid,
+            PixelSprites.ruinsDummyPhase2Grid,
+            PixelSprites.normalSlimeGrid,
+            PixelSprites.sandMothGrid,
+            PixelSprites.ashImpGrid,
+            PixelSprites.humanDrifterGrid
+        )
+        grids.forEach { grid ->
+            assertEquals(32, grid.size)
+            assertTrue(grid.all { it.length == 32 })
+            val sculpted = PixelSprites.sculptGridTo64(grid)
+            assertEquals(64, sculpted.size)
+            assertTrue(sculpted.all { it.length == 64 })
+        }
+        assertEquals("Pumb", EnemyRoster.byId(EnemyId.NORMAL_SLIME).name)
+        assertTrue(EnemyRoster.normalMonstersForWorld(WorldId.NORMAL_WORLD).any { it.id == EnemyId.HUMAN_DRIFTER })
+    }
+
+    @Test
+    fun allRelics_applyExpectedStatsCombatMercyAndEquipPersistence() {
+        val baseArmor = ArmorCatalog.byId("casual_jacket")
+        val baseWeapon = WeaponCatalog.byId("worn_stick")
+
+        val locket = RelicCatalog.byId("golden_locket")
+        val pendulum = RelicCatalog.byId("chrono_pendulum")
+        val feather = RelicCatalog.byId("seraph_feather")
+        val core = RelicCatalog.byId("infernal_core")
+        val prism = RelicCatalog.byId("echo_prism")
+
+        val statsLocket = LokaStatsCalculator.compute(baseArmor, baseWeapon, locket, emptySet(), emptySet(), GameDifficulty.NORMAL, WorldId.NORMAL_WORLD)
+        val statsPendulum = LokaStatsCalculator.compute(baseArmor, baseWeapon, pendulum, emptySet(), emptySet(), GameDifficulty.NORMAL, WorldId.NORMAL_WORLD)
+        val statsFeather = LokaStatsCalculator.compute(baseArmor, baseWeapon, feather, emptySet(), emptySet(), GameDifficulty.NORMAL, WorldId.NORMAL_WORLD)
+        val statsCore = LokaStatsCalculator.compute(baseArmor, baseWeapon, core, emptySet(), emptySet(), GameDifficulty.NORMAL, WorldId.NORMAL_WORLD)
+        val statsPrism = LokaStatsCalculator.compute(baseArmor, baseWeapon, prism, emptySet(), emptySet(), GameDifficulty.NORMAL, WorldId.NORMAL_WORLD)
+
+        assertTrue(statsPendulum.speedMultiplier > statsLocket.speedMultiplier)
+        assertTrue(statsFeather.defense > statsLocket.defense)
+        assertTrue(statsCore.attackBonus > statsLocket.attackBonus)
+        assertTrue(statsPrism.maxHp > statsLocket.maxHp && statsPrism.attackBonus > statsLocket.attackBonus)
+
+        val coreStrike = BattleEngine.calculateStrikeDamage(0.50f, 0.50f, statsCore.attackBonus, baseWeapon, core, emptySet(), SoulType.RED, GameDifficulty.NORMAL)
+        val locketStrike = BattleEngine.calculateStrikeDamage(0.50f, 0.50f, statsLocket.attackBonus, baseWeapon, locket, emptySet(), SoulType.RED, GameDifficulty.NORMAL)
+        assertTrue(coreStrike.damage > locketStrike.damage)
+
+        val human = EnemyRoster.byId(EnemyId.HUMAN_DRIFTER)
+        val actWithFeather = BattleEngine.evaluateActStep(human, "greet", 0, emptySet(), feather)
+        assertEquals(20 + feather.normalMonsterMercyBonus, actWithFeather.mercyGained)
+
+        // GameViewModel refuses equipping locked relic, allows equipping unlocked relic
+        val vm = GameViewModel(app)
+        vm.equipRelic("echo_prism")
+        assertEquals("golden_locket", vm.uiState.value.equippedRelicId)
+
+        vm.startNewTimelinePreservingEchoes() // unlocks echo_prism
+        assertTrue("echo_prism" in vm.uiState.value.unlockedRelicIds)
+        vm.equipRelic("echo_prism")
+        assertEquals("echo_prism", vm.uiState.value.equippedRelicId)
+    }
+
+    @Test
+    fun saveSlots_switchSaveAndClearIsolateTimelinesAndRelics() {
+        val vm = GameViewModel(app)
+        vm.finishLoreIntro()
+        vm.finishAshenMeetingToRandomWorld()
+        vm.recordBattleOutcome(EnemyId.VESPERA, spared = true, remainingItems = emptyMap())
+        vm.saveCurrentToSlot(0)
+
+        // Switch to empty Slot 1 -> starts fresh without Slot 0's friend
+        vm.switchToSaveSlot(1)
+        assertEquals(1, vm.uiState.value.activeSaveSlot)
+        assertTrue(EnemyId.VESPERA !in vm.uiState.value.friendAllies)
+
+        vm.completeLandmarkQuest("sr_cave") // Grants infernal_core in Slot 1
+        vm.equipRelic("infernal_core")
+        vm.saveCurrentToSlot(1)
+
+        // Switch back to Slot 0 -> restores Vespera friend and does NOT have Slot 1's relic
+        vm.switchToSaveSlot(0)
+        assertEquals(0, vm.uiState.value.activeSaveSlot)
+        assertTrue(EnemyId.VESPERA in vm.uiState.value.friendAllies)
+        assertFalse("infernal_core" in vm.uiState.value.unlockedRelicIds)
+
+        // Switch back to Slot 1 and confirm relic persisted
+        vm.switchToSaveSlot(1)
+        assertTrue("infernal_core" in vm.uiState.value.unlockedRelicIds)
+        assertEquals("infernal_core", vm.uiState.value.equippedRelicId)
+
+        // Clear Slot 1 resets active slot cleanly to intro
+        vm.clearSaveSlot(1)
+        assertEquals(AppScreen.LORE_INTRO, vm.uiState.value.currentScreen)
+        assertTrue(vm.uiState.value.saveSlotSummaries[1].isEmpty)
+        assertFalse(vm.uiState.value.saveSlotSummaries[0].isEmpty)
+    }
+
+    @Test
+    fun playerMovement_ruinsDoorsOverworldGatesAndBattleSoulBounds() {
+        val vm = GameViewModel(app)
+        vm.finishLoreIntro()
+        assertEquals(AppScreen.RUINS_TUTORIAL, vm.uiState.value.currentScreen)
+        assertEquals(0, vm.uiState.value.ruinsRoomIndex)
+
+        // Walk vs Run mode delta check inside Ruins
+        val startX = vm.uiState.value.ruinsPlayerX
+        vm.moveRuinsPlayer(0.05f, 0f)
+        val walkStep = vm.uiState.value.ruinsPlayerX - startX
+        vm.toggleRunMode()
+        val beforeRunX = vm.uiState.value.ruinsPlayerX
+        vm.moveRuinsPlayer(0.05f, 0f)
+        val runStep = vm.uiState.value.ruinsPlayerX - beforeRunX
+        assertTrue(runStep > walkStep * 1.4f)
+
+        // Walk right edge in Room 0 -> Room 1
+        vm.moveRuinsPlayer(0.95f, 0f)
+        assertEquals(1, vm.uiState.value.ruinsRoomIndex)
+
+        // Enter overworld & move through Normal World North Door -> North Zone -> North World Gate -> GOVERNMENT_HQ
+        vm.finishAshenMeetingToRandomWorld()
+        assertEquals(WorldId.NORMAL_WORLD, vm.uiState.value.activeWorld)
+        assertEquals(WorldZone.CENTER, vm.uiState.value.activeZone)
+
+        // Decay zoneCooldownSec then walk north through top door (x=0.50, y <= 0.085)
+        repeat(20) { vm.tickOverworld(0.04f) }
+        vm.moveOverworldPlayer(0f, -0.50f)
+        assertEquals(WorldZone.NORTH, vm.uiState.value.activeZone)
+
+        // Decay zoneCooldownSec then walk through North World Gate (y <= 0.085 in NORTH zone -> GOVERNMENT_HQ)
+        repeat(20) { vm.tickOverworld(0.04f) }
+        vm.moveOverworldPlayer(0f, -0.80f)
+        assertEquals(WorldId.GOVERNMENT_HQ, vm.uiState.value.activeWorld)
+
+        // Verify BattleViewModel Soul D-Pad movement + Arena boundary clamping + Drag movement
+        val battleVm = BattleViewModel()
+        battleVm.initEncounter(
+            encounterId = 300L,
+            enemyId = EnemyId.NORMAL_SLIME,
+            worldId = WorldId.NORMAL_WORLD,
+            armor = ArmorCatalog.byId("casual_jacket"),
+            weapon = WeaponCatalog.byId("worn_stick"),
+            relic = RelicCatalog.byId("chrono_pendulum"),
+            difficulty = GameDifficulty.NORMAL,
+            allies = emptySet(),
+            helpedKidIds = emptySet(),
+            itemCounts = emptyMap()
+        )
+        battleVm.performAct("check")
+        battleVm.advanceFromDialogueToDodging()
+        val s0 = battleVm.state.value.soulX
+        battleVm.setDpadDirection(1f, 0f)
+        repeat(10) { battleVm.tick(0.04f) }
+        assertTrue(battleVm.state.value.soulX > s0)
+
+        // Pushing far past bounds must stay clamped within [0.055, 0.945]
+        battleVm.moveSoulByDelta(2.0f, -2.0f)
+        assertEquals(0.945f, battleVm.state.value.soulX, 0.001f)
+        assertEquals(0.055f, battleVm.state.value.soulY, 0.001f)
     }
 }

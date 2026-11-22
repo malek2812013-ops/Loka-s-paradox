@@ -36,7 +36,7 @@ Four races coexist across fractured worlds: **Humans, Monsters, Angels, and Devi
   - `UltraPixelArtEngine.computeIntegerScaledSize` + `FilterQuality.None` enforces strict integer nearest-neighbor scaling so pixels never blur or stretch unevenly across DPIs.
   - All bosses and monsters are refined from 32×32 grids to unified **64×64** stepped contours (`PixelSprites.sculptGridTo64`) matching Loka's sprite density.
   - Android 13+ (`API 33+`) **AGSL Shaders** (`PixelShaderEffects`) add glitch scanlines in the Glitched Void and chromatic impact flashes in combat (with automatic pre-API-33 fallback and `Reduce Flash` accessibility suppression).
-- **Hybrid Combat System:** Classic timing-bar **FIGHT** with slash sparks & screen shake, ordered **ACT** choices (strict **+10% Mercy/Stop per ACT** on bosses; varied percentages on normal monsters), **ITEM**, **ALLY**, **MERCY / STOP**, crimson hurt feedback + shield popups, and a live 60fps bullet-hell arena.
+- **Hybrid Combat System & Focus Dodge Mode:** Classic timing-bar **FIGHT** with slash sparks, screen shake, and **2-Phase Ruins Training Dummy** (top hat falls off & cotton bursts on strike), ordered **ACT** choices (strict **+10% Mercy/Stop per ACT** on bosses; varied percentages on normal monsters including **Pumb**, **Cyan Moth**, **Cinder Imp**, and **Stray Walker**), **ITEM**, **ALLY**, **MERCY / STOP**, collapsible stats panels, and a full-focus **45s (monsters) / 60s (bosses)** live 60fps bullet-hell arena.
 - **Walk & Run Animations & Redesigned Controls:** Switch between Walk and Run (`1.6x` sprint) with animated directional stride frames, pixel dust trails, and a double-beveled retro D-Pad / spoked Joystick (`48dp+` accessible controls throughout).
 - **Relics, Equipment & Timelines:** Equip weapons, armors, and Relics; track choices across **Multiple Timelines** where past endings leave echoes across future runs.
 - **Multi-Slot Persistence & Audio Settings:** 3 Save Slots (`SharedPreferences` + JSON), difficulty selection (`Easy`, `Normal`, `Hard`), volume control, and `Reduce Flash` accessibility toggle.
@@ -64,7 +64,7 @@ app/src/main/java/com/example/
 
 ```bash
 # Run unit & Robolectric tests
-gradle :app:testDebugUnitTest --offline -Drobolectric.offline=true
+gradle :app:testDebugUnitTest -Drobolectric.offline=true
 
 # Run Android Lint
 gradle lintDebug
