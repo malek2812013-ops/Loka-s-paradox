@@ -5,10 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,15 +34,15 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
- * Hand-drawn Control Styles from Image 6:
- * - Style 1 (`DPAD_8WAY`): 3x3 square directional arrow grid (`↖ ↑ ↗ / ← ○ → / ↙ ↓ ↘`)
- * - Style 2 (`JOYSTICK`): Segmented circular analog wheel with draggable center knob
+ * Upgraded Retro Undertale-Framed Control Styles:
+ * - `DPAD_8WAY`: Crisp double-beveled 3x3 directional grid (`↖ ↑ ↗ / ← ◆ → / ↙ ↓ ↘`) with corner rivets & active glow pulse
+ * - `JOYSTICK`: Spoked pixel compass wheel with directional vector beam & glowing dual-ring Soul thumb core
  */
 @Composable
 fun ControllerPadOverlay(
     controlScheme: ControlScheme,
     accentColor: Color = Color.White,
-    padSize: Dp = 120.dp,
+    padSize: Dp = 126.dp,
     onDirectionChanged: (Float, Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -80,8 +77,10 @@ private fun EightWayGridPad(
     Box(
         modifier = modifier
             .size(padSize)
-            .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(4.dp))
-            .border(1.5.dp, Color.White.copy(alpha = 0.45f), RoundedCornerShape(4.dp))
+            .background(Color(0xD8050508), RoundedCornerShape(0.dp))
+            .border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(0.dp))
+            .padding(2.dp)
+            .border(1.5.dp, accentColor.copy(alpha = 0.72f), RoundedCornerShape(0.dp))
             .padding(4.dp)
             .testTag("control_pad_8way")
             .pointerInput(Unit) {
@@ -122,6 +121,13 @@ private fun EightWayGridPad(
             val gap = 3.dp.toPx()
             val cellW = (size.width - gap * 2f) / 3f
             val cellH = (size.height - gap * 2f) / 3f
+            val rivet = 2.5.dp.toPx()
+
+            // Corner pixel rivets on pad housing
+            drawRect(accentColor, Offset.Zero, Size(rivet, rivet))
+            drawRect(accentColor, Offset(size.width - rivet, 0f), Size(rivet, rivet))
+            drawRect(accentColor, Offset(0f, size.height - rivet), Size(rivet, rivet))
+            drawRect(accentColor, Offset(size.width - rivet, size.height - rivet), Size(rivet, rivet))
 
             for (row in 0..2) {
                 for (col in 0..2) {
@@ -131,41 +137,76 @@ private fun EightWayGridPad(
                     val cy = top + cellH * 0.5f
                     val isCenter = row == 1 && col == 1
                     val isSelected = activeCell == (row to col)
+                    val isCardinal = (row == 1) xor (col == 1)
 
                     if (isCenter) {
-                        // Drawn center circle `○` from Image 6 Style 1
-                        drawCircle(
-                            color = if (isSelected) accentColor.copy(alpha = 0.25f) else Color.Black,
-                            radius = minOf(cellW, cellH) * 0.36f,
-                            center = Offset(cx, cy)
-                        )
-                        drawCircle(
-                            color = if (isSelected) accentColor else Color.White,
-                            radius = minOf(cellW, cellH) * 0.36f,
-                            center = Offset(cx, cy),
-                            style = Stroke(2.2f)
-                        )
-                    } else {
-                        // Square box with triangular directional arrow inside
+                        // Retro Soul Emblem Pivot Cell
                         drawRect(
-                            color = if (isSelected) accentColor else Color(0xFF101016),
+                            color = if (isSelected) accentColor.copy(alpha = 0.35f) else Color(0xFF0A0A10),
                             topLeft = Offset(left, top),
                             size = Size(cellW, cellH)
                         )
                         drawRect(
-                            color = if (isSelected) Color.White else accentColor.copy(alpha = 0.85f),
+                            color = if (isSelected) Color.White else accentColor.copy(alpha = 0.65f),
                             topLeft = Offset(left, top),
                             size = Size(cellW, cellH),
-                            style = Stroke(2f)
+                            style = Stroke(1.8f)
+                        )
+                        val r = minOf(cellW, cellH) * 0.30f
+                        val diamond = Path().apply {
+                            moveTo(cx, cy - r)
+                            lineTo(cx + r, cy)
+                            lineTo(cx, cy + r)
+                            lineTo(cx - r, cy)
+                            close()
+                        }
+                        drawPath(diamond, color = if (activeCell != null) accentColor else Color.White.copy(alpha = 0.85f))
+                        drawRect(Color.White, Offset(cx - r * 0.25f, cy - r * 0.25f), Size(r * 0.5f, r * 0.5f))
+                    } else {
+                        val boxBg = when {
+                            isSelected -> accentColor
+                            isCardinal -> Color(0xFF151622)
+                            else -> Color(0xFF0D0E16)
+                        }
+                        drawRect(
+                            color = boxBg,
+                            topLeft = Offset(left, top),
+                            size = Size(cellW, cellH)
+                        )
+                        // Pixel top-left highlight bevel inside unpressed pad cells
+                        if (!isSelected) {
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.22f),
+                                start = Offset(left + 1.5f, top + 1.5f),
+                                end = Offset(left + cellW - 1.5f, top + 1.5f),
+                                strokeWidth = 1.5f
+                            )
+                        }
+                        drawRect(
+                            color = if (isSelected) Color.White else accentColor.copy(alpha = if (isCardinal) 0.90f else 0.58f),
+                            topLeft = Offset(left, top),
+                            size = Size(cellW, cellH),
+                            style = Stroke(if (isSelected) 2.6f else 1.8f)
                         )
 
                         val dx = (col - 1).toFloat()
                         val dy = (row - 1).toFloat()
                         val angle = atan2(dy, dx)
-                        val r = minOf(cellW, cellH) * 0.28f
+                        val r = minOf(cellW, cellH) * (if (isCardinal) 0.34f else 0.28f)
                         val tip = Offset(cx + cos(angle) * r, cy + sin(angle) * r)
-                        val baseLeft = Offset(cx + cos(angle + 2.35f) * r * 0.92f, cy + sin(angle + 2.35f) * r * 0.92f)
-                        val baseRight = Offset(cx + cos(angle - 2.35f) * r * 0.92f, cy + sin(angle - 2.35f) * r * 0.92f)
+                        val baseLeft = Offset(cx + cos(angle + 2.30f) * r * 0.92f, cy + sin(angle + 2.30f) * r * 0.92f)
+                        val baseRight = Offset(cx + cos(angle - 2.30f) * r * 0.92f, cy + sin(angle - 2.30f) * r * 0.92f)
+
+                        // Subtle dark drop shadow behind arrow for higher clarity
+                        if (!isSelected) {
+                            val shadowTri = Path().apply {
+                                moveTo(tip.x + 1.5f, tip.y + 1.5f)
+                                lineTo(baseLeft.x + 1.5f, baseLeft.y + 1.5f)
+                                lineTo(baseRight.x + 1.5f, baseRight.y + 1.5f)
+                                close()
+                            }
+                            drawPath(path = shadowTri, color = Color.Black.copy(alpha = 0.7f))
+                        }
 
                         val tri = Path().apply {
                             moveTo(tip.x, tip.y)
@@ -175,7 +216,7 @@ private fun EightWayGridPad(
                         }
                         drawPath(
                             path = tri,
-                            color = if (isSelected) Color.Black else Color.White
+                            color = if (isSelected) Color.Black else if (isCardinal) Color.White else Color.White.copy(alpha = 0.88f)
                         )
                     }
                 }
@@ -196,6 +237,9 @@ private fun SegmentedWheelJoystick(
     Box(
         modifier = modifier
             .size(padSize)
+            .background(Color(0xAA050508), RoundedCornerShape(0.dp))
+            .border(1.5.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(0.dp))
+            .padding(3.dp)
             .testTag("control_pad_joystick")
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -239,28 +283,67 @@ private fun SegmentedWheelJoystick(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val c = Offset(size.width * 0.5f, size.height * 0.5f)
             val outerR = minOf(size.width, size.height) * 0.46f
-            val innerR = outerR * 0.78f
+            val innerR = outerR * 0.74f
+            val isPressed = hypot(knobNorm.x, knobNorm.y) > 0.05f
 
-            // Outer rim circle (matching Image 6 Style 2)
-            drawCircle(color = Color.Black.copy(alpha = 0.76f), radius = outerR, center = c)
-            drawCircle(color = Color.White, radius = outerR, center = c, style = Stroke(2.5f))
-            drawCircle(color = accentColor.copy(alpha = 0.35f), radius = innerR, center = c, style = Stroke(2f))
+            // Double-bevel compass ring housing
+            drawCircle(color = Color(0xD908080E), radius = outerR, center = c)
+            drawCircle(
+                color = if (isPressed) Color.White else Color.White.copy(alpha = 0.88f),
+                radius = outerR,
+                center = c,
+                style = Stroke(2.6f)
+            )
+            drawCircle(
+                color = accentColor.copy(alpha = if (isPressed) 0.78f else 0.45f),
+                radius = innerR,
+                center = c,
+                style = Stroke(2f)
+            )
 
-            // 6 segmented wheel spokes matching the hand-drawn spoked wheel!
-            for (i in 0 until 6) {
-                val ang = (i * (PI / 3.0) + PI / 6.0).toFloat()
-                val start = Offset(c.x + cos(ang) * (outerR * 0.20f), c.y + sin(ang) * (outerR * 0.20f))
-                val end = Offset(c.x + cos(ang) * innerR, c.y + sin(ang) * innerR)
-                drawLine(Color.White.copy(alpha = 0.55f), start, end, strokeWidth = 2.4f)
+            // 8 directional pixel compass ticks along outer rim
+            for (i in 0 until 8) {
+                val ang = (i * (PI / 4.0)).toFloat()
+                val start = Offset(c.x + cos(ang) * (innerR * 0.90f), c.y + sin(ang) * (innerR * 0.90f))
+                val end = Offset(c.x + cos(ang) * (outerR * 0.96f), c.y + sin(ang) * (outerR * 0.96f))
+                drawLine(
+                    color = if (i % 2 == 0) accentColor.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.45f),
+                    start = start,
+                    end = end,
+                    strokeWidth = if (i % 2 == 0) 2.5f else 1.6f
+                )
             }
 
-            // Movable center analog thumb circle
+            // Movable dual-ring Soul thumb core with active vector tether
             val knobCenter = Offset(
                 c.x + knobNorm.x * outerR * 0.52f,
                 c.y + knobNorm.y * outerR * 0.52f
             )
-            drawCircle(color = accentColor.copy(alpha = 0.90f), radius = outerR * 0.24f, center = knobCenter)
-            drawCircle(color = Color.White, radius = outerR * 0.24f, center = knobCenter, style = Stroke(2.5f))
+            if (isPressed) {
+                drawLine(
+                    color = accentColor.copy(alpha = 0.75f),
+                    start = c,
+                    end = knobCenter,
+                    strokeWidth = 3f
+                )
+            }
+            drawCircle(
+                color = accentColor.copy(alpha = if (isPressed) 0.96f else 0.80f),
+                radius = outerR * 0.27f,
+                center = knobCenter
+            )
+            drawCircle(
+                color = Color.White,
+                radius = outerR * 0.27f,
+                center = knobCenter,
+                style = Stroke(2.5f)
+            )
+            val core = outerR * 0.09f
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(knobCenter.x - core * 0.5f, knobCenter.y - core * 0.5f),
+                size = Size(core, core)
+            )
         }
     }
 }

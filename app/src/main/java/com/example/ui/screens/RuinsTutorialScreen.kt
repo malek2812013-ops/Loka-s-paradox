@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -294,14 +295,14 @@ fun RuinsTutorialScreen(
                 ControllerPadOverlay(
                     controlScheme = state.controlScheme,
                     accentColor = Color(0xFFC084FC),
-                    padSize = 112.dp,
+                    padSize = 126.dp,
                     onDirectionChanged = { dx, dy ->
                         padDirX = dx
                         padDirY = dy
                     },
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(8.dp)
+                        .padding(10.dp)
                 )
             }
         }
@@ -346,16 +347,27 @@ fun RuinsTutorialScreen(
                         )
                     }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     OutlinedButton(
                         onClick = onToggleLanguage,
                         shape = RoundedCornerShape(0.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                         border = androidx.compose.foundation.BorderStroke(1.5.dp, SepiaDarkBorder),
-                        modifier = Modifier.testTag("ruins_language_button")
+                        modifier = Modifier
+                            .height(48.dp)
+                            .testTag("ruins_language_button")
                     ) {
-                        Text(lang.buttonLabel, style = MaterialTheme.typography.labelSmall, color = SepiaGold)
+                        Text(lang.buttonLabel, style = MaterialTheme.typography.labelMedium, color = SepiaGold)
                     }
-                    IconButton(onClick = onToggleMute) {
+                    IconButton(
+                        onClick = onToggleMute,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.5.dp, SepiaDarkBorder, RoundedCornerShape(0.dp))
+                    ) {
                         Icon(
                             imageVector = if (state.isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                             contentDescription = "Mute",

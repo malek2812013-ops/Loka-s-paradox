@@ -42,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -52,6 +53,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +61,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.example.ui.components.combatImpactShaderEffect
+import kotlin.math.sin
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.audio.RetroSoundEngine
 import com.example.model.AppLanguage
@@ -147,7 +151,13 @@ fun BattleScreen(
     }
 
     val state by battleViewModel.state.collectAsState()
-    val hasActiveFx = state.slashFxTimerSec > 0f || state.isEnemyHitFlash
+    var isStatsCollapsed by remember { mutableStateOf(false) }
+    val hasActiveFx = state.slashFxTimerSec > 0f ||
+        state.isEnemyHitFlash ||
+        state.arenaShakeTimerSec > 0f ||
+        state.playerHitFlashTimerSec > 0f ||
+        state.playerDamagePopTimerSec > 0f ||
+        state.shieldBlockedTimerSec > 0f
 
     LaunchedEffect(state.phase, hasActiveFx) {
         if (state.phase == BattlePhase.FIGHT_MINIGAME || state.phase == BattlePhase.BULLET_HELL || hasActiveFx) {
@@ -170,96 +180,120 @@ fun BattleScreen(
         }
     }
 
-    // CLASSIC AUTHENTIC UNDERTALE BATTLE SCREEN (640x480 4:3 Vibe, Pure Black Ground, White Box, 4 Orange Commands)
+    val shakeWaveX = if (state.arenaShakeTimerSec > 0f) {
+        val amp = (if (reduceFlash) 3.5f else 11f) * state.arenaShakeIntensity * (state.arenaShakeTimerSec / 0.34f).coerceIn(0f, 1f)
+        sin(state.arenaShakeTimerSec * 92f) * amp
+    } else 0f
+    val shakeWaveY = if (state.arenaShakeTimerSec > 0f) {
+        val amp = (if (reduceFlash) 2.5f else 7f) * state.arenaShakeIntensity * (state.arenaShakeTimerSec / 0.34f).coerceIn(0f, 1f)
+        sin(state.arenaShakeTimerSec * 71f + 1.2f) * amp
+    } else 0f
+    val impactNormalized = maxOf(
+        (state.playerHitFlashTimerSec / 0.32f).coerceIn(0f, 1f),
+        (state.slashFxTimerSec / 0.48f).coerceIn(0f, 1f) * 0.7f
+    )
+    val isDamageImpact = state.playerHitFlashTimerSec > 0f
+
+    // CLASSIC AUTHENTIC UNDERTALE BATTLE SCREEN (Pure Black Ground, White Box, 4 Orange Commands)
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        // 1. TOP UNDERTALE ENCOUNTER HEADER (Clear Boss vs Monster Badge + Stats + Controls)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                IconButton(
-                    onClick = onExitBattle,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .testTag("battle_back_button")
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Flee battle", tint = Color.White, modifier = Modifier.size(18.dp))
-                }
-                val (typeLabel, typeColor) = when {
-                    state.enemy.id == EnemyId.ECHO_LOKA || state.enemy.id == EnemyId.FUTURE_LOKA ->
-                        tr(language, "★ FINAL BOSS", "★ زعيم نهائي") to GlitchCyan
-                    state.enemy.id == EnemyId.GOV_MONSTER_CHIEF ->
-                        tr(language, "★ GOV BOSS (FRIEND)", "★ زعيم الحكومة (صديق)") to MercyYellow
-                    state.enemy.id == EnemyId.GOV_DIRECTOR ->
-                        tr(language, "★ GOV LEADER", "★ رئيس الحكومة") to GlitchCyan
-                    !state.enemy.isNormalMonster ->
-                        tr(language, "★ BOSS", "★ زعيم") to MercyYellow
-                    state.enemy.canBefriend ->
-                        tr(language, "MONSTER", "وحش ودود") to HpBarGreen
-                    else ->
-                        tr(language, "HOSTILE", "وحش عدائي") to DangerRed
-                }
-                Box(
-                    modifier = Modifier
-                        .background(Color.Black)
-                        .border(1.5.dp, typeColor, RoundedCornerShape(0.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(text = typeLabel, style = MaterialTheme.typography.labelSmall, color = typeColor)
-                }
-                Column {
-                    Text(
-                        text = "${state.enemy.name.uppercase()} · ${tr(language, "TURN ${state.turnNumber}", "دور ${state.turnNumber}")}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = "${if (language == AppLanguage.AR) state.activeSoul.titleAr else state.activeSoul.title} · ATK +${state.attackBonus} · DEF +${state.effectiveDefenseBonus}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = state.activeSoul.color,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+            .combatImpactShaderEffect(
+                impactStrength = impactNormalized,
+                isDamage = isDamageImpact,
+                reduceFlash = reduceFlash
+            )
+            .graphicsLayer {
+                translationX = shakeWaveX
+                translationY = shakeWaveY
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (state.phase == BattlePhase.BULLET_HELL) {
+            // DODGE MODE FOCUS: Minimal HP + Countdown Strip + HUGE Soul Arena + Soul Controls ONLY!
+            val remainingSec = (state.phaseDurationSec - state.phaseTimerSec).coerceAtLeast(0f)
+            val remainingCeil = kotlin.math.ceil(remainingSec.toDouble()).toInt().coerceAtLeast(0)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    IconButton(
+                        onClick = onExitBattle,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .border(1.5.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(0.dp))
+                            .testTag("battle_back_button")
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Flee battle",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Text("HP", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                    Box(
+                        modifier = Modifier
+                            .width(108.dp)
+                            .height(14.dp)
+                            .background(UndertaleHpRed)
+                            .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
+                    ) {
+                        val ratio = (state.playerHp.toFloat() / state.maxPlayerHp).coerceIn(0f, 1f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(ratio)
+                                .background(UndertaleHpYellow)
+                        )
+                    }
+                    Text(
+                        text = "${state.playerHp}/${state.maxPlayerHp}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (state.playerHp <= 6) DangerRed else Color.White
+                    )
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFF101218))
+                            .border(1.5.dp, state.activeSoul.color, RoundedCornerShape(0.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                            .testTag("battle_dodge_timer")
+                    ) {
+                        Text(
+                            text = tr(language, "DODGE ${remainingCeil}s", "تفادٍ ${remainingCeil}ث"),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = state.activeSoul.color
+                        )
+                    }
+                }
                 OutlinedButton(
                     onClick = onToggleControls,
                     shape = RoundedCornerShape(0.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                     border = BorderStroke(1.5.dp, SepiaAmber),
                     modifier = Modifier
-                        .height(32.dp)
+                        .height(44.dp)
                         .testTag("battle_controls_toggle")
                 ) {
-                    Text(if (language == AppLanguage.AR) controlScheme.labelAr else controlScheme.label, style = MaterialTheme.typography.labelSmall, color = SepiaAmber)
-                }
-                OutlinedButton(
-                    onClick = onToggleLanguage,
-                    shape = RoundedCornerShape(0.dp),
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                    border = BorderStroke(1.5.dp, Color.White),
-                    modifier = Modifier.height(32.dp)
-                ) {
-                    Text(language.buttonLabel, style = MaterialTheme.typography.labelSmall, color = Color.White)
+                    Text(
+                        text = if (language == AppLanguage.AR) controlScheme.labelAr else controlScheme.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SepiaAmber
+                    )
                 }
             }
-        }
 
-        // 2. MAIN STAGE + WHITE-BORDERED UNDERTALE BOX
-        if (state.phase == BattlePhase.BULLET_HELL) {
-            // Spacious Bullet Hell Stage: Soul Controls (Left) | Wide White-Bordered Undertale Dodge Box (Center) | Enemy Info + D-Pad (Right)
+            // Expanded Soul Arena + Soul Controls ONLY (No enemy sprite or enemy stats clutter)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -267,92 +301,53 @@ fun BattleScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left Panel: World Soul Switcher + [C] Ability Button
-                Column(
-                    modifier = Modifier
-                        .weight(0.58f)
-                        .fillMaxHeight()
-                        .background(Color.Black)
-                        .border(2.dp, Color.White, RoundedCornerShape(0.dp))
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = tr(language, "* DODGE!", "* تفادَ الطلقات!"),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MercyYellow
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                        state.allowedSouls.forEach { soul ->
-                            val active = soul == state.activeSoul
-                            Button(
-                                onClick = { battleViewModel.switchSoul(soul, duringBulletHell = true) },
-                                shape = RoundedCornerShape(0.dp),
-                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (active) soul.color else Color.Black,
-                                    contentColor = if (active) Color.Black else soul.color
-                                ),
-                                border = BorderStroke(1.5.dp, soul.color),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(34.dp)
-                                    .testTag("dodge_soul_${soul.name.lowercase()}")
-                            ) {
-                                Text(
-                                    text = if (language == AppLanguage.AR) soul.titleAr else soul.title,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                    val ready = state.abilityCooldownSec <= 0f
-                    val abilityLabel = when {
-                        !ready -> "${"%.1f".format(state.abilityCooldownSec)}s"
-                        state.activeSoul == SoulType.SPLIT_DUO && !state.isSplitActive ->
-                            tr(language, "[C] SPLIT", "[C] انقسام")
-                        state.activeSoul == SoulType.SPLIT_DUO && state.isSplitActive ->
-                            tr(language, "[C] SWAP", "[C] تبديل")
-                        else -> if (language == AppLanguage.AR) state.activeSoul.abilityNameAr else state.activeSoul.abilityName
-                    }
-                    Button(
-                        onClick = battleViewModel::triggerSoulAbility,
-                        enabled = ready,
-                        shape = RoundedCornerShape(0.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (ready) state.activeSoul.color else Color(0xFF16161B),
-                            contentColor = Color.Black
-                        ),
-                        border = BorderStroke(2.dp, if (ready) Color.White else Color(0xFF4B5563)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(42.dp)
-                            .testTag("battle_ability_button")
-                    ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(3.dp))
-                        Text(text = abilityLabel.uppercase(), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                    }
+                val arenaBorderColor = when {
+                    state.playerHitFlashTimerSec > 0f && !reduceFlash -> DangerRed
+                    state.shieldBlockedTimerSec > 0f -> HpBarGreen
+                    else -> Color.White
                 }
-
-                // Center: Classic Wide Undertale Solid-White Bordered Bullet Arena
                 Box(
                     modifier = Modifier
-                        .weight(1.38f)
+                        .weight(if (controlScheme == ControlScheme.TOUCH_DRAG) 3.4f else 2.25f)
                         .fillMaxHeight()
-                        .background(Color.Black, RoundedCornerShape(0.dp))
-                        .border(4.dp, Color.White, RoundedCornerShape(0.dp))
+                        .background(
+                            if (state.playerHitFlashTimerSec > 0f && !reduceFlash) Color(0xFF1A0408) else Color.Black,
+                            RoundedCornerShape(0.dp)
+                        )
+                        .border(4.dp, arenaBorderColor, RoundedCornerShape(0.dp))
+                        .testTag("battle_dodge_arena")
                 ) {
                     BulletHellArena(
                         state = state,
                         controlScheme = controlScheme,
+                        reduceFlash = reduceFlash,
                         onMoveByDelta = battleViewModel::moveSoulByDelta
                     )
-                    if (state.isRewindingTime) {
+                    if (state.shieldBlockedTimerSec > 0f) {
+                        Text(
+                            text = tr(language, "★ SHIELD BLOCKED! ★", "★ صدّ بالدرع! ★"),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = HpBarGreen,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 6.dp)
+                                .background(Color.Black.copy(alpha = 0.85f))
+                                .border(1.5.dp, HpBarGreen, RoundedCornerShape(0.dp))
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    } else if (state.playerDamagePopTimerSec > 0f && state.playerLastDamageTaken != null) {
+                        Text(
+                            text = "-${state.playerLastDamageTaken} HP",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = DangerRed,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 6.dp)
+                                .background(Color.Black.copy(alpha = 0.88f))
+                                .border(1.5.dp, DangerRed, RoundedCornerShape(0.dp))
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    } else if (state.isRewindingTime) {
                         Text(
                             text = "<< REWINDING <<",
                             style = MaterialTheme.typography.labelSmall,
@@ -364,34 +359,187 @@ fun BattleScreen(
                     }
                 }
 
-                // Right Panel: Monochrome Enemy Preview + HP Bar + Optional Controller Pad
+                // Soul Controls ONLY Panel (Switch Soul + Ability + D-Pad/Joystick)
                 Column(
                     modifier = Modifier
-                        .weight(0.64f)
-                        .fillMaxHeight(),
+                        .weight(if (controlScheme == ControlScheme.TOUCH_DRAG) 0.72f else 0.92f)
+                        .fillMaxHeight()
+                        .background(Color.Black)
+                        .border(2.dp, state.activeSoul.color.copy(alpha = 0.8f), RoundedCornerShape(0.dp))
+                        .padding(8.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    BossSpriteCanvas(
-                        enemyId = state.enemy.id,
-                        isHitFlash = !reduceFlash && state.isEnemyHitFlash,
-                        isSpareReady = state.canSpare,
-                        expression = state.bossExpression,
-                        monochromeBattle = true,
-                        modifier = Modifier.size(if (controlScheme == ControlScheme.TOUCH_DRAG) 118.dp else 72.dp)
-                    )
-                    UndertaleEnemyCompactStatus(language = language, state = state)
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = tr(language, "SOUL CONTROLS", "التحكم بالروح"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = state.activeSoul.color
+                        )
+                        state.allowedSouls.forEach { soul ->
+                            val active = soul == state.activeSoul
+                            Button(
+                                onClick = { battleViewModel.switchSoul(soul, duringBulletHell = true) },
+                                shape = RoundedCornerShape(0.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (active) soul.color else Color.Black,
+                                    contentColor = if (active) Color.Black else soul.color
+                                ),
+                                border = BorderStroke(1.5.dp, soul.color),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(44.dp)
+                                    .testTag("dodge_soul_${soul.name.lowercase()}")
+                            ) {
+                                Text(
+                                    text = if (language == AppLanguage.AR) soul.titleAr else soul.title,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        val ready = state.abilityCooldownSec <= 0f
+                        val abilityLabel = when {
+                            !ready -> "${"%.1f".format(state.abilityCooldownSec)}s"
+                            state.activeSoul == SoulType.SPLIT_DUO && !state.isSplitActive ->
+                                tr(language, "[C] SPLIT", "[C] انقسام")
+                            state.activeSoul == SoulType.SPLIT_DUO && state.isSplitActive ->
+                                tr(language, "[C] SWAP", "[C] تبديل")
+                            else -> if (language == AppLanguage.AR) state.activeSoul.abilityNameAr else state.activeSoul.abilityName
+                        }
+                        Button(
+                            onClick = battleViewModel::triggerSoulAbility,
+                            enabled = ready,
+                            shape = RoundedCornerShape(0.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (ready) state.activeSoul.color else Color(0xFF16161B),
+                                contentColor = Color.Black
+                            ),
+                            border = BorderStroke(2.dp, if (ready) Color.White else Color(0xFF4B5563)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("battle_ability_button")
+                        ) {
+                            Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(text = abilityLabel.uppercase(), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                        }
+                    }
+
                     if (controlScheme != ControlScheme.TOUCH_DRAG) {
                         ControllerPadOverlay(
                             controlScheme = controlScheme,
                             accentColor = state.activeSoul.color,
-                            padSize = 98.dp,
+                            padSize = 132.dp,
                             onDirectionChanged = battleViewModel::setDpadDirection
                         )
                     }
                 }
             }
         } else {
+            // 1. TOP UNDERTALE ENCOUNTER HEADER (Clear Boss vs Monster Badge + Collapsible Stats + Controls)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(
+                        onClick = onExitBattle,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.5.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(0.dp))
+                            .testTag("battle_back_button")
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Flee battle", tint = Color.White, modifier = Modifier.size(22.dp))
+                    }
+                    val (typeLabel, typeColor) = when {
+                        state.enemy.id == EnemyId.ECHO_LOKA || state.enemy.id == EnemyId.FUTURE_LOKA ->
+                            tr(language, "★ FINAL BOSS", "★ زعيم نهائي") to GlitchCyan
+                        state.enemy.id == EnemyId.GOV_MONSTER_CHIEF ->
+                            tr(language, "★ GOV BOSS (FRIEND)", "★ زعيم الحكومة (صديق)") to MercyYellow
+                        state.enemy.id == EnemyId.GOV_DIRECTOR ->
+                            tr(language, "★ GOV LEADER", "★ رئيس الحكومة") to GlitchCyan
+                        !state.enemy.isNormalMonster ->
+                            tr(language, "★ BOSS", "★ زعيم") to MercyYellow
+                        state.enemy.canBefriend ->
+                            tr(language, "MONSTER", "وحش ودود") to HpBarGreen
+                        else ->
+                            tr(language, "HOSTILE", "وحش عدائي") to DangerRed
+                    }
+                    Box(
+                        modifier = Modifier
+                            .background(Color.Black)
+                            .border(1.5.dp, typeColor, RoundedCornerShape(0.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(text = typeLabel, style = MaterialTheme.typography.labelSmall, color = typeColor)
+                    }
+                    Column {
+                        Text(
+                            text = "${state.enemy.name.uppercase()} · ${tr(language, "TURN ${state.turnNumber}", "دور ${state.turnNumber}")}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (!isStatsCollapsed) {
+                            Text(
+                                text = "${if (language == AppLanguage.AR) state.activeSoul.titleAr else state.activeSoul.title} · ATK +${state.attackBonus} · DEF +${state.effectiveDefenseBonus}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = state.activeSoul.color,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = { isStatsCollapsed = !isStatsCollapsed },
+                        shape = RoundedCornerShape(0.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        border = BorderStroke(1.5.dp, if (isStatsCollapsed) MutedSepiaInk else MercyYellow),
+                        modifier = Modifier
+                            .height(44.dp)
+                            .testTag("battle_stats_collapse_toggle")
+                    ) {
+                        Text(
+                            text = if (isStatsCollapsed) tr(language, "STATS ▾", "إحصائيات ▾") else tr(language, "HIDE STATS ▴", "طي ▴"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isStatsCollapsed) MutedSepiaInk else MercyYellow
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = onToggleControls,
+                        shape = RoundedCornerShape(0.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        border = BorderStroke(1.5.dp, SepiaAmber),
+                        modifier = Modifier
+                            .height(44.dp)
+                            .testTag("battle_controls_toggle")
+                    ) {
+                        Text(if (language == AppLanguage.AR) controlScheme.labelAr else controlScheme.label, style = MaterialTheme.typography.labelSmall, color = SepiaAmber)
+                    }
+                    OutlinedButton(
+                        onClick = onToggleLanguage,
+                        shape = RoundedCornerShape(0.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        border = BorderStroke(1.5.dp, Color.White),
+                        modifier = Modifier.height(44.dp)
+                    ) {
+                        Text(language.buttonLabel, style = MaterialTheme.typography.labelSmall, color = Color.White)
+                    }
+                }
+            }
+
             // NON-DODGE CLASSIC UNDERTALE VIEW: Centered 512x512 Monochrome Boss on 640x480 Encounter Grid + Spacious White Box Below
             Box(
                 modifier = Modifier
@@ -416,38 +564,42 @@ fun BattleScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    // Optional Left Slot: Ashen Flower Helper if active + Enemy HP/Mercy Meter
-                    Column(
-                        modifier = Modifier
-                            .weight(0.72f)
-                            .fillMaxHeight(),
-                        verticalArrangement = Arrangement.SpaceEvenly,
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        UndertaleEnemyCompactStatus(
-                            language = language,
-                            state = state,
-                            modifier = Modifier.width(156.dp)
-                        )
-                        if (state.ashenHelpingThisTurn) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier
-                                    .background(Color.Black)
-                                    .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
-                                    .padding(horizontal = 6.dp, vertical = 4.dp)
-                            ) {
-                                AshenFlowerCanvas(
-                                    isCreepySmirk = false,
-                                    expression = PortraitExpression.HAPPY,
-                                    modifier = Modifier.size(34.dp)
+                    // Optional Left Slot: Collapsible Enemy HP/Mercy Meter + Ashen Helper
+                    if (!isStatsCollapsed || state.ashenHelpingThisTurn) {
+                        Column(
+                            modifier = Modifier
+                                .weight(0.72f)
+                                .fillMaxHeight(),
+                            verticalArrangement = Arrangement.SpaceEvenly,
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            if (!isStatsCollapsed) {
+                                UndertaleEnemyCompactStatus(
+                                    language = language,
+                                    state = state,
+                                    modifier = Modifier.width(156.dp)
                                 )
-                                Text(
-                                    text = tr(language, "* Ashen is helping!", "* آشن يساعدك!"),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MercyYellow
-                                )
+                            }
+                            if (state.ashenHelpingThisTurn) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier
+                                        .background(Color.Black)
+                                        .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
+                                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                                ) {
+                                    AshenFlowerCanvas(
+                                        isCreepySmirk = false,
+                                        expression = PortraitExpression.HAPPY,
+                                        modifier = Modifier.size(34.dp)
+                                    )
+                                    Text(
+                                        text = tr(language, "* Ashen is helping!", "* آشن يساعدك!"),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MercyYellow
+                                    )
+                                }
                             }
                         }
                     }
@@ -481,15 +633,29 @@ fun BattleScreen(
                                     color = if (state.lastStrikeCritical) MercyYellow else state.equippedWeapon.accentColor,
                                     start = sweepStart,
                                     end = sweepEnd,
-                                    strokeWidth = if (state.lastStrikeCritical) 9f else 5.5f
+                                    strokeWidth = if (state.lastStrikeCritical) 10f else 6f
                                 )
-                                drawLine(Color.White, sweepStart, sweepEnd, strokeWidth = 2.5f)
+                                drawLine(Color.White, sweepStart, sweepEnd, strokeWidth = 3f)
+                                // Pixel burst sparks at strike tip
+                                val sparkCount = if (state.lastStrikeCritical) 8 else 5
+                                for (i in 0 until sparkCount) {
+                                    val ang = i * (6.283f / sparkCount) + progress * 2.4f
+                                    val dist = span * 0.48f * progress
+                                    val sx = sweepEnd.x + kotlin.math.cos(ang) * dist
+                                    val sy = sweepEnd.y + kotlin.math.sin(ang) * dist
+                                    val sz = (if (state.lastStrikeCritical) 5.dp else 3.5.dp).toPx() * (1f - progress * 0.6f)
+                                    drawRect(
+                                        color = if (i % 2 == 0) Color.White else MercyYellow,
+                                        topLeft = Offset(sx - sz * 0.5f, sy - sz * 0.5f),
+                                        size = Size(sz, sz)
+                                    )
+                                }
                                 if (state.equippedWeapon.style == WeaponStyle.DUAL_BLADE || state.lastStrikeCritical) {
                                     drawLine(
                                         color = MercyYellow,
                                         start = Offset(cx + span, cy - span * 0.75f),
                                         end = Offset(cx + span - (span * 2f) * progress, cy - span * 0.75f + (span * 1.5f) * progress),
-                                        strokeWidth = 4f
+                                        strokeWidth = 4.5f
                                     )
                                 }
                             }
@@ -500,7 +666,8 @@ fun BattleScreen(
                                 modifier = Modifier
                                     .align(Alignment.TopCenter)
                                     .background(Color.Black)
-                                    .padding(horizontal = 6.dp)
+                                    .border(1.5.dp, if (state.lastStrikeCritical) MercyYellow else DangerRed, RoundedCornerShape(0.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }
                     }
@@ -680,71 +847,73 @@ fun BattleScreen(
             }
         }
 
-        // 3. CLASSIC UNDERTALE BOTTOM BAR: LOKA   LV 1   HP [YELLOW/RED BAR]   20 / 20  +  SOUL / ALLY
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        // 3. CLASSIC UNDERTALE BOTTOM BAR (Hidden during BULLET_HELL so Soul Arena + Soul Controls fill the screen)
+        if (state.phase != BattlePhase.BULLET_HELL) {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.weight(1f)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("LOKA", style = MaterialTheme.typography.titleMedium, color = Color.White)
-                Text("LV 1", style = MaterialTheme.typography.labelMedium, color = Color.White)
-                Text("HP", style = MaterialTheme.typography.labelSmall, color = Color.White)
-                Box(
-                    modifier = Modifier
-                        .width(128.dp)
-                        .height(16.dp)
-                        .background(UndertaleHpRed)
-                        .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    val ratio = (state.playerHp.toFloat() / state.maxPlayerHp).coerceIn(0f, 1f)
+                    Text("LOKA", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                    Text("LV 1", style = MaterialTheme.typography.labelMedium, color = Color.White)
+                    Text("HP", style = MaterialTheme.typography.labelSmall, color = Color.White)
                     Box(
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(ratio)
-                            .background(UndertaleHpYellow)
+                            .width(128.dp)
+                            .height(16.dp)
+                            .background(UndertaleHpRed)
+                            .border(1.5.dp, Color.White, RoundedCornerShape(0.dp))
+                    ) {
+                        val ratio = (state.playerHp.toFloat() / state.maxPlayerHp).coerceIn(0f, 1f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(ratio)
+                                .background(UndertaleHpYellow)
+                        )
+                    }
+                    Text(
+                        text = "${state.playerHp} / ${state.maxPlayerHp}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (state.playerHp <= 6) DangerRed else Color.White
                     )
                 }
-                Text(
-                    text = "${state.playerHp} / ${state.maxPlayerHp}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (state.playerHp <= 6) DangerRed else Color.White
-                )
-            }
 
-            if (state.phase == BattlePhase.PLAYER_MENU) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.SOUL_SELECT) MenuSubTab.ROOT else MenuSubTab.SOUL_SELECT)
-                        },
-                        shape = RoundedCornerShape(0.dp),
-                        border = BorderStroke(1.5.dp, state.activeSoul.color),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        modifier = Modifier
-                            .height(34.dp)
-                            .testTag("battle_soul_btn")
-                    ) {
-                        Text(tr(language, "SOUL", "الروح"), style = MaterialTheme.typography.labelSmall, color = state.activeSoul.color)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.ALLY_LIST) MenuSubTab.ROOT else MenuSubTab.ALLY_LIST)
-                        },
-                        shape = RoundedCornerShape(0.dp),
-                        border = BorderStroke(1.5.dp, HpBarGreen),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        modifier = Modifier
-                            .height(34.dp)
-                            .testTag("battle_ally_btn")
-                    ) {
-                        Text(tr(language, "ALLY", "حليف"), style = MaterialTheme.typography.labelSmall, color = HpBarGreen)
+                if (state.phase == BattlePhase.PLAYER_MENU) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.SOUL_SELECT) MenuSubTab.ROOT else MenuSubTab.SOUL_SELECT)
+                            },
+                            shape = RoundedCornerShape(0.dp),
+                            border = BorderStroke(1.5.dp, state.activeSoul.color),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .height(44.dp)
+                                .testTag("battle_soul_btn")
+                        ) {
+                            Text(tr(language, "SOUL", "الروح"), style = MaterialTheme.typography.labelMedium, color = state.activeSoul.color)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                battleViewModel.selectSubTab(if (state.subTab == MenuSubTab.ALLY_LIST) MenuSubTab.ROOT else MenuSubTab.ALLY_LIST)
+                            },
+                            shape = RoundedCornerShape(0.dp),
+                            border = BorderStroke(1.5.dp, HpBarGreen),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .height(44.dp)
+                                .testTag("battle_ally_btn")
+                        ) {
+                            Text(tr(language, "ALLY", "حليف"), style = MaterialTheme.typography.labelMedium, color = HpBarGreen)
+                        }
                     }
                 }
             }
@@ -884,8 +1053,8 @@ private fun UndertaleCmdBtn(
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = if (selected) borderColor.copy(alpha = 0.14f) else Color.Black
         ),
-        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-        modifier = modifier.height(48.dp)
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+        modifier = modifier.height(52.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1310,6 +1479,7 @@ private fun UndertaleFightEyeBarInsideBox(
 private fun BulletHellArena(
     state: BattleUiState,
     controlScheme: ControlScheme,
+    reduceFlash: Boolean,
     onMoveByDelta: (Float, Float) -> Unit
 ) {
     Box(
@@ -1523,6 +1693,20 @@ private fun BulletHellArena(
                 hasGreenShield = state.hasGreenShield,
                 splitHalfIndex = if (state.activeSoul == SoulType.SPLIT_DUO && state.isSplitActive) state.controlledHalfIndex else null
             )
+
+            // Crisp corner hurt glow & shock brackets inside arena when hit
+            if (state.playerHitFlashTimerSec > 0f) {
+                val hurtAlpha = (state.playerHitFlashTimerSec / 0.32f).coerceIn(0f, 1f) * (if (reduceFlash) 0.28f else 0.72f)
+                val sx = state.soulX * size.width
+                val sy = state.soulY * size.height
+                val ringR = 16.dp.toPx() + (1f - hurtAlpha) * 18.dp.toPx()
+                drawRect(
+                    color = DangerRed.copy(alpha = hurtAlpha),
+                    topLeft = Offset(sx - ringR, sy - ringR),
+                    size = Size(ringR * 2f, ringR * 2f),
+                    style = Stroke(2.5f)
+                )
+            }
         }
     }
 }

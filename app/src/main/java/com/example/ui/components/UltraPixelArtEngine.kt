@@ -30,6 +30,25 @@ object UltraPixelArtEngine {
     private val spriteCache = LruCache<String, ImageBitmap>(32)
     private val sceneCache = LruCache<String, ImageBitmap>(16)
 
+    /**
+     * Computes exact integer-scaled pixel bounds so every logical pixel renders as an identical NxN block
+     * without fractional mixels or edge blur across different screen densities.
+     */
+    fun computeIntegerScaledSize(gridW: Int, gridH: Int, targetSizePx: Float): androidx.compose.ui.unit.IntSize {
+        val w0 = gridW.coerceAtLeast(1)
+        val h0 = gridH.coerceAtLeast(1)
+        val maxGrid = maxOf(w0, h0)
+        if (targetSizePx <= 0f) return androidx.compose.ui.unit.IntSize(w0, h0)
+        return if (targetSizePx >= maxGrid) {
+            val factor = (targetSizePx / maxGrid.toFloat()).toInt().coerceAtLeast(1)
+            androidx.compose.ui.unit.IntSize(w0 * factor, h0 * factor)
+        } else {
+            val drawW = (targetSizePx * (w0.toFloat() / maxGrid)).toInt().coerceAtLeast(2)
+            val drawH = (targetSizePx * (h0.toFloat() / maxGrid)).toInt().coerceAtLeast(2)
+            androidx.compose.ui.unit.IntSize(drawW, drawH)
+        }
+    }
+
     fun getHdSpriteBitmap(
         rows: List<String>,
         palette: Map<Char, Color>
@@ -62,23 +81,22 @@ object UltraPixelArtEngine {
             }
         }
 
-        // Character & Monster matrices (>= 18 px) render at full 512x512 crisp pixel art;
-        // tiny hearts/stars/sparks render at 128x128 to keep LRU cache fast and lightweight.
+        // Character & Monster matrices (>= 18 px) render at exact integer multiple around 512px;
+        // tiny hearts/stars/sparks snap cleanly around 128px so every texel stays square.
         val isCharacterSprite = w0 >= 18 || h0 >= 18
         val baseRes = if (isCharacterSprite) SPRITE_RES else ICON_RES
-        val targetW = baseRes
-        val targetH = if (h0 > w0) {
-            ((baseRes * h0.toFloat() / w0.toFloat()).toInt().coerceIn(baseRes, (baseRes * 1.25f).toInt()))
-        } else {
-            baseRes
-        }
+        val maxGrid = maxOf(w0, h0)
+        val scaleFactor = (baseRes / maxGrid).coerceAtLeast(1)
+        val targetW = w0 * scaleFactor
+        val targetH = h0 * scaleFactor
 
         val hdPixels = IntArray(targetW * targetH)
         for (y in 0 until targetH) {
-            val sy = (y * h0) / targetH
+            val sy = y / scaleFactor
+            val rowOffset = y * targetW
+            val srcRowOffset = sy * w0
             for (x in 0 until targetW) {
-                val sx = (x * w0) / targetW
-                hdPixels[y * targetW + x] = pixels[sy * w0 + sx]
+                hdPixels[rowOffset + x] = pixels[srcRowOffset + (x / scaleFactor)]
             }
         }
 

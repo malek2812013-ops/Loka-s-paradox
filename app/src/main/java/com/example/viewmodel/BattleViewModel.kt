@@ -99,6 +99,12 @@ data class BattleUiState(
     val lastStrikeCritical: Boolean = false,
     val slashFxTimerSec: Float = 0f,
     val isEnemyHitFlash: Boolean = false,
+    val playerHitFlashTimerSec: Float = 0f,
+    val arenaShakeTimerSec: Float = 0f,
+    val arenaShakeIntensity: Float = 0f,
+    val playerLastDamageTaken: Int? = null,
+    val playerDamagePopTimerSec: Float = 0f,
+    val shieldBlockedTimerSec: Float = 0f,
     val battleWonSpared: Boolean = false,
     val ashenHelpingThisTurn: Boolean = false,
     val equippedArmorName: String = "Loka's Grey Tee & Scarf",
@@ -274,6 +280,9 @@ class BattleViewModel : ViewModel() {
             RetroSoundEngine.playStrike(isCrit && s.activeSoul != SoulType.WHITE_SICK && s.activeSoul != SoulType.PURPLE)
             hitFlashTimer = 0.36f
 
+            val shakeT = if (isCrit) 0.34f else 0.22f
+            val shakeAmt = if (isCrit) 1.0f else 0.60f
+
             if (newHp <= 0) {
                 s.copy(
                     enemyHp = 0,
@@ -281,6 +290,8 @@ class BattleViewModel : ViewModel() {
                     lastStrikeCritical = isCrit,
                     slashFxTimerSec = 0.55f,
                     isEnemyHitFlash = true,
+                    arenaShakeTimerSec = shakeT,
+                    arenaShakeIntensity = shakeAmt,
                     bossExpression = PortraitExpression.SURPRISED,
                     speakerExpression = PortraitExpression.ANGRY,
                     phase = BattlePhase.VICTORY,
@@ -301,6 +312,8 @@ class BattleViewModel : ViewModel() {
                     lastStrikeCritical = isCrit,
                     slashFxTimerSec = 0.48f,
                     isEnemyHitFlash = true,
+                    arenaShakeTimerSec = shakeT,
+                    arenaShakeIntensity = shakeAmt,
                     bossExpression = PortraitExpression.ANGRY,
                     speakerExpression = if (isCrit) PortraitExpression.DETERMINED else PortraitExpression.ANGRY,
                     phase = BattlePhase.ENEMY_DIALOGUE,
@@ -507,14 +520,24 @@ class BattleViewModel : ViewModel() {
                 ashenHelpingThisTurn = false,
                 phaseTimerSec = 0f,
                 phaseDurationSec = when (s.enemy.id) {
-                    EnemyId.RUINS_DUMMY -> 4.6f
-                    EnemyId.NORMAL_SLIME, EnemyId.SAND_MOTH, EnemyId.HALO_SCRIBE -> 4.8f
-                    EnemyId.FERAL_HOUND, EnemyId.IRON_STALKER, EnemyId.ASH_IMP -> 5.4f
-                    EnemyId.VEX, EnemyId.BRAMBLE -> 6.2f
-                    EnemyId.VESPERA, EnemyId.ORIN, EnemyId.GOV_MONSTER_CHIEF -> 6.8f
-                    EnemyId.SERAPHIEL, EnemyId.MALAKOR, EnemyId.GOV_DIRECTOR -> 7.4f
-                    EnemyId.ECHO_LOKA -> 7.0f
-                    EnemyId.FUTURE_LOKA -> 8.0f
+                    EnemyId.RUINS_DUMMY,
+                    EnemyId.NORMAL_SLIME,
+                    EnemyId.SAND_MOTH,
+                    EnemyId.HALO_SCRIBE,
+                    EnemyId.FERAL_HOUND,
+                    EnemyId.IRON_STALKER,
+                    EnemyId.ASH_IMP -> 45.0f
+
+                    EnemyId.VEX,
+                    EnemyId.BRAMBLE,
+                    EnemyId.VESPERA,
+                    EnemyId.ORIN,
+                    EnemyId.GOV_MONSTER_CHIEF,
+                    EnemyId.SERAPHIEL,
+                    EnemyId.MALAKOR,
+                    EnemyId.GOV_DIRECTOR,
+                    EnemyId.ECHO_LOKA,
+                    EnemyId.FUTURE_LOKA -> 60.0f
                 },
                 spawnAccumulatorSec = 0.35f,
                 isRewindingTime = false,
@@ -727,6 +750,11 @@ class BattleViewModel : ViewModel() {
         _state.update { s ->
             val flashState = hitFlashTimer > 0f
             val nextSlash = (s.slashFxTimerSec - dt).coerceAtLeast(0f)
+            val nextPlayerHit = (s.playerHitFlashTimerSec - dt).coerceAtLeast(0f)
+            val nextShake = (s.arenaShakeTimerSec - dt).coerceAtLeast(0f)
+            val nextShakeIntensity = if (nextShake > 0f) s.arenaShakeIntensity else 0f
+            val nextDmgPop = (s.playerDamagePopTimerSec - dt).coerceAtLeast(0f)
+            val nextShieldPop = (s.shieldBlockedTimerSec - dt).coerceAtLeast(0f)
             when (s.phase) {
                 BattlePhase.FIGHT_MINIGAME -> {
                     // Classic Undertale Fight Bar sweeps across the target eye [0.06 .. 0.94] toward center x = 0.50f
@@ -743,14 +771,44 @@ class BattleViewModel : ViewModel() {
                         fightCursorPos = nextPos,
                         fightCursorDir = nextDir,
                         isEnemyHitFlash = flashState,
-                        slashFxTimerSec = nextSlash
+                        slashFxTimerSec = nextSlash,
+                        playerHitFlashTimerSec = nextPlayerHit,
+                        arenaShakeTimerSec = nextShake,
+                        arenaShakeIntensity = nextShakeIntensity,
+                        playerDamagePopTimerSec = nextDmgPop,
+                        shieldBlockedTimerSec = nextShieldPop
                     )
                 }
 
-                BattlePhase.BULLET_HELL -> simulateBulletHell(s, dt, flashState).copy(slashFxTimerSec = nextSlash)
+                BattlePhase.BULLET_HELL -> simulateBulletHell(
+                    s = s.copy(
+                        playerHitFlashTimerSec = nextPlayerHit,
+                        arenaShakeTimerSec = nextShake,
+                        arenaShakeIntensity = nextShakeIntensity,
+                        playerDamagePopTimerSec = nextDmgPop,
+                        shieldBlockedTimerSec = nextShieldPop
+                    ),
+                    dt = dt,
+                    flashState = flashState
+                ).copy(slashFxTimerSec = nextSlash)
 
-                else -> if (s.isEnemyHitFlash != flashState || s.slashFxTimerSec != nextSlash) {
-                    s.copy(isEnemyHitFlash = flashState, slashFxTimerSec = nextSlash)
+                else -> if (
+                    s.isEnemyHitFlash != flashState ||
+                    s.slashFxTimerSec != nextSlash ||
+                    s.playerHitFlashTimerSec != nextPlayerHit ||
+                    s.arenaShakeTimerSec != nextShake ||
+                    s.playerDamagePopTimerSec != nextDmgPop ||
+                    s.shieldBlockedTimerSec != nextShieldPop
+                ) {
+                    s.copy(
+                        isEnemyHitFlash = flashState,
+                        slashFxTimerSec = nextSlash,
+                        playerHitFlashTimerSec = nextPlayerHit,
+                        arenaShakeTimerSec = nextShake,
+                        arenaShakeIntensity = nextShakeIntensity,
+                        playerDamagePopTimerSec = nextDmgPop,
+                        shieldBlockedTimerSec = nextShieldPop
+                    )
                 } else s
             }
         }
@@ -794,6 +852,11 @@ class BattleViewModel : ViewModel() {
                 splitBoostTimer0Sec = 0f,
                 splitBoostTimer1Sec = 0f,
                 isEnemyHitFlash = false,
+                playerHitFlashTimerSec = 0f,
+                arenaShakeTimerSec = 0f,
+                arenaShakeIntensity = 0f,
+                playerDamagePopTimerSec = 0f,
+                shieldBlockedTimerSec = 0f,
                 dialogueText = when {
                     canAshenJoin && s.enemy.canBefriend -> "* Ashen joined the fight to help! +5 HP, Shield raised & +12% Mercy!"
                     canAshenJoin && s.enemy.canStopWithoutKilling -> "* Ashen helps! +5 HP, Shield & +12% Stop progress! (Stop without killing or FIGHT)"
@@ -825,7 +888,7 @@ class BattleViewModel : ViewModel() {
             sx = (sx + (Random.nextFloat() - 0.5f) * 0.024f).coerceIn(margin, 1f - margin)
         }
 
-        val rewinding = s.enemy.id == EnemyId.ECHO_LOKA && nextPhaseTimer in 2.8f..3.9f
+        val rewinding = s.enemy.id == EnemyId.ECHO_LOKA && (nextPhaseTimer % 15f) in 6.5f..8.2f
         val timeScale = if (rewinding) -0.85f else 1f
 
         var spawnAcc = s.spawnAccumulatorSec + dt
@@ -838,15 +901,13 @@ class BattleViewModel : ViewModel() {
         val spawnedSideWarn = mutableListOf<SideWallShotWarning>()
 
         val spawnInterval = when (s.enemy.id) {
-            EnemyId.RUINS_DUMMY -> 0.85f
-            EnemyId.NORMAL_SLIME, EnemyId.SAND_MOTH, EnemyId.HALO_SCRIBE -> 0.72f
-            EnemyId.FERAL_HOUND, EnemyId.IRON_STALKER, EnemyId.ASH_IMP -> 0.62f
-            EnemyId.VEX, EnemyId.BRAMBLE -> 0.60f
-            EnemyId.VESPERA, EnemyId.ORIN -> 0.54f
-            EnemyId.SERAPHIEL, EnemyId.MALAKOR, EnemyId.GOV_MONSTER_CHIEF -> 0.50f
-            EnemyId.GOV_DIRECTOR -> 0.46f
-            EnemyId.ECHO_LOKA -> 0.52f
-            EnemyId.FUTURE_LOKA -> 0.46f
+            EnemyId.RUINS_DUMMY -> 1.15f
+            EnemyId.NORMAL_SLIME, EnemyId.SAND_MOTH, EnemyId.HALO_SCRIBE -> 0.88f
+            EnemyId.FERAL_HOUND, EnemyId.IRON_STALKER, EnemyId.ASH_IMP -> 0.78f
+            EnemyId.VEX, EnemyId.BRAMBLE -> 0.72f
+            EnemyId.VESPERA, EnemyId.ORIN, EnemyId.GOV_MONSTER_CHIEF -> 0.66f
+            EnemyId.SERAPHIEL, EnemyId.MALAKOR, EnemyId.GOV_DIRECTOR, EnemyId.ECHO_LOKA -> 0.60f
+            EnemyId.FUTURE_LOKA -> 0.55f
         }
 
         if (!rewinding && spawnAcc >= spawnInterval) {
@@ -1001,19 +1062,37 @@ class BattleViewModel : ViewModel() {
             difficulty = s.difficulty
         )
 
+        var playerHitTimer = s.playerHitFlashTimerSec
+        var shakeTimer = s.arenaShakeTimerSec
+        var shakeIntensity = s.arenaShakeIntensity
+        var lastPlayerDmg = s.playerLastDamageTaken
+        var dmgPopTimer = s.playerDamagePopTimerSec
+        var shieldPopTimer = s.shieldBlockedTimerSec
+
         fun applyDamageAt(hitX: Float, hitY: Float, hitOnControlledHalf: Boolean) {
             if (shield) {
                 shield = false
                 invuln = 0.65f
+                shieldPopTimer = 0.75f
+                shakeTimer = maxOf(shakeTimer, 0.16f)
+                shakeIntensity = maxOf(shakeIntensity, 0.45f)
                 RetroSoundEngine.playAbility()
                 if (s.activeSoul == SoulType.GREEN) {
                     if (hp < s.maxPlayerHp) hp++
                     nextBullets += Bullet(nextEntityId++, sx, sy - 0.04f, 0f, -1.25f, 0.03f, BulletKind.PLAYER_SHOT, SoulType.GREEN.color)
                 }
-                extraParticles += ArenaParticle(hitX, hitY, 0f, 0f, 0.35f, 0.35f, SoulType.GREEN.color, 10f)
+                extraParticles += List(6) { i ->
+                    val a = i * (2f * PI.toFloat() / 6f)
+                    ArenaParticle(hitX, hitY, cos(a) * 0.42f, sin(a) * 0.42f, 0.36f, 0.36f, SoulType.GREEN.color, 8f)
+                }
             } else {
                 hp = (hp - actualIncoming).coerceAtLeast(0)
                 invuln = 0.95f
+                playerHitTimer = 0.32f
+                shakeTimer = maxOf(shakeTimer, 0.28f)
+                shakeIntensity = maxOf(shakeIntensity, 0.90f)
+                lastPlayerDmg = actualIncoming
+                dmgPopTimer = 0.85f
                 RetroSoundEngine.playHurt()
                 // Split Soul rule: when 1 half takes damage, the OTHER half becomes faster!
                 if (s.activeSoul == SoulType.SPLIT_DUO && s.isSplitActive) {
@@ -1024,8 +1103,9 @@ class BattleViewModel : ViewModel() {
                         boost0 = 4.5f
                     }
                 }
-                extraParticles += List(6) {
-                    ArenaParticle(hitX, hitY, (Random.nextFloat() - 0.5f) * 0.7f, (Random.nextFloat() - 0.5f) * 0.7f, 0.35f, 0.35f, Color.Red, 6f)
+                extraParticles += List(10) {
+                    val col = if (it % 3 == 0) Color.White else Color.Red
+                    ArenaParticle(hitX, hitY, (Random.nextFloat() - 0.5f) * 0.85f, (Random.nextFloat() - 0.5f) * 0.85f, 0.38f, 0.38f, col, 6.5f)
                 }
             }
         }
@@ -1179,7 +1259,13 @@ class BattleViewModel : ViewModel() {
             bombs = nextBombs,
             sideWarnings = nextSideWarn,
             particles = nextParticles,
-            isEnemyHitFlash = enemyFlashedNow
+            isEnemyHitFlash = enemyFlashedNow,
+            playerHitFlashTimerSec = playerHitTimer,
+            arenaShakeTimerSec = shakeTimer,
+            arenaShakeIntensity = shakeIntensity,
+            playerLastDamageTaken = lastPlayerDmg,
+            playerDamagePopTimerSec = dmgPopTimer,
+            shieldBlockedTimerSec = shieldPopTimer
         )
     }
 
@@ -1200,7 +1286,7 @@ class BattleViewModel : ViewModel() {
         outBombs: MutableList<ArenaBomb>,
         outSideWarnings: MutableList<SideWallShotWarning>
     ) {
-        val pattern = (turn + (phaseTime * 0.90f).toInt()) % 4
+        val pattern = (turn + (phaseTime * 0.55f).toInt()) % 4
         when (enemyId) {
             EnemyId.RUINS_DUMMY -> when (pattern) {
                 0 -> {

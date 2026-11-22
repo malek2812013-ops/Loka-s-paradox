@@ -1,13 +1,16 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -20,14 +23,20 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Backpack
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Gamepad
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -99,6 +108,7 @@ import com.example.ui.components.drawPixelSaveStar
 import com.example.ui.components.drawSteppedPixelShadow
 import com.example.ui.components.drawUndertaleBossPixelSprite
 import com.example.ui.components.drawZoneDoorway
+import com.example.ui.components.retroGlitchShaderEffect
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.GlitchCyan
 import com.example.ui.theme.GlitchMagenta
@@ -158,6 +168,8 @@ fun WorldExploreScreen(
     var ambientClock by remember { mutableFloatStateOf(0f) }
     var moveAnimHoldSec by remember { mutableFloatStateOf(0f) }
     var facingRight by remember { mutableStateOf(true) }
+    var isSidePanelCollapsed by remember { mutableStateOf(false) }
+    var isStatsFolded by remember { mutableStateOf(true) }
 
     BackHandler(enabled = confirmResetDialog || showCodexDialog || activeLandmarkDialog != null || activeNpcDialog != null || activeKidDialog != null) {
         confirmResetDialog = false
@@ -273,8 +285,13 @@ fun WorldExploreScreen(
         // LEFT: Interactive Undertale-style 2D Micro-Pixel World Map Canvas
         Box(
             modifier = Modifier
-                .weight(1.75f)
+                .weight(if (isSidePanelCollapsed) 1f else 1.75f)
                 .fillMaxHeight()
+                .retroGlitchShaderEffect(
+                    timeSec = ambientClock,
+                    intensity = if (world == WorldId.GLITCHED_WORLD) 0.55f else 0f,
+                    reduceFlash = state.reduceFlash
+                )
                 .border(3.dp, if (world == WorldId.GLITCHED_WORLD) GlitchCyan else Color.White, RoundedCornerShape(0.dp))
                 .pointerInput(world, state.controlScheme) {
                     if (state.controlScheme == ControlScheme.TOUCH_DRAG) {
@@ -737,19 +754,161 @@ fun WorldExploreScreen(
                 ControllerPadOverlay(
                     controlScheme = state.controlScheme,
                     accentColor = if (world == WorldId.GLITCHED_WORLD) GlitchCyan else SepiaAmber,
-                    padSize = 114.dp,
+                    padSize = 128.dp,
                     onDirectionChanged = { dx, dy ->
                         padDirX = dx
                         padDirY = dy
                     },
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(8.dp)
+                        .padding(10.dp)
                 )
+            }
+
+            // Floating compact proximity trigger when the side stats/info panel is collapsed
+            if (isSidePanelCollapsed) {
+                val quickPrompt: Triple<String, Color, () -> Unit>? = when {
+                    nearKid != null -> Triple(
+                        if (nearKid.id in state.rescuedToNormalKidIds) tr(lang, "TALK", "تحدث") else tr(lang, "APPROACH KID", "اقترب"),
+                        nearKid.accentColor
+                    ) { activeKidDialog = nearKid }
+                    nearChest != null && nearChest.id !in state.openedChestIds -> Triple(
+                        tr(lang, "OPEN CHEST", "افتح الصندوق"),
+                        MercyYellow
+                    ) { onOpenChest(nearChest.id) }
+                    nearBoss != null && state.isBossUnlocked(nearBoss.id) -> Triple(
+                        tr(lang, "FIGHT ${nearBoss.name.take(10)}", "قاتل ${nearBoss.name.take(10)}"),
+                        nearBoss.accentColor
+                    ) { onEngageBoss(nearBoss.id) }
+                    nearLandmark != null -> Triple(
+                        tr(lang, "ENTER", "دخول"),
+                        SepiaAmber
+                    ) { activeLandmarkDialog = nearLandmark }
+                    nearNpc != null -> Triple(
+                        tr(lang, "TALK", "تحدث"),
+                        nearNpc.accentColor
+                    ) { activeNpcDialog = nearNpc }
+                    nearAshenSave && state.ashenHiddenTimerSec <= 0f -> Triple(
+                        tr(lang, "SAVE ★", "حفظ ★"),
+                        MercyYellow
+                    ) { onSaveGame() }
+                    nearRift -> Triple(
+                        tr(lang, "VOID RIFT", "صدع الجلتش"),
+                        GlitchCyan
+                    ) { onManualRiftJump() }
+                    unlockedRoute != null -> Triple(
+                        tr(lang, "FINALE", "النهاية"),
+                        unlockedRoute.badgeColor
+                    ) { onOpenRouteFinale(unlockedRoute) }
+                    else -> null
+                }
+                quickPrompt?.let { (label, bgColor, action) ->
+                    Button(
+                        onClick = action,
+                        shape = RoundedCornerShape(0.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = bgColor, contentColor = ObsidianBg),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(10.dp)
+                            .height(48.dp)
+                            .testTag("explore_collapsed_quick_action")
+                    ) {
+                        Text(label, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
             }
         }
 
-        // RIGHT: Compact Undertale-style Black & White Info, Proximity & Bag Bar
+        // RIGHT: Collapsible Undertale-style Black & White Stats, Info, Proximity & Bag Panel
+        if (isSidePanelCollapsed) {
+            Column(
+                modifier = Modifier
+                    .width(56.dp)
+                    .fillMaxHeight()
+                    .background(Color.Black, RoundedCornerShape(0.dp))
+                    .border(2.5.dp, Color.White, RoundedCornerShape(0.dp))
+                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                IconButton(
+                    onClick = { isSidePanelCollapsed = false },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .border(1.5.dp, MercyYellow, RoundedCornerShape(0.dp))
+                        .testTag("explore_panel_expand_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = tr(lang, "Expand stats panel", "توسيع لوحة الإحصائيات"),
+                        tint = MercyYellow
+                    )
+                }
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    IconButton(
+                        onClick = onToggleRunMode,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.5.dp, if (state.isRunningMode) GlitchCyan else MutedSepiaInk, RoundedCornerShape(0.dp))
+                            .testTag("explore_run_toggle_button")
+                    ) {
+                        Icon(
+                            imageVector = if (state.isRunningMode) Icons.Default.DirectionsRun else Icons.Default.DirectionsWalk,
+                            contentDescription = "Walk or Run",
+                            tint = if (state.isRunningMode) GlitchCyan else ParchmentInk
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            codexInitialTab = 0
+                            showCodexDialog = true
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.5.dp, SepiaAmber, RoundedCornerShape(0.dp))
+                            .testTag("explore_bag_button")
+                    ) {
+                        Icon(Icons.Default.Backpack, contentDescription = "Codex", tint = SepiaAmber)
+                    }
+                    IconButton(
+                        onClick = {
+                            codexInitialTab = 4
+                            showCodexDialog = true
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.5.dp, GlitchCyan, RoundedCornerShape(0.dp))
+                            .testTag("explore_settings_button")
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = GlitchCyan)
+                    }
+                    IconButton(
+                        onClick = onToggleControls,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.5.dp, MercyYellow, RoundedCornerShape(0.dp))
+                            .testTag("explore_controls_button")
+                    ) {
+                        Icon(Icons.Default.Gamepad, contentDescription = "Switch controls", tint = MercyYellow)
+                    }
+                    OutlinedButton(
+                        onClick = onToggleLanguage,
+                        shape = RoundedCornerShape(0.dp),
+                        contentPadding = PaddingValues(0.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, SepiaDarkBorder),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("explore_language_button")
+                    ) {
+                        Text(lang.buttonLabel, style = MaterialTheme.typography.labelSmall, color = SepiaGold)
+                    }
+                }
+            }
+        } else {
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -757,8 +916,14 @@ fun WorldExploreScreen(
                 .background(Color.Black, RoundedCornerShape(0.dp))
                 .border(3.dp, Color.White, RoundedCornerShape(0.dp))
                 .padding(10.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -776,22 +941,37 @@ fun WorldExploreScreen(
                             else -> PortraitExpression.NEUTRAL
                         },
                         modifier = Modifier
-                            .size(50.dp)
+                            .size(48.dp)
                             .background(Color(0xFF0C0C10), RoundedCornerShape(0.dp))
                             .border(2.dp, Color.White, RoundedCornerShape(0.dp))
                     )
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(world.title.uppercase(), style = MaterialTheme.typography.titleMedium, color = SepiaAmber)
+                        Text(world.title.uppercase(), style = MaterialTheme.typography.titleMedium, color = SepiaAmber, maxLines = 1)
                         Text(
                             text = "${tr(lang, "Soul", "الروح")}: ${world.allowedSouls.joinToString(" & ") { it.title }}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = world.allowedSouls.first().color
+                            color = world.allowedSouls.first().color,
+                            maxLines = 1
+                        )
+                    }
+                    IconButton(
+                        onClick = { isSidePanelCollapsed = true },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .border(1.5.dp, MercyYellow.copy(alpha = 0.8f), RoundedCornerShape(0.dp))
+                            .testTag("explore_panel_collapse_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = tr(lang, "Collapse panel", "طي اللوحة"),
+                            tint = MercyYellow
                         )
                     }
                 }
 
+                // Foldable Stats & Realm Bosses Accordion Card
                 val isAnomaly = world == WorldId.GLITCHED_WORLD
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF0A0A0E), RoundedCornerShape(0.dp))
@@ -800,77 +980,87 @@ fun WorldExploreScreen(
                             when {
                                 isAnomaly -> GlitchCyan
                                 state.isGovernmentStopped -> HpBarGreen
-                                else -> MercyYellow
+                                state.isJourneyCompleteForEcho -> GlitchCyan
+                                else -> MercyYellow.copy(alpha = 0.85f)
                             },
                             RoundedCornerShape(0.dp)
                         )
-                        .padding(horizontal = 8.dp, vertical = 5.dp)
-                ) {
-                    val objectiveText = when {
-                        isAnomaly -> tr(
-                            lang,
-                            "GLITCHED VOID (ISOLATED) · RETURN IN ${"%.1f".format(state.glitchedCountdownSec)}s",
-                            "العالم المقلتش (منفصل) · العودة خلال ${"%.1f".format(state.glitchedCountdownSec)}ث"
-                        )
-                        state.isGovernmentStopped -> tr(
-                            lang,
-                            "★ GOAL COMPLETE: GOVERNMENT STOPPED (${state.governmentStoppedCount}/${state.totalGovernmentTargets})!",
-                            "★ الهدف اكتمل: تم إيقاف الحكومة (${state.governmentStoppedCount}/${state.totalGovernmentTargets})!"
-                        )
-                        else -> {
-                            val aidHint = if (state.angelAidClaimed) tr(lang, "Angel Aid ✓", "مساعدة الملائكة ✓") else tr(lang, "Seek Angel Leader", "قابل زعيم الملائكة")
-                            tr(
-                                lang,
-                                "GOAL: REACH GOV & STOP THEM (${state.governmentStoppedCount}/${state.totalGovernmentTargets}) · $aidHint",
-                                "الهدف: الوصول للحكومة وإيقافهم (${state.governmentStoppedCount}/${state.totalGovernmentTargets}) · $aidHint"
-                            )
-                        }
-                    }
-                    Text(
-                        text = objectiveText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = when {
-                            isAnomaly -> GlitchCyan
-                            state.isGovernmentStopped -> HpBarGreen
-                            else -> MercyYellow
-                        }
-                    )
-                }
-
-                // Compact World Bosses Tracker Strip
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF0A0A0E), RoundedCornerShape(0.dp))
-                        .border(
-                            1.5.dp,
-                            if (state.isJourneyCompleteForEcho) GlitchCyan else Color.White.copy(alpha = 0.72f),
-                            RoundedCornerShape(0.dp)
-                        )
-                        .padding(horizontal = 8.dp, vertical = 5.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isStatsFolded = !isStatsFolded }
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .testTag("explore_stats_collapse_toggle"),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = tr(
-                                lang,
-                                "★ REALM BOSSES",
-                                "★ زعماء العالم"
-                            ),
+                            text = tr(lang, "★ STATS & BOSSES", "★ الإحصائيات والزعماء"),
                             style = MaterialTheme.typography.labelSmall,
                             color = MercyYellow
                         )
-                        Text(
-                            text = "${state.resolvedBossCount}/${state.totalStandardBosses}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (state.isJourneyCompleteForEcho) GlitchCyan else ParchmentInk
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "${state.resolvedBossCount}/${state.totalStandardBosses}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (state.isJourneyCompleteForEcho) GlitchCyan else ParchmentInk
+                            )
+                            Icon(
+                                imageVector = if (isStatsFolded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                                contentDescription = if (isStatsFolded) "Expand stats" else "Fold stats",
+                                tint = MercyYellow,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
-                    worldBosses.forEach { wb ->
+
+                    AnimatedVisibility(visible = !isStatsFolded) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 8.dp, end = 8.dp, bottom = 6.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val objectiveText = when {
+                                isAnomaly -> tr(
+                                    lang,
+                                    "GLITCHED VOID (ISOLATED) · RETURN IN ${"%.1f".format(state.glitchedCountdownSec)}s",
+                                    "العالم المقلتش (منفصل) · العودة خلال ${"%.1f".format(state.glitchedCountdownSec)}ث"
+                                )
+                                state.isGovernmentStopped -> tr(
+                                    lang,
+                                    "★ GOAL COMPLETE: GOVERNMENT STOPPED (${state.governmentStoppedCount}/${state.totalGovernmentTargets})!",
+                                    "★ الهدف اكتمل: تم إيقاف الحكومة (${state.governmentStoppedCount}/${state.totalGovernmentTargets})!"
+                                )
+                                else -> {
+                                    val aidHint = if (state.angelAidClaimed) tr(lang, "Angel Aid ✓", "مساعدة الملائكة ✓") else tr(lang, "Seek Angel Leader", "قابل زعيم الملائكة")
+                                    tr(
+                                        lang,
+                                        "GOAL: REACH GOV & STOP THEM (${state.governmentStoppedCount}/${state.totalGovernmentTargets}) · $aidHint",
+                                        "الهدف: الوصول للحكومة وإيقافهم (${state.governmentStoppedCount}/${state.totalGovernmentTargets}) · $aidHint"
+                                    )
+                                }
+                            }
+                            Text(
+                                text = objectiveText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when {
+                                    isAnomaly -> GlitchCyan
+                                    state.isGovernmentStopped -> HpBarGreen
+                                    else -> MercyYellow
+                                }
+                            )
+                            val stats = state.computedStats
+                            Text(
+                                text = "HP ${stats.maxHp} · ATK +${stats.attackBonus} · DEF +${stats.defense} · SPD ${(stats.speedMultiplier * 100).roundToInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = GlitchCyan
+                            )
+                            worldBosses.forEach { wb ->
                         val isFriend = wb.id in state.friendAllies
                         val isStopped = wb.id in state.stoppedEnemies
                         val isSlain = wb.id in state.defeatedEnemies
@@ -961,6 +1151,8 @@ fun WorldExploreScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = GlitchCyan
                         )
+                    }
+                        }
                     }
                 }
 
@@ -1248,6 +1440,7 @@ fun WorldExploreScreen(
                     }
                 }
             }
+            }
 
             // Bottom Row: Route Button + Bag/Armor + Language + Mute
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -1266,15 +1459,16 @@ fun WorldExploreScreen(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
                         onClick = onToggleRunMode,
                         border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
+                            1.5.dp,
                             if (state.isRunningMode) GlitchCyan else MutedSepiaInk
                         ),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                         shape = RoundedCornerShape(0.dp),
                         modifier = Modifier
                             .weight(0.95f)
@@ -1300,7 +1494,8 @@ fun WorldExploreScreen(
                             codexInitialTab = 0
                             showCodexDialog = true
                         },
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SepiaAmber),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, SepiaAmber),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
                         shape = RoundedCornerShape(0.dp),
                         modifier = Modifier
                             .weight(1f)
@@ -1318,7 +1513,7 @@ fun WorldExploreScreen(
                         },
                         modifier = Modifier
                             .size(48.dp)
-                            .border(1.dp, GlitchCyan, RoundedCornerShape(0.dp))
+                            .border(1.5.dp, GlitchCyan, RoundedCornerShape(0.dp))
                             .testTag("explore_settings_button")
                     ) {
                         Icon(
@@ -1331,7 +1526,7 @@ fun WorldExploreScreen(
                         onClick = onToggleControls,
                         modifier = Modifier
                             .size(48.dp)
-                            .border(1.dp, MercyYellow, RoundedCornerShape(0.dp))
+                            .border(1.5.dp, MercyYellow, RoundedCornerShape(0.dp))
                             .testTag("explore_controls_button")
                     ) {
                         Icon(Icons.Default.Gamepad, contentDescription = "Switch controls", tint = MercyYellow)
@@ -1339,7 +1534,8 @@ fun WorldExploreScreen(
                     OutlinedButton(
                         onClick = onToggleLanguage,
                         shape = RoundedCornerShape(0.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, SepiaDarkBorder),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, SepiaDarkBorder),
                         modifier = Modifier
                             .height(48.dp)
                             .testTag("explore_language_button")
@@ -1348,7 +1544,9 @@ fun WorldExploreScreen(
                     }
                     IconButton(
                         onClick = onToggleMute,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(1.dp, SepiaDarkBorder, RoundedCornerShape(0.dp))
                     ) {
                         Icon(
                             imageVector = if (state.isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
@@ -1358,6 +1556,7 @@ fun WorldExploreScreen(
                     }
                 }
             }
+        }
         }
     }
 

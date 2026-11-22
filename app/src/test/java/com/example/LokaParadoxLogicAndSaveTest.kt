@@ -17,6 +17,8 @@ import com.example.model.RelicCatalog
 import com.example.model.SoulType
 import com.example.model.WeaponCatalog
 import com.example.model.WorldId
+import com.example.ui.components.PixelSprites
+import com.example.ui.components.UltraPixelArtEngine
 import com.example.viewmodel.BattleViewModel
 import com.example.viewmodel.GameViewModel
 import org.junit.Assert.assertEquals
@@ -300,5 +302,96 @@ class LokaParadoxLogicAndSaveTest {
             lang = AppLanguage.EN
         )
         assertTrue(reactive.echoModifierActive)
+    }
+
+    @Test
+    fun pixelEngine_snapsIntegerExtentsAndSculptsBossesTo64() {
+        val scaled = UltraPixelArtEngine.computeIntegerScaledSize(gridW = 64, gridH = 64, targetSizePx = 290f)
+        // Floor integer factor: 290 / 64 = 4 -> 256x256 (exact multiple of 64)
+        assertEquals(256, scaled.width)
+        assertEquals(256, scaled.height)
+        assertEquals(0, scaled.width % 64)
+
+        val nonSquareScaled = UltraPixelArtEngine.computeIntegerScaledSize(gridW = 13, gridH = 12, targetSizePx = 58f)
+        // Floor factor: 58 / 13 = 4 -> 52x48
+        assertEquals(52, nonSquareScaled.width)
+        assertEquals(48, nonSquareScaled.height)
+
+        val sculptedVex = PixelSprites.sculptGridTo64(PixelSprites.vexBossGrid)
+        assertEquals(64, sculptedVex.size)
+        assertEquals(64, sculptedVex.first().length)
+    }
+
+    @Test
+    fun battleViewModel_triggersAndDecaysStrikeShakeFeedback() {
+        val battleVm = BattleViewModel()
+        battleVm.initEncounter(
+            encounterId = 99L,
+            enemyId = EnemyId.VEX,
+            worldId = WorldId.NORMAL_WORLD,
+            armor = ArmorCatalog.byId("casual_jacket"),
+            weapon = WeaponCatalog.byId("worn_stick"),
+            relic = RelicCatalog.byId("golden_locket"),
+            difficulty = GameDifficulty.NORMAL,
+            allies = emptySet(),
+            helpedKidIds = emptySet(),
+            itemCounts = emptyMap()
+        )
+        battleVm.startFightMinigame()
+        battleVm.commitFightStrike()
+
+        val afterStrike = battleVm.state.value
+        assertTrue(afterStrike.arenaShakeTimerSec > 0f)
+        assertTrue(afterStrike.arenaShakeIntensity > 0f)
+
+        // Advance clock by 0.50s in small steps so shake & slash timers cleanly decay to zero
+        repeat(15) { battleVm.tick(0.04f) }
+        val settled = battleVm.state.value
+        assertEquals(0f, settled.arenaShakeTimerSec, 0.0001f)
+        assertEquals(0f, settled.arenaShakeIntensity, 0.0001f)
+    }
+
+    @Test
+    fun battleViewModel_sets45SecDodgeForMonstersAnd60SecForBosses() {
+        val battleVm = BattleViewModel()
+        val armor = ArmorCatalog.byId("casual_jacket")
+        val weapon = WeaponCatalog.byId("worn_stick")
+        val relic = RelicCatalog.byId("golden_locket")
+
+        // Normal monster / dummy -> ~45 seconds dodge phase
+        battleVm.initEncounter(
+            encounterId = 101L,
+            enemyId = EnemyId.RUINS_DUMMY,
+            worldId = WorldId.NORMAL_WORLD,
+            armor = armor,
+            weapon = weapon,
+            relic = relic,
+            difficulty = GameDifficulty.NORMAL,
+            allies = emptySet(),
+            helpedKidIds = emptySet(),
+            itemCounts = emptyMap()
+        )
+        battleVm.performAct("check")
+        battleVm.advanceFromDialogueToDodging()
+        assertEquals(BattlePhase.BULLET_HELL, battleVm.state.value.phase)
+        assertEquals(45.0f, battleVm.state.value.phaseDurationSec, 0.01f)
+
+        // Boss encounter -> 60 seconds dodge phase
+        battleVm.initEncounter(
+            encounterId = 102L,
+            enemyId = EnemyId.SERAPHIEL,
+            worldId = WorldId.SPLIT_REALM,
+            armor = armor,
+            weapon = weapon,
+            relic = relic,
+            difficulty = GameDifficulty.NORMAL,
+            allies = emptySet(),
+            helpedKidIds = emptySet(),
+            itemCounts = emptyMap()
+        )
+        battleVm.performAct("check")
+        battleVm.advanceFromDialogueToDodging()
+        assertEquals(BattlePhase.BULLET_HELL, battleVm.state.value.phase)
+        assertEquals(60.0f, battleVm.state.value.phaseDurationSec, 0.01f)
     }
 }

@@ -1,8 +1,19 @@
 # Loka's Paradox
 
-**Loka's Paradox** is a 2D pixel-art RPG for Android written in **Kotlin + Jetpack Compose**, inspired by classic turn-based & bullet-hell RPGs (*Undertale* and *Deltarune*) while built from scratch with 100% original characters, storyline, synthesized PCM chiptune audio, and custom micro-pixel artwork.
+**Loka's Paradox** is a 2D pixel-art RPG for Android written in **Kotlin + Jetpack Compose**, inspired by classic turn-based & bullet-hell RPGs (*Undertale* and *Deltarune*) while built from scratch with original characters, branching storylines, synthesized PCM chiptune audio, integer nearest-neighbor pixel scaling, and Android 13+ AGSL shader effects.
 
 > **Original Assets Notice:** All sprites, backgrounds, world rules, story dialogue, and synthesized audio (`RetroSoundEngine`) are generated natively in code as original work for this project. No external copyrighted assets or proprietary game files are included.
+
+---
+
+## Visual Showcase
+
+| The Ruins (Tutorial Chambers) | Connected Overworld Realms | Undertale-Style Turn & Dodge Combat |
+| :---: | :---: | :---: |
+| ![The Ruins Preview](docs/screenshots/ruins_preview.png) | ![Overworld Preview](docs/screenshots/world_explore_preview.png) | ![Battle Preview](docs/screenshots/battle_preview.png) |
+| *Purple stone brick halls, flowerbed opening, golden switch, and redesigned 8-way pad.* | *Unified 64×64 pixel sprites, live cross-world chaser bosses, Ashen save plaza, and Soul badges.* | *Monochrome encounter silhouettes, timing-bar strike sparks, arena shake, and bullet-hell dodging.* |
+
+> *Tip: These preview cards illustrate the live in-engine palettes and screen layouts. Feel free to replace `docs/screenshots/*.png` with device captures at any time.*
 
 ---
 
@@ -19,16 +30,16 @@ Four races coexist across fractured worlds: **Humans, Monsters, Angels, and Devi
 
 ---
 
-## Core Gameplay Features
+## Core Gameplay & Graphics Engine Features
 
-- **Hybrid Combat System:** Classic timing-bar **FIGHT**, ordered **ACT** choices (strict **+10% Mercy/Stop per ACT** on bosses; unique sequences and percentages for normal monsters), **ITEM**, **ALLY**, **MERCY / STOP**, and a live bullet-hell arena with Soul abilities.
-- **Walk & Run Animations:** Switch between Walk and Run (`1.6x` sprint) with animated directional stride frames and pixel dust trails.
-- **Boss Archetypes:**
-  - *Immediate Encounters* (Bramble, Vespera, Seraphiel, Marshal Krog)
-  - *World-Completion Locked Bosses* (Sentinel Orin, Chancellor Vance, Echo-Loka)
-  - *Cross-World Chasers* (Commander Vex and Malakor pursue you through World Gates)
+- **Unified 64×64 Crisp Pixel & AGSL Pipeline:**
+  - `UltraPixelArtEngine.computeIntegerScaledSize` + `FilterQuality.None` enforces strict integer nearest-neighbor scaling so pixels never blur or stretch unevenly across DPIs.
+  - All bosses and monsters are refined from 32×32 grids to unified **64×64** stepped contours (`PixelSprites.sculptGridTo64`) matching Loka's sprite density.
+  - Android 13+ (`API 33+`) **AGSL Shaders** (`PixelShaderEffects`) add glitch scanlines in the Glitched Void and chromatic impact flashes in combat (with automatic pre-API-33 fallback and `Reduce Flash` accessibility suppression).
+- **Hybrid Combat System:** Classic timing-bar **FIGHT** with slash sparks & screen shake, ordered **ACT** choices (strict **+10% Mercy/Stop per ACT** on bosses; varied percentages on normal monsters), **ITEM**, **ALLY**, **MERCY / STOP**, crimson hurt feedback + shield popups, and a live 60fps bullet-hell arena.
+- **Walk & Run Animations & Redesigned Controls:** Switch between Walk and Run (`1.6x` sprint) with animated directional stride frames, pixel dust trails, and a double-beveled retro D-Pad / spoked Joystick (`48dp+` accessible controls throughout).
 - **Relics, Equipment & Timelines:** Equip weapons, armors, and Relics; track choices across **Multiple Timelines** where past endings leave echoes across future runs.
-- **Multi-Slot Persistence & Audio Settings:** 3 Save Slots (`SharedPreferences` + JSON), difficulty selection (`Easy`, `Normal`, `Hard`), volume control, and accessibility toggles.
+- **Multi-Slot Persistence & Audio Settings:** 3 Save Slots (`SharedPreferences` + JSON), difficulty selection (`Easy`, `Normal`, `Hard`), volume control, and `Reduce Flash` accessibility toggle.
 
 ---
 
@@ -42,7 +53,7 @@ app/src/main/java/com/example/
 ├── model/        # GameModels (worlds, enemies, souls, relics, lore, bullets)
 ├── viewmodel/    # GameViewModel & BattleViewModel (StateFlow MVIs)
 └── ui/
-    ├── components/  # PixelArtRenderer, CharacterArtCanvas, BattleEffects, CodexAndSettingsDialog
+    ├── components/  # UltraPixelArtEngine, PixelArtRenderer, PixelShaderEffects, GameControlsOverlay
     ├── screens/     # LoreIntro, RuinsTutorial, AshenMeeting, WorldExplore, Battle, RouteFinale
     └── theme/       # Material 3 typography, shapes & palette
 ```
@@ -53,7 +64,7 @@ app/src/main/java/com/example/
 
 ```bash
 # Run unit & Robolectric tests
-gradle testDebugUnitTest
+gradle :app:testDebugUnitTest --offline -Drobolectric.offline=true
 
 # Run Android Lint
 gradle lintDebug

@@ -44,19 +44,19 @@ fun DrawScope.drawPixelMatrix(
     flipX: Boolean = false
 ) {
     if (rows.isEmpty()) return
+    val gridW = rows.maxOf { it.length }.coerceAtLeast(1)
+    val gridH = rows.size.coerceAtLeast(1)
     val hdBitmap = UltraPixelArtEngine.getHdSpriteBitmap(rows, palette)
-    val maxDim = maxOf(hdBitmap.width, hdBitmap.height).coerceAtLeast(1)
-    val drawW = (targetSizePx * (hdBitmap.width.toFloat() / maxDim)).roundToInt().coerceAtLeast(2)
-    val drawH = (targetSizePx * (hdBitmap.height.toFloat() / maxDim)).roundToInt().coerceAtLeast(2)
-    val left = (center.x - drawW * 0.5f).roundToInt()
-    val top = (center.y - drawH * 0.5f).roundToInt()
+    val drawSize = UltraPixelArtEngine.computeIntegerScaledSize(gridW, gridH, targetSizePx)
+    val left = (center.x - drawSize.width * 0.5f).roundToInt()
+    val top = (center.y - drawSize.height * 0.5f).roundToInt()
 
     if (flipX) {
         scale(scaleX = -1f, scaleY = 1f, pivot = center) {
             drawImage(
                 image = hdBitmap,
                 dstOffset = IntOffset(left, top),
-                dstSize = IntSize(drawW, drawH),
+                dstSize = drawSize,
                 alpha = alpha.coerceIn(0f, 1f),
                 filterQuality = FilterQuality.None
             )
@@ -65,7 +65,7 @@ fun DrawScope.drawPixelMatrix(
         drawImage(
             image = hdBitmap,
             dstOffset = IntOffset(left, top),
-            dstSize = IntSize(drawW, drawH),
+            dstSize = drawSize,
             alpha = alpha.coerceIn(0f, 1f),
             filterQuality = FilterQuality.None
         )
@@ -305,13 +305,13 @@ object PixelSprites {
         "............................OOOOOOOO............................",
         "........................OOOOHhhhhhhHOOOO........................",
         "......................OOOHhhllllllllhhHOOO......................",
-        "...................OOOHhHHHHHHHHHHHHHHHHhHOOO...................",
-        ".................OOHHhHHHHHHHHHHHHHHHHHHHHhHHOO.................",
+        "...................OOOHhHHhhHHHHHHHHhhHHhHOOO...................",
+        ".................OOHHhHHhHHHHHHHHHHHHHHhHHhHHOO.................",
         "...............OOHhHHHHhhHHHHHHHHHHHHHHhhHHHHhHOO...............",
         ".............OOHHHhhllHHHHHHHHHHHHHHHHHHHHllhhHHHOO.............",
-        "............OOHhHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHhHOO............",
+        "............OOHhHHHHHHHHhHHHHHHHHHHHHHHhHHHHHHHHhHOO............",
         "...........OHHhHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHhHHO...........",
-        "..........OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHO..........",
+        "..........OHHHHHHHHHHHHHhHHHHHHHHHHHHHHhHHHHHHHHHHHHHO..........",
         "..........OHHhHHHHHHHHdHHHHHHHHHHHHHHHHHHdHHHHHHHHhHHO..........",
         ".........OHHHHHHHHHHddHHHHHHHHHHHHHHHHHHHHddHHHHHHHHHHO.........",
         ".........OHHHHHHHHdddHHHdHHHHHHHHHHHHHHdHHHdddHHHHHHHHO.........",
@@ -321,10 +321,10 @@ object PixelSprites {
         ".........OHHHHddHHdSSSSSSSSSSsdHHdsSSSSSSSSSSdHHddHHHHO.........",
         ".........OHHHHddHdSSSSSSSSSSSSssssSSSSSSSSSSSSdHddHHHHO.........",
         ".........OHHHHddHdSSSSOOOOOOSSSSSSSSOOOOOOSSSSdHddHHHHO.........",
-        ".........OHHHHddHdSSSSOWWGGOSSSSSSSSOWWGGOSSSSdHddHHHHO.........",
-        ".........OHHHHddHdSSSSWOOGGOSSSSSSSSWOOGGOSSSSdHddHHHHO.........",
-        ".........OHHHHddHdSSSSWOGCcOSSSSSSSSWOGCcOSSSSdHddHHHHO.........",
-        ".........OHHHHddHdSSSSWCCccWSSSSSSSSWCCccWSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSOWWCGcSSSSSSSSOWWCGcSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSWOCGccSSSSSSSSWOCGccSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSOOGCcOSSSSSSSSOOGCcOSSSSdHddHHHHO.........",
+        ".........OHHHHddHdSSSSOCCccOSSSSSSSSOCCccOSSSSdHddHHHHO.........",
         ".........OHHHHddHdSSrrssssssSSSssSSSssssssrrSSdHddHHHHO.........",
         ".........OHHHHddHdSSrrrrSSSSSSSssSSSSSSSrrrrSSdHddHHHHO.........",
         "..........OHHHddHdsSSrrrSSSSSSSSSSSSSSSSrrrSSsdHddHHHO..........",
@@ -375,11 +375,11 @@ object PixelSprites {
         "............................OOOOOOOO............................",
         "........................OOOOHhhhhhhHOOOO........................",
         "......................OOOHhhllllllllhhHOOO......................",
-        "...................OOOHhHHHHHHHHHHHHHHHHhHOOO...................",
-        ".................OOHHhHHHHHHHHHHHHHHHHHHHHhHHOO.................",
+        "...................OOOHhHHhhHHHHHHHHhhHHhHOOO...................",
+        ".................OOHHhHHhHHHHHHHHHHHHHHhHHhHHOO.................",
         "...............OOHhHHHHhhllllllllllllllhhHHHHhHOO...............",
         ".............OHHhHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHhHHO.............",
-        "............OHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHO............",
+        "............OHHHHHHHHHHHHhHHHHHHHHHHHHhHHHHHHHHHHHHHO...........",
         "...........OHHhHHHHHHHdHHHHHHHHHHHHHHHHHHdHHHHHHHhHHO...........",
         "...........OHHHHHHHHHddHHHHHHHHHHHHHHHHHHddHHHHHHHHHO...........",
         "...........OHHHHHHHHddHHHdHHHHHHHHHHHHdHHHddHHHHHHHHO...........",
@@ -389,9 +389,9 @@ object PixelSprites {
         "..........OOHHHHddHdSSSSSSSSSSdHHdSSSSSSSSSSdHddHHHHOO..........",
         "..........OOHHHddHdSSSSSSSSSSSSssSSSSSSSSSSSSdHddHHHOO..........",
         "..........OOHHHddHdSSSSOOOOOSSSSSSSSOOOOOSSSSdHddHHHOO..........",
-        "..........OOHHHddHdSSSSOWWGOSSSSSSSSOWWGOSSSSdHddHHHOO..........",
-        "..........OOHHHddHdSSSSWOCGOSSSSSSSSWOCGOSSSSdHddHHHOO..........",
-        "..........OOHHHddHdSSSSWcCCWSSSSSSSSWcCCWSSSSdHddHHHOO..........",
+        "..........OOHHHddHdSSSSOWCGcSSSSSSSSOWCGcSSSSdHddHHHOO..........",
+        "..........OOHHHddHdSSSSWOCccSSSSSSSSWOCccSSSSdHddHHHOO..........",
+        "..........OOHHHddHdSSSSOcCCcSSSSSSSSOcCCcSSSSdHddHHHOO..........",
         "..........OOHHHddHdSSrrrrsssSSSSSSSSsssrrrrSSdHddHHHOO..........",
         "..........OOHHHddHdSSrrrrSSSSSSssSSSSSSrrrrSSdHddHHHOO..........",
         "..........OOHHHddHdSSSSSSSSSSSmmmmSSSSSSSSSSSdHddHHHOO..........",
@@ -645,35 +645,36 @@ object PixelSprites {
 
     // ==================== 32x32 UNDERTALE ENEMIES & BOSSES (512x512 @ 16x SCALE) ====================
 
+    // 32x32 Stitched Cotton Training Dummy: cloth-knot crown, button eyes, stitched smile, tied scarf & wooden cross-post
     val ruinsDummyGrid = listOf(
-        ".........OOOOOOOOOOOOOO.........",
-        "........OWWWWWWWWWWWWWWO........",
-        ".......OWWWCCCCCCCCCCWWWO.......",
-        "......OWWWCCCCCCCCCCCCWWWO......",
-        ".....OWWWCCCCCCCCCCCCCCWWWO.....",
-        ".....OWWCCCCBCCCCCCBCCCCWWO.....",
-        ".....OWWCCCBBBCCCCBBBCCCWWO.....",
-        ".....OWWCCCCBCCCCCCBCCCCWWO.....",
-        "......OWWCCCCCCCCCCCCCCWWO......",
-        ".......OOWWCCCCMMMMCCCWOO.......",
-        ".........OOWCCCMMMCCCWOO........",
-        "........OOCCCCCCCCCCCCOO........",
-        ".......OCCCCCMCCCCCCCCCCO.......",
-        "......OCCCCCBMCCCCCCCCCCCO......",
-        ".....OCCCCCCCMCCCCCCCCCCCCO.....",
-        ".....OCCCCCCCMCCCCCCCCCCCCO.....",
-        "....OCCCCCCCBMCCCCCCCCCCCCCO....",
-        "....OCCCCCCCCCCCCCCCCCCCCCCCO...",
-        "....OCCCCCCCCCCCCCCCCCCCCCCCO...",
-        ".....OCCCCCCCCCCCCCCCCCCCCCO....",
-        "......OOOOOOOOOOOOOOOOOOOOO.....",
-        ".............OWWWWWO............",
-        ".............OWWWWWO............",
-        ".............OWWWWWO............",
-        "...........OOOWWWWWOOO..........",
-        "..........OWWWWWWWWWWWOO........",
-        ".........OOOOOOOOOOOOOOO........",
-        "................................",
+        ".............OOOOOO.............",
+        "............OLCCCCLO............",
+        "..........OOLLLLLLLLOO..........",
+        "........OOLLCCCCCCCCLLOO........",
+        ".......OLCCCCCCCCCCCCCCLO.......",
+        "......OLCCCCBWCCCCWBCCCCLO......",
+        "......OCCCCCBBCCCCBBCCCCCO......",
+        "......OCCMCCCCCCCCCCCMCCCO......",
+        ".......OCMMCCBBBBBBCCMMCO.......",
+        "........OCCCCCCCCCCCCCCO........",
+        "........OOWWWWWWWWWWWWOO........",
+        ".......OOWWWMMWWWWMMWWWOO.......",
+        ".....OOCCCCCCCCCCCCCCCCCCOO.....",
+        "...OOLLCCCCMCCCCCCCCMCCCCLLOO...",
+        "..OLLCCCCCCMCCCWWCCCMCCCCCCLLO..",
+        "..OCCOCCCCCMCCWWWWCCMCCCCCOCCO..",
+        "...OO.OCCCCMCCWWWWCCMCCCCO.OO...",
+        "......OCCCCMCCCCCCCCMCCCCO......",
+        "......OCCCCCMCCCCCCMCCCCCO......",
+        ".......OCCCCCCCCCCCCCCCCO.......",
+        "........OOOOOOOOOOOOOOOO........",
+        ".............OWMMWO.............",
+        ".............OWMMWO.............",
+        ".............OWMMWO.............",
+        "...........OOOWMMWOOO...........",
+        ".........OOWWWWMMWWWWOO.........",
+        "........OMMMMMMMMMMMMMMO........",
+        "........OOOOOOOOOOOOOOOO........",
         "................................",
         "................................",
         "................................",
@@ -968,30 +969,30 @@ object PixelSprites {
         "................................"
     )
 
-    // 32x32 Undertale Normal Monsters (512x512 @ 16x integer scale)
+    // 32x32 Undertale Normal Monsters (sculpted to 64x64 with richer silhouettes, glints & shading)
     val normalSlimeGrid = listOf(
         "................................",
-        "...........OOOOOOOOOO...........",
-        "..........OGGGGGGGGGGO..........",
-        ".........OGGGDDDDDDGGGO.........",
+        "............OOOOOOOO............",
+        "...........OGGWWWWGGO...........",
+        "..........OGGGDDDDGGGO..........",
         "...........OOOOGGOOOO...........",
-        ".......OOOOOOOOOOOOOOOOOO.......",
-        ".....OOGGGGGGGGGGGGGGGGGGOO.....",
-        "....OGGGGGGGGWWGGGGGGGGGGGGO....",
+        "........OOOOOOOOOOOOOOOO........",
+        "......OOGGGGGGGGGGGGGGGGOO......",
+        ".....OGGGWWWWGGGGGGGGGGGGGO.....",
+        "....OGGGWWGGGGGGGGGGGGGGGGGO....",
         "...OGGGGGGGGGGGGGGGGGGGGGGGGO...",
-        "..OGGGGGGGWWGGGGGGGGWWGGGGGGGO..",
-        "..OGGGGGGGWBGGGGGGGGWBGGGGGGGO..",
-        "..OGGGGGGGGGGGGGGGGGGGGGGGGGGO..",
-        "..OGGGGGGGGGGGGWWGGGGGGGGGGGGO..",
-        ".OGGGGGGGGGGGGGGGGGGGGGGGGGGGGO.",
-        ".OGGGGGGGGGGGGGDDGGGGGGGGGGGGGO.",
-        ".OGGGGGGGGGGGDDDDDDGGGGGGGGGGGO.",
-        "..OOOOOOOOOOOOOOOOOOOOOOOOOOOO..",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
-        "................................",
+        "...OGGGGGGBWGGGGGGGGGBWGGGGGO...",
+        "..OGGGGGGGGBBGGGGGGGGBBGGGGGGGO.",
+        "..OGGGGGGGGGGGGGGGGGGGGGGGGGGGO.",
+        "..OGGGGGGGGDDGWWWWGGDDGGGGGGGGO.",
+        "..OGGGGGGGGGGGDDDDGGGGGGGGGGGGO.",
+        "..OGGGGGGGGGGGGGGGGGGGGGGGGGGGO.",
+        "...OGGGGGGGDDDDDDDDDDGGGGGGGGO..",
+        "...OOGGGGGDDDDDDDDDDDDGGGGGOO...",
+        "....OOOOOOOOOOOOOOOOOOOOOOOO....",
+        "..OOO......................OOO..",
+        ".OGWGO....................OGGGO.",
+        "..OOO......................OOO..",
         "................................",
         "................................",
         "................................",
@@ -1009,20 +1010,20 @@ object PixelSprites {
         ".ORRO......................ORRO.",
         "..ORRO.....OOOOOOOOOO.....ORRO..",
         "..ODDDDOOODDDDDDDDDDDDOOODDDDO..",
+        ".ODDDDDDRRWWDDDDDDDDWWRRDDDDDDO.",
         ".ODDDDDDRRRWDDDDDDDDWRRRDDDDDDO.",
         ".ODDDDDDDDDDDDDDDDDDDDDDDDDDDDO.",
         "OODDDDDDDWWWWWWWWWWWWWWDDDDDDDOO",
         "ODDDDDDDDW.W.W.W.W.W.WWDDDDDDDDO",
         ".OODDDDDDWWWWWWWWWWWWWWDDDDDDOO.",
         "..ODDDDDDDDDDRRRRRRDDDDDDDDDDO..",
+        "..ODDDDDDDRRRWWWWWWRRRDDDDDDDO..",
         "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
         "...ODDDDDDD..ODDDDDO..DDDDDDO...",
         "...ODDDDDD...ODDDDDO...DDDDDO...",
-        "...ODDDDD....O.....O....DDDDO...",
-        "...OOOOOO...............OOOOO...",
-        "................................",
-        "................................",
-        "................................",
+        "...ODDDDD....ODDDDDO....DDDDO...",
+        "...OWWWWO....OWWWWWO....OWWWO...",
+        "...OOOOOO....OOOOOOO....OOOOO...",
         "................................",
         "................................",
         "................................",
@@ -1041,20 +1042,20 @@ object PixelSprites {
 
     val sandMothGrid = listOf(
         "...OOO....................OOO...",
-        "....OOO.....OOOOOOOO.....OOO....",
-        ".....OOO...ODDDDDDDDO...OOO.....",
+        "....OYYO....OOOOOOOO....OYYO....",
+        ".....OCCO..ODDDDDDDDO..OCCO.....",
         ".OOOOOOCCCOODWWDDWWDOOCCCOOOOOO.",
         "OCCCCCCCCCOODDDDDDDDOOCCCCCCCCCO",
-        "OCCCCYYCCCOODDDDDDDDOOCCCYYCCCCO",
-        "OCCCYWWYCCCOODDDDDDOOCCCYWWYCCCO",
+        "OCCCYYYCCCOODWWDDWWDOOCCCYYYCCCO",
+        "OCCYWWWYCCCOODDDDDDOOCCCYWWWYCCO",
+        "OCCCYYYCCCCOODYYYYDOOCCCCYYYCCCO",
         "OCCCCCCCCCCOOODDDDOOOCCCCCCCCCCO",
-        ".OCCCCCCCCCO.ODDDDO.OCCCCCCCCCO.",
-        "..OOOOOOCCC..ODDDDO..CCCOOOOOO..",
+        ".OCCCCCCCCCO.ODYYDO.OCCCCCCCCCO.",
+        "..OCCCCCCCO..ODDDDO..OCCCCCCCO..",
+        "...OOOOOOCC..ODYYDO..CCOOOOOO...",
         "........OO...ODDDDO...OO........",
         "..............ODDO..............",
         "..............OOOO..............",
-        "................................",
-        "................................",
         "................................",
         "................................",
         "................................",
@@ -1075,24 +1076,24 @@ object PixelSprites {
     )
 
     val ironStalkerGrid = listOf(
-        "......OOOOOOOOOOOOOOOOOOOO......",
+        "....OO....................OO....",
+        "....ORRO.OOOOOOOOOOOOOO.ORRO....",
+        ".....ORROODDDDDDDDDDDDOORRO.....",
         ".....ODDDDDDDDDDDDDDDDDDDDO.....",
         "....ODDDDDDRRRRRRRRRRDDDDDDO....",
         "....ODDDDDWWWWWWWWWWWWDDDDDO....",
         ".....ODDDDDDDDDDDDDDDDDDDDO.....",
         "..OOO.OOOOOOOOOOOOOOOOOOOO.OOO..",
-        ".ORRROODDDDDDDDDDDDDDDDDDOORRRO.",
+        ".ORRROODDDDDDDWWWWDDDDDDDOORRRO.",
         ".ORRROODDDDDDYYYYYYDDDDDDOORRRO.",
         ".ORRROODDDDDYYYYYYYYDDDDDOORRRO.",
-        "..OOO.ODDDDDDDDDDDDDDDDDDO.OOO..",
+        "..OOO.ODDDDDDDWWWWDDDDDDDO.OOO..",
         "......ODDDDDDDDDDDDDDDDDDO......",
         "......ODDDDDDD....DDDDDDDO......",
         "......ODDDDDD......DDDDDDO......",
         ".....OODDDDD........DDDDDOO.....",
+        ".....ORRRRRO........ORRRRRO.....",
         ".....OOOOOOO........OOOOOOO.....",
-        "................................",
-        "................................",
-        "................................",
         "................................",
         "................................",
         "................................",
@@ -1118,15 +1119,15 @@ object PixelSprites {
         "......OPPPPWBPPPPPPWBPPPPO......",
         "......OPPPPPPPPPPPPPPPPPPO......",
         "...OO..OPPPPPPPPPPPPPPPPO..OO...",
-        "..OPPOOOOOOOOOOOOOOOOOOOOOOPPO..",
-        ".OPPPPOPPPPPPPPPPPPPPPPPPOPPPPO.",
-        "..OOOO..OPPPPPPPPPPPPPPO..OOOO..",
-        "........OPPPPPYYYYPPPPPO........",
-        ".........OPPPPPPPPPPPPO.........",
+        "..OWWOOOOOOOOOOOOOOOOOOOOOOWWO..",
+        ".OPPPPOPPPPPPPPYYPPPPPPPOPPPPO..",
+        "..OPPPPOPPPPPYYYYYYPPPPPOPPPPO..",
+        "...OOOO..OPPPYYYYYYPPPO..OOOO...",
+        "........OPPPPPPPPPPPPPPO........",
+        ".........OPPPWWWWWWPPPO.........",
         "..........OPPPPPPPPPPO..........",
         "...........OPPPPPPPPO...........",
         "............OOOOOOOO............",
-        "................................",
         "................................",
         "................................",
         "................................",
@@ -1146,20 +1147,20 @@ object PixelSprites {
 
     val ashImpGrid = listOf(
         "..OOO......................OOO..",
-        "..ORRO......OOOOOOOO......ORRO..",
+        "..OYYO......OOOOOOOO......OYYO..",
         "...ORROOOODDDDDDDDDDDDOOOORRO...",
         "...ODDDDDDDDDDDDDDDDDDDDDDDDO...",
         "..ODDDDDDYYDDDDDDDDDDYYDDDDDDO..",
-        "..ODDDDDDDDDDDDDDDDDDDDDDDDDDO..",
+        "..ODDDDDDYWDDDDDDDDDDWYDDDDDDO..",
         "...ODDDDDWWWWWWWWWWWWWWDDDDDO...",
         "..OODDDDDDDDDDDDDDDDDDDDDDDDOO..",
         ".ORRRODDDDDDRRRRRRRRDDDDDDORRRO.",
-        ".ORRRODDDDDDDDDDDDDDDDDDDDORRRO.",
+        ".ORRRODDDDDRYYYYYYYYRDDDDDORRRO.",
         "..OOO..ODDDDDD....DDDDDDO..OOO..",
-        ".......ODDDDD......DDDDDO.......",
-        "......OODDDD........DDDDOO......",
+        ".......ODDDDD......DDDDDO....O..",
+        "......OODDDD........DDDDOO..OYO.",
+        "......ORRROO........OORRRO..OO..",
         "......OOOOOO........OOOOOO......",
-        "................................",
         "................................",
         "................................",
         "................................",
@@ -1248,6 +1249,53 @@ object PixelSprites {
         "................................",
         "................................"
     )
+
+    private val sculpted64Cache = HashMap<Int, List<String>>()
+
+    /**
+     * Expands 32x32 Undertale sprite grids into unified crisp 64x64 pixel-art using EPX / Scale2x
+     * diagonal contour sculpting so every boss & monster shares Loka's 64x64 pixel density with
+     * smooth stepped silhouettes and zero anti-aliased blur.
+     */
+    fun sculptGridTo64(rows: List<String>): List<String> {
+        if (rows.isEmpty()) return rows
+        val w = rows.maxOf { it.length }
+        val h = rows.size
+        if (w >= 64 || h >= 64) return rows
+        val cacheKey = System.identityHashCode(rows) * 31 + h
+        sculpted64Cache[cacheKey]?.let { return it }
+
+        fun chAt(x: Int, y: Int): Char {
+            if (y !in 0 until h) return '.'
+            val row = rows[y]
+            return if (x in 0 until row.length) row[x] else '.'
+        }
+
+        val out = ArrayList<String>(h * 2)
+        for (y in 0 until h) {
+            val topBuf = StringBuilder(w * 2)
+            val botBuf = StringBuilder(w * 2)
+            for (x in 0 until w) {
+                val p = chAt(x, y)
+                val a = chAt(x, y - 1)
+                val b = chAt(x + 1, y)
+                val c = chAt(x - 1, y)
+                val d = chAt(x, y + 1)
+
+                val p00 = if (c == a && c != d && a != b) a else p
+                val p01 = if (a == b && a != c && b != d) b else p
+                val p10 = if (d == c && d != b && c != a) c else p
+                val p11 = if (b == d && b != a && d != c) d else p
+
+                topBuf.append(p00).append(p01)
+                botBuf.append(p10).append(p11)
+            }
+            out.add(topBuf.toString())
+            out.add(botBuf.toString())
+        }
+        sculpted64Cache[cacheKey] = out
+        return out
+    }
 }
 
 fun DrawScope.drawUndertaleBossPixelSprite(
@@ -1298,8 +1346,8 @@ fun DrawScope.drawUndertaleBossPixelSprite(
 
         when (enemyId) {
             EnemyId.RUINS_DUMMY -> PixelSprites.ruinsDummyGrid to mapOf(
-                'O' to lineCol, 'W' to midShade, 'C' to mainBody,
-                'B' to darkSeam, 'M' to darkSeam
+                'O' to lineCol, 'L' to mainBody, 'C' to lightShade,
+                'W' to Color.White, 'B' to darkSeam, 'M' to midShade
             )
             EnemyId.VEX -> PixelSprites.vexBossGrid to mapOf(
                 'O' to lineCol, 'D' to mainBody, 'A' to lightShade, 'W' to darkSeam
@@ -1359,10 +1407,11 @@ fun DrawScope.drawUndertaleBossPixelSprite(
         when (enemyId) {
             EnemyId.RUINS_DUMMY -> PixelSprites.ruinsDummyGrid to mapOf(
                 'O' to lineCol,
+                'L' to (if (isHitFlash) Color.White else Color(0xFFF3E8D2)),
                 'C' to (if (isHitFlash) Color.White else Color(0xFFD6C29F)),
-                'W' to (if (isHitFlash) Color.White else Color(0xFF785135)),
+                'W' to white,
                 'B' to Color(0xFF1F1624),
-                'M' to Color(0xFF4A2E1B)
+                'M' to (if (isHitFlash) Color.White else Color(0xFF8B5E3C))
             )
             EnemyId.VEX -> PixelSprites.vexBossGrid to mapOf(
                 'O' to lineCol, 'D' to Color(0xFF1E293B), 'A' to (if (isHitFlash) Color.White else SoulAegisAmber), 'W' to white
@@ -1444,7 +1493,8 @@ fun DrawScope.drawUndertaleBossPixelSprite(
         else -> Unit
     }
 
-    drawPixelMatrix(rows = grid, palette = palette, center = center, targetSizePx = sizePx)
+    val refinedGrid = PixelSprites.sculptGridTo64(grid)
+    drawPixelMatrix(rows = refinedGrid, palette = palette, center = center, targetSizePx = sizePx)
 }
 
 /**
