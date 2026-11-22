@@ -243,7 +243,7 @@ fun RuinsTutorialScreen(
                 )
                 drawLokaOverworldSprite(
                     center = Offset(px * size.width, py * size.height),
-                    unit = 11.5.dp.toPx(),
+                    unit = 14.5.dp.toPx(),
                     isGlitched = false,
                     isMoving = moveAnimHoldSec > 0f,
                     isRunning = state.isRunningMode,
@@ -334,7 +334,7 @@ fun RuinsTutorialScreen(
                         saveCount = 0,
                         expression = lokaExpr,
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(56.dp)
                             .background(Color.Black, RoundedCornerShape(0.dp))
                             .border(2.dp, Color.White, RoundedCornerShape(0.dp))
                     )

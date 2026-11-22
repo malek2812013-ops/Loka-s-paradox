@@ -387,6 +387,23 @@ object RetroSoundEngine {
         playTone(freqStart = 210f, freqEnd = 75f, durationMs = 140, volume = 0.25f, squareWave = true)
     }
 
+    fun playGameOverCollapse() {
+        if (isMuted) return
+        scope.launch {
+            playToneSync(320f, 175f, 110, 0.22f, true)
+            playToneSync(160f, 58f, 220, 0.24f, true)
+        }
+    }
+
+    fun playTimeRewind() {
+        if (isMuted) return
+        scope.launch {
+            playToneSync(261.6f, 349.2f, 65, 0.16f, false)
+            playToneSync(392.0f, 523.3f, 70, 0.18f, false)
+            playToneSync(587.3f, 880.0f, 130, 0.20f, false)
+        }
+    }
+
     private fun playToneSync(
         freqStart: Float,
         freqEnd: Float,

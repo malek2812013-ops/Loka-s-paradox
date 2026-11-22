@@ -7,6 +7,7 @@ import com.example.engine.BattleEngine
 import com.example.engine.LokaStatsCalculator
 import com.example.model.ArenaBomb
 import com.example.model.ArenaParticle
+import com.example.model.ArmorCatalog
 import com.example.model.ArmorEquipment
 import com.example.model.ArrowTelegraph
 import com.example.model.BattleItem
@@ -137,6 +138,17 @@ data class BattleUiState(
     val dummyPhase: Int = 1,
     val dummyHatFallTimerSec: Float = 0f,
 
+    // Defeat / Game Over Animation & Ashen vs Pre-Ashen Progression
+    val hasMetAshenAtStart: Boolean = false,
+    val defeatCountBeforeAshen: Int = 0,
+    val defeatSequenceId: Long = 0L,
+    val deathAnimTimerSec: Float = 0f,
+    val isAshenRewinding: Boolean = false,
+    val ashenRewindTimerSec: Float = 0f,
+    val ashenGaveUp: Boolean = false,
+    val lokaAutoSolving: Boolean = false,
+    val lokaAutoSolvedVictory: Boolean = false,
+
     // Inventory
     val items: List<BattleItem> = emptyList()
 ) {
@@ -145,6 +157,10 @@ data class BattleUiState(
     val effectiveDefenseBonus: Int get() = defenseBonus + activeSoul.defenseBonus
     val dummyHatFallProgress: Float
         get() = if (dummyPhase >= 2) (dummyHatFallTimerSec / 0.85f).coerceIn(0f, 1f) else 0f
+    val deathFallProgress: Float
+        get() = (deathAnimTimerSec / 0.72f).coerceIn(0f, 1f)
+    val lokaAutoSolveProgress: Float
+        get() = if (lokaAutoSolving) ((deathAnimTimerSec - 1.55f) / 1.95f).coerceIn(0f, 1f) else 0f
     val activeSplitBoosted: Boolean
         get() = isSplitActive && ((controlledHalfIndex == 0 && splitBoostTimer0Sec > 0f) ||
             (controlledHalfIndex == 1 && splitBoostTimer1Sec > 0f))
@@ -160,6 +176,8 @@ class BattleViewModel : ViewModel() {
     private var lastAimX = 0f
     private var lastAimY = 0f
     private var hitFlashTimer = 0f
+    private var lastArmor: ArmorEquipment = ArmorCatalog.byId("casual_jacket")
+    private var initialItemCounts: Map<String, Int> = emptyMap()
 
     fun initEncounter(
         encounterId: Long = 1L,
@@ -171,8 +189,12 @@ class BattleViewModel : ViewModel() {
         difficulty: GameDifficulty = GameDifficulty.NORMAL,
         allies: Set<EnemyId>,
         helpedKidIds: Set<String>,
-        itemCounts: Map<String, Int>
+        itemCounts: Map<String, Int>,
+        hasMetAshen: Boolean = false,
+        preAshenDeathCount: Int = 0
     ) {
+        lastArmor = armor
+        initialItemCounts = itemCounts
         val profile = EnemyRoster.byId(enemyId)
         val allowed = worldId.allowedSouls
         val startingSoul = allowed.first()
@@ -227,9 +249,58 @@ class BattleViewModel : ViewModel() {
             difficulty = difficulty,
             bossExpression = PortraitExpression.NEUTRAL,
             speakerExpression = if (startingSoul == SoulType.WHITE_SICK) PortraitExpression.SURPRISED else PortraitExpression.DETERMINED,
+            hasMetAshenAtStart = hasMetAshen,
+            defeatCountBeforeAshen = preAshenDeathCount,
+            defeatSequenceId = 0L,
+            deathAnimTimerSec = 0f,
+            isAshenRewinding = false,
+            ashenRewindTimerSec = 0f,
+            ashenGaveUp = false,
+            lokaAutoSolving = false,
+            lokaAutoSolvedVictory = false,
             items = battleItems,
             dialogueText = profile.introLine + sickWarning
         )
+    }
+
+    fun retryEncounter() {
+        val current = _state.value
+        initEncounter(
+            encounterId = current.encounterId,
+            enemyId = current.enemy.id,
+            worldId = current.worldId,
+            armor = lastArmor,
+            weapon = current.equippedWeapon,
+            relic = current.equippedRelic,
+            difficulty = current.difficulty,
+            allies = current.activeAllies,
+            helpedKidIds = current.helpedKids,
+            itemCounts = initialItemCounts,
+            hasMetAshen = current.hasMetAshenAtStart,
+            preAshenDeathCount = current.defeatCountBeforeAshen
+        )
+    }
+
+    fun triggerAshenTimeRewind() {
+        val current = _state.value
+        if (current.phase != BattlePhase.DEFEAT || current.isAshenRewinding) return
+        RetroSoundEngine.playTimeRewind()
+        _state.update { s ->
+            s.copy(
+                isAshenRewinding = true,
+                ashenRewindTimerSec = 0f,
+                dialogueText = "* Ashen: \"Alright... hold onto your Soul! Rewinding the timeline now!\""
+            )
+        }
+    }
+
+    fun triggerAshenGiveUp() {
+        _state.update { s ->
+            s.copy(
+                ashenGaveUp = true,
+                dialogueText = "* Ashen: \"Too bad... Let's pull your shattered Soul back before it fades.\""
+            )
+        }
     }
 
     fun selectSubTab(tab: MenuSubTab) {
@@ -815,6 +886,101 @@ class BattleViewModel : ViewModel() {
                     flashState = flashState
                 ).copy(slashFxTimerSec = nextSlash)
 
+                BattlePhase.DEFEAT -> {
+                    val nextDeathTimer = s.deathAnimTimerSec + dt
+                    if (s.isAshenRewinding) {
+                        val nextRewind = s.ashenRewindTimerSec + dt
+                        if (nextRewind >= 0.68f) {
+                            val profile = s.enemy
+                            val allowed = s.worldId.allowedSouls
+                            val startingSoul = allowed.first()
+                            val computedStats = LokaStatsCalculator.compute(
+                                armor = lastArmor,
+                                weapon = s.equippedWeapon,
+                                relic = s.equippedRelic,
+                                allies = s.activeAllies,
+                                helpedKidIds = s.helpedKids,
+                                difficulty = s.difficulty,
+                                worldId = s.worldId
+                            )
+                            val startShield = (EnemyId.SERAPHIEL in s.activeAllies) && s.worldId != WorldId.GLITCHED_WORLD
+                            val battleItems = listOf(
+                                BattleItem("chrono_shard", "Chrono Shard", healAmount = 8, grantsShield = false, count = initialItemCounts["chrono_shard"] ?: 0, description = "Restores 8 HP."),
+                                BattleItem("sepia_ration", "Sepia Ration", healAmount = 12, grantsShield = false, count = initialItemCounts["sepia_ration"] ?: 0, description = "Restores 12 HP."),
+                                BattleItem("save_anchor", "Time Anchor", healAmount = 5, grantsShield = true, count = initialItemCounts["save_anchor"] ?: 0, description = "Restores 5 HP + raises a Prism Shield.")
+                            )
+                            s.copy(
+                                phase = BattlePhase.PLAYER_MENU,
+                                subTab = MenuSubTab.ROOT,
+                                turnNumber = 1,
+                                enemyHp = profile.maxHp,
+                                mercyProgress = 0,
+                                completedActIds = emptySet(),
+                                playerHp = computedStats.maxHp,
+                                maxPlayerHp = computedStats.maxHp,
+                                activeSoul = startingSoul,
+                                hasGreenShield = startShield,
+                                dummyPhase = 1,
+                                dummyHatFallTimerSec = 0f,
+                                deathAnimTimerSec = 0f,
+                                isAshenRewinding = false,
+                                ashenRewindTimerSec = 0f,
+                                ashenGaveUp = false,
+                                lokaAutoSolving = false,
+                                lokaAutoSolvedVictory = false,
+                                bullets = emptyList(),
+                                lasers = emptyList(),
+                                laneTelegraphs = emptyList(),
+                                jawAttacks = emptyList(),
+                                arrowTelegraphs = emptyList(),
+                                bombs = emptyList(),
+                                sideWarnings = emptyList(),
+                                particles = emptyList(),
+                                bossExpression = PortraitExpression.NEUTRAL,
+                                speakerExpression = PortraitExpression.DETERMINED,
+                                items = battleItems,
+                                dialogueText = "* Ashen rewound time! Try again, Loka!"
+                            )
+                        } else {
+                            s.copy(
+                                deathAnimTimerSec = nextDeathTimer,
+                                ashenRewindTimerSec = nextRewind,
+                                particles = s.particles.mapNotNull { p ->
+                                    val rem = p.life - dt
+                                    if (rem <= 0f) null else p.copy(x = p.x + p.vx * dt, y = p.y + p.vy * dt, life = rem)
+                                }
+                            )
+                        }
+                    } else if (s.lokaAutoSolving && nextDeathTimer >= 3.55f) {
+                        RetroSoundEngine.playSpareChime()
+                        s.copy(
+                            phase = BattlePhase.VICTORY,
+                            playerHp = s.maxPlayerHp,
+                            mercyProgress = 100,
+                            battleWonSpared = true,
+                            lokaAutoSolving = false,
+                            lokaAutoSolvedVictory = true,
+                            deathAnimTimerSec = nextDeathTimer,
+                            bossExpression = PortraitExpression.HAPPY,
+                            speakerExpression = PortraitExpression.HAPPY,
+                            dialogueText = "See?! Finished it on my first try without you! Let's move on!"
+                        )
+                    } else {
+                        val progressedMercy = if (s.lokaAutoSolving && nextDeathTimer >= 1.55f) {
+                            (((nextDeathTimer - 1.55f) / 1.95f).coerceIn(0f, 1f) * 100f).toInt()
+                        } else s.mercyProgress
+                        s.copy(
+                            deathAnimTimerSec = nextDeathTimer,
+                            mercyProgress = maxOf(s.mercyProgress, progressedMercy),
+                            dummyHatFallTimerSec = nextHatTimer,
+                            particles = s.particles.mapNotNull { p ->
+                                val rem = p.life - dt
+                                if (rem <= 0f) null else p.copy(x = p.x + p.vx * dt, y = p.y + p.vy * dt, life = rem)
+                            }
+                        )
+                    }
+                }
+
                 else -> if (
                     s.dummyHatFallTimerSec != nextHatTimer ||
                     s.isEnemyHitFlash != flashState ||
@@ -1245,19 +1411,7 @@ class BattleViewModel : ViewModel() {
         }
 
         if (hp <= 0) {
-            return s.copy(
-                playerHp = 0,
-                phase = BattlePhase.DEFEAT,
-                bullets = emptyList(),
-                lasers = emptyList(),
-                laneTelegraphs = emptyList(),
-                jawAttacks = emptyList(),
-                arrowTelegraphs = emptyList(),
-                bombs = emptyList(),
-                sideWarnings = emptyList(),
-                particles = nextParticles,
-                dialogueText = "Your Soul shattered... Time pulls you right back. Try again!"
-            )
+            return buildDefeatState(s = s, nextParticles = nextParticles, deathX = sx, deathY = sy)
         }
 
         return s.copy(
@@ -1635,6 +1789,61 @@ class BattleViewModel : ViewModel() {
                     }
                 }
             }
+        }
+    }
+
+    private fun buildDefeatState(
+        s: BattleUiState,
+        nextParticles: List<ArenaParticle>,
+        deathX: Float,
+        deathY: Float
+    ): BattleUiState {
+        RetroSoundEngine.playGameOverCollapse()
+        val nextPreAshenDeaths = if (s.hasMetAshenAtStart) s.defeatCountBeforeAshen else s.defeatCountBeforeAshen + 1
+        val autoSolve3rd = !s.hasMetAshenAtStart && nextPreAshenDeaths >= 3
+        val shardParticles = List(12) { idx ->
+            val ang = idx * (2f * PI.toFloat() / 12f)
+            ArenaParticle(deathX, deathY, cos(ang) * 0.42f, sin(ang) * 0.42f, 0.72f, 0.72f, s.activeSoul.color, 7f)
+        }
+        val defeatLine = when {
+            s.hasMetAshenAtStart ->
+                "Ashen: \"Ouch, knocked down already? Want me to rewind time, or give up?\""
+            nextPreAshenDeaths == 1 ->
+                "Loka: \"Wait—you let me fall against a COTTON training dummy?! Pay attention!\""
+            nextPreAshenDeaths == 2 ->
+                "Loka: \"TWICE?! We're STILL at the beginning! Our position looks terrible!\""
+            else ->
+                "Loka: \"Enough! 3 losses in the warm-up?! Step back—I'll solve this fight myself!\""
+        }
+        return s.copy(
+            playerHp = 0,
+            phase = BattlePhase.DEFEAT,
+            defeatCountBeforeAshen = nextPreAshenDeaths,
+            defeatSequenceId = s.defeatSequenceId + 1L,
+            deathAnimTimerSec = 0f,
+            isAshenRewinding = false,
+            ashenRewindTimerSec = 0f,
+            ashenGaveUp = false,
+            lokaAutoSolving = autoSolve3rd,
+            lokaAutoSolvedVictory = false,
+            bullets = emptyList(),
+            lasers = emptyList(),
+            laneTelegraphs = emptyList(),
+            jawAttacks = emptyList(),
+            arrowTelegraphs = emptyList(),
+            bombs = emptyList(),
+            sideWarnings = emptyList(),
+            particles = nextParticles + shardParticles,
+            bossExpression = if (autoSolve3rd) PortraitExpression.SURPRISED else s.bossExpression,
+            speakerExpression = if (autoSolve3rd) PortraitExpression.ANGRY else PortraitExpression.SURPRISED,
+            dialogueText = defeatLine
+        )
+    }
+
+    @androidx.annotation.VisibleForTesting
+    internal fun applyLethalHitForTest() {
+        _state.update { s ->
+            buildDefeatState(s = s, nextParticles = s.particles, deathX = s.soulX, deathY = s.soulY)
         }
     }
 }

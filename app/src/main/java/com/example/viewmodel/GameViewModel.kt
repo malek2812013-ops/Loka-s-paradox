@@ -92,6 +92,8 @@ data class AppUiState(
     val ruinsCandyClaimed: Boolean = false,
     val ruinsSwitchActivated: Boolean = false,
     val ruinsDummyPracticed: Boolean = false,
+    val hasMetAshen: Boolean = false,
+    val preAshenDeathCount: Int = 0,
 
     // World, 5-Door Zones & Paradox Exploration
     val activeWorld: WorldId = WorldId.NORMAL_WORLD,
@@ -336,6 +338,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             currentScreen = snap.resumeScreen,
             ruinsSwitchActivated = snap.ruinsSwitchActivated,
             ruinsDummyPracticed = snap.ruinsDummyPracticed,
+            hasMetAshen = snap.hasMetAshen,
+            preAshenDeathCount = snap.preAshenDeathCount,
             activeWorld = snap.activeWorld,
             activeZone = snap.activeZone,
             playerMapX = snap.playerMapX,
@@ -402,6 +406,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         resumeScreen = state.currentScreen,
         ruinsSwitchActivated = state.ruinsSwitchActivated,
         ruinsDummyPracticed = state.ruinsDummyPracticed,
+        hasMetAshen = state.hasMetAshen,
+        preAshenDeathCount = state.preAshenDeathCount,
         activeWorld = state.activeWorld,
         activeZone = state.activeZone,
         playerMapX = state.playerMapX,
@@ -530,7 +536,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun exitRuinsToAshen() {
         RetroSoundEngine.playSoulSwitch(0)
-        _uiState.update { it.copy(currentScreen = AppScreen.ASHEN_MEETING) }
+        _uiState.update { state ->
+            state.copy(
+                hasMetAshen = true,
+                currentScreen = AppScreen.ASHEN_MEETING
+            ).also(::persist)
+        }
     }
 
     /**
@@ -541,6 +552,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         RetroSoundEngine.playSoulSwitch(0)
         _uiState.update { state ->
             state.copy(
+                hasMetAshen = true,
                 activeWorld = startWorld,
                 activeZone = WorldZone.CENTER,
                 zoneCooldownSec = 0.65f,
@@ -649,6 +661,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             val nextResets = state.timelineResetCount + 1
             val nextHistory = (state.choiceHistory + "Timeline #$nextResets Started (${echo.routeLabel})").takeLast(25)
             state.copy(
+                hasMetAshen = true,
                 timelineResetCount = nextResets,
                 pastTimelines = (state.pastTimelines + echo).takeLast(10),
                 choiceHistory = nextHistory,
@@ -1268,6 +1281,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 stalkerBosses = pushedStalkers,
                 currentScreen = AppScreen.WORLD_EXPLORE
             )
+        }
+    }
+
+    fun recordPlayerDefeat() {
+        _uiState.update { state ->
+            if (state.hasMetAshen) return@update state
+            state.copy(preAshenDeathCount = state.preAshenDeathCount + 1).also(::persist)
         }
     }
 

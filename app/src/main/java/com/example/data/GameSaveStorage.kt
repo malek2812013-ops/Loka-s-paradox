@@ -37,6 +37,8 @@ data class SavedGameSnapshot(
     val resumeScreen: AppScreen = AppScreen.LORE_INTRO,
     val ruinsSwitchActivated: Boolean = false,
     val ruinsDummyPracticed: Boolean = false,
+    val hasMetAshen: Boolean = false,
+    val preAshenDeathCount: Int = 0,
     val activeWorld: WorldId = WorldId.NORMAL_WORLD,
     val activeZone: WorldZone = WorldZone.CENTER,
     val playerMapX: Float = 0.50f,
@@ -208,6 +210,8 @@ class GameSaveStorage(context: Context) {
                 resumeScreen = resumeScreen,
                 ruinsSwitchActivated = obj.optBoolean("ruinsSwitchActivated", false),
                 ruinsDummyPracticed = obj.optBoolean("ruinsDummyPracticed", false),
+                hasMetAshen = obj.optBoolean("hasMetAshen", resumeScreen != AppScreen.LORE_INTRO && resumeScreen != AppScreen.RUINS_TUTORIAL),
+                preAshenDeathCount = obj.optInt("preAshenDeathCount", 0).coerceAtLeast(0),
                 activeWorld = runCatching { WorldId.valueOf(obj.optString("activeWorld", "NORMAL_WORLD")) }.getOrDefault(WorldId.NORMAL_WORLD),
                 activeZone = runCatching { WorldZone.valueOf(obj.optString("activeZone", "CENTER")) }.getOrDefault(WorldZone.CENTER),
                 playerMapX = obj.optDouble("playerMapX", 0.50).toFloat().coerceIn(0.05f, 0.95f),
@@ -273,6 +277,8 @@ class GameSaveStorage(context: Context) {
             put("resumeScreen", if (snapshot.resumeScreen == AppScreen.BATTLE) AppScreen.WORLD_EXPLORE.name else snapshot.resumeScreen.name)
             put("ruinsSwitchActivated", snapshot.ruinsSwitchActivated)
             put("ruinsDummyPracticed", snapshot.ruinsDummyPracticed)
+            put("hasMetAshen", snapshot.hasMetAshen)
+            put("preAshenDeathCount", snapshot.preAshenDeathCount)
             put("activeWorld", snapshot.activeWorld.name)
             put("activeZone", snapshot.activeZone.name)
             put("playerMapX", snapshot.playerMapX.toDouble())

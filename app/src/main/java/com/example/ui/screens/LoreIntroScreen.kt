@@ -443,7 +443,7 @@ fun LoreIntroScreen(
                                 val walkY = size.height * 0.80f + abs(bob) * -4.dp.toPx()
                                 drawLokaOverworldSprite(
                                     center = Offset(walkX, walkY),
-                                    unit = 7.dp.toPx(),
+                                    unit = 8.5.dp.toPx(),
                                     isGlitched = cyanFlashAlpha > 0.2f,
                                     isMoving = true,
                                     isRunning = false,

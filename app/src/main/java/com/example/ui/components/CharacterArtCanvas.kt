@@ -14,12 +14,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import com.example.model.EnemyId
 import com.example.model.PortraitExpression
 import com.example.model.SoulType
 import com.example.ui.theme.SepiaBronze
 import com.example.ui.theme.SepiaGold
 import com.example.ui.theme.SoulSeraphCyan
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -161,12 +163,107 @@ fun LokaFullBodySpriteCanvas(
     Canvas(modifier = modifier) {
         val cx = size.width * 0.5f
         val cy = size.height * 0.52f + bob
-        val unit = minOf(size.width, size.height) * 0.31f
+        val unit = minOf(size.width, size.height) * 0.24f
         drawLokaOverworldSprite(center = Offset(cx, cy), unit = unit, isGlitched = isGlitched)
         if (expression == PortraitExpression.DETERMINED) {
             drawPixelSaveStar(Offset(cx + unit * 1.15f, cy - unit * 0.9f), unit * 0.22f, Color(0xFF38BDF8))
         }
     }
+}
+
+private fun buildLokaPalette(isGlitched: Boolean, blueBoost: Boolean = false): Map<Char, Color> = mapOf(
+    'O' to Color(0xFF140C09),
+    'H' to (if (isGlitched) Color(0xFF52525B) else Color(0xFF852B17)),
+    'h' to (if (isGlitched) Color(0xFFA1A1AA) else Color(0xFFBA472D)),
+    'l' to (if (isGlitched) Color(0xFFE4E4E7) else Color(0xFFE06D4F)),
+    'd' to (if (isGlitched) Color(0xFF27272A) else Color(0xFF4E180D)),
+    'S' to Color(0xFFF3D2B3),
+    's' to Color(0xFFD4A27D),
+    'r' to Color(0xFFEC8F87),
+    'm' to Color(0xFFA6624B),
+    'W' to Color.White,
+    'G' to Color(0xFF64748B),
+    'C' to (if (isGlitched) Color.White else if (blueBoost) Color(0xFF7DD3FC) else Color(0xFF38BDF8)),
+    'c' to (if (isGlitched) Color(0xFFD4D4D8) else Color(0xFF7DD3FC)),
+    'K' to Color(0xFFB0B7C3),
+    'T' to Color(0xFF78808C),
+    't' to Color(0xFF525864),
+    'Y' to SepiaGold,
+    'y' to Color(0xFFB45309),
+    'P' to Color(0xFFE2CEAB),
+    'p' to Color(0xFFB8A07B),
+    'B' to Color(0xFF3D271A),
+    'b' to Color(0xFF63422D)
+)
+
+/**
+ * Draws Loka collapsing from standing -> tipping sideways -> slumped on the stone ground (lokaFallenGrid)
+ * complete with dust burst pixels and flickering cracked heart fragments.
+ */
+fun DrawScope.drawLokaFallenSprite(
+    center: Offset,
+    spriteSizePx: Float,
+    fallProgress: Float,
+    soulColor: Color,
+    isGlitched: Boolean = false
+) {
+    val t = fallProgress.coerceIn(0f, 1f)
+    val palette = buildLokaPalette(isGlitched = isGlitched)
+    val groundY = center.y + spriteSizePx * 0.24f
+
+    // Grounded elliptical pixel shadow
+    drawSteppedPixelShadow(
+        center = Offset(center.x, groundY + spriteSizePx * 0.14f),
+        widthPx = spriteSizePx * (0.52f + 0.42f * t),
+        heightPx = spriteSizePx * 0.15f,
+        color = Color(0xBB000000)
+    )
+
+    if (t < 0.48f) {
+        // Phase A: Toppling sideways onto the floor
+        val drop = (t / 0.48f).coerceIn(0f, 1f)
+        val dropEase = drop * drop
+        val rotDeg = -86f * dropEase
+        val dy = dropEase * spriteSizePx * 0.12f
+        withTransform({
+            rotate(degrees = rotDeg, pivot = Offset(center.x, groundY))
+        }) {
+            drawPixelMatrix(
+                rows = PixelSprites.lokaOverworldGrid,
+                palette = palette,
+                center = Offset(center.x, center.y + dy),
+                targetSizePx = spriteSizePx * 0.92f
+            )
+        }
+    } else {
+        // Phase B: Landed horizontally on the ground with slight impact bounce + dust puffs
+        val settle = ((t - 0.48f) / 0.52f).coerceIn(0f, 1f)
+        val impactBounce = if (settle < 0.35f) -sin(settle / 0.35f * Math.PI).toFloat() * spriteSizePx * 0.055f else 0f
+        if (settle < 0.85f) {
+            val dustSpread = settle * spriteSizePx * 0.34f
+            val dustAlpha = (1f - settle / 0.85f) * 0.72f
+            val puff = spriteSizePx * 0.075f * (1f - settle * 0.4f)
+            drawRect(Color(0xFFD6C7B2).copy(alpha = dustAlpha), Offset(center.x - spriteSizePx * 0.30f - dustSpread, groundY - puff), SizeCompat(puff, puff))
+            drawRect(Color(0xFFD6C7B2).copy(alpha = dustAlpha), Offset(center.x + spriteSizePx * 0.28f + dustSpread, groundY - puff), SizeCompat(puff, puff))
+            drawRect(Color(0xFFD6C7B2).copy(alpha = dustAlpha * 0.75f), Offset(center.x - puff * 0.5f, groundY - spriteSizePx * 0.12f - dustSpread * 0.45f), SizeCompat(puff * 0.85f, puff * 0.85f))
+        }
+        drawPixelMatrix(
+            rows = PixelSprites.lokaFallenGrid,
+            palette = palette,
+            center = Offset(center.x, center.y + spriteSizePx * 0.06f + impactBounce),
+            targetSizePx = spriteSizePx * 1.05f
+        )
+    }
+
+    // Cracked glowing Soul shard drifting right above Loka's chest
+    val shardPulse = 0.65f + 0.35f * abs(sin(t * 7f))
+    drawPixelHeart(
+        center = Offset(center.x - spriteSizePx * 0.08f, center.y - spriteSizePx * 0.22f + t * spriteSizePx * 0.14f),
+        sizePx = spriteSizePx * 0.085f,
+        fillColor = soulColor,
+        cracked = true,
+        alpha = 0.85f * shardPulse
+    )
 }
 
 /**
@@ -208,35 +305,12 @@ fun DrawScope.drawLokaOverworldSprite(
     }
 
     drawSteppedPixelShadow(
-        center = Offset(center.x, center.y + unit * 1.48f),
-        widthPx = unit * (if (isRunning && isMoving) 2.30f else 2.15f),
-        heightPx = unit * 0.56f
+        center = Offset(center.x, center.y + unit * 1.66f),
+        widthPx = unit * (if (isRunning && isMoving) 2.55f else 2.38f),
+        heightPx = unit * 0.62f
     )
 
-    val palette = mapOf(
-        'O' to Color(0xFF140C09),
-        'H' to (if (isGlitched) Color(0xFF52525B) else Color(0xFF852B17)),
-        'h' to (if (isGlitched) Color(0xFFA1A1AA) else Color(0xFFBA472D)),
-        'l' to (if (isGlitched) Color(0xFFE4E4E7) else Color(0xFFE06D4F)),
-        'd' to (if (isGlitched) Color(0xFF27272A) else Color(0xFF4E180D)),
-        'S' to Color(0xFFF3D2B3),
-        's' to Color(0xFFD4A27D),
-        'r' to Color(0xFFEC8F87),
-        'm' to Color(0xFFA6624B),
-        'W' to Color.White,
-        'G' to Color(0xFF64748B),
-        'C' to (if (isGlitched) Color.White else Color(0xFF38BDF8)),
-        'c' to (if (isGlitched) Color(0xFFD4D4D8) else Color(0xFF7DD3FC)),
-        'K' to Color(0xFFB0B7C3),
-        'T' to Color(0xFF78808C),
-        't' to Color(0xFF525864),
-        'Y' to SepiaGold,
-        'y' to Color(0xFFB45309),
-        'P' to Color(0xFFE2CEAB),
-        'p' to Color(0xFFB8A07B),
-        'B' to Color(0xFF3D271A),
-        'b' to Color(0xFF63422D)
-    )
+    val palette = buildLokaPalette(isGlitched = isGlitched)
 
     val activeGrid = when {
         !isMoving -> PixelSprites.lokaOverworldGrid
@@ -252,7 +326,7 @@ fun DrawScope.drawLokaOverworldSprite(
         rows = activeGrid,
         palette = palette,
         center = Offset(center.x, center.y + bobOffset),
-        targetSizePx = unit * 3.55f,
+        targetSizePx = unit * 3.95f,
         flipX = !facingRight
     )
 }

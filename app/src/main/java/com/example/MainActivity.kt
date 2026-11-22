@@ -135,8 +135,11 @@ class MainActivity : ComponentActivity() {
                         helpedKidIds = state.escortingKidIds,
                         itemCounts = state.itemCounts,
                         controlScheme = state.controlScheme,
+                        hasMetAshen = state.hasMetAshen,
+                        preAshenDeathCount = state.preAshenDeathCount,
                         onToggleControls = gameViewModel::toggleControlScheme,
                         onToggleLanguage = gameViewModel::toggleLanguage,
+                        onPlayerDefeated = gameViewModel::recordPlayerDefeat,
                         onBattleFinished = gameViewModel::recordBattleOutcome,
                         onExitBattle = gameViewModel::returnAfterBattle
                     )

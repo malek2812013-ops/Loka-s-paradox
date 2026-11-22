@@ -87,9 +87,13 @@ import com.example.model.tr
 import com.example.ui.components.AshenFlowerCanvas
 import com.example.ui.components.BossSpriteCanvas
 import com.example.ui.components.ControllerPadOverlay
+import com.example.ui.components.LokaFullBodySpriteCanvas
+import com.example.ui.components.LokaPortraitCanvas
 import com.example.ui.components.UltraPixelArtEngine
 import com.example.ui.components.drawBossChompHeadAndClaw
 import com.example.ui.components.drawDirectionalArrow
+import com.example.ui.components.drawLokaFallenSprite
+import com.example.ui.components.drawLokaOverworldSprite
 import com.example.ui.components.drawPixelBomb
 import com.example.ui.components.drawPixelHeart
 import com.example.ui.components.drawPixelSaveStar
@@ -127,8 +131,11 @@ fun BattleScreen(
     helpedKidIds: Set<String>,
     itemCounts: Map<String, Int>,
     controlScheme: ControlScheme,
+    hasMetAshen: Boolean = false,
+    preAshenDeathCount: Int = 0,
     onToggleControls: () -> Unit,
     onToggleLanguage: () -> Unit,
+    onPlayerDefeated: () -> Unit = {},
     onBattleFinished: (EnemyId, Boolean, Map<String, Int>) -> Unit,
     onExitBattle: () -> Unit,
     battleViewModel: BattleViewModel = viewModel()
@@ -146,7 +153,9 @@ fun BattleScreen(
             difficulty = difficulty,
             allies = friendAllies,
             helpedKidIds = helpedKidIds,
-            itemCounts = itemCounts
+            itemCounts = itemCounts,
+            hasMetAshen = hasMetAshen,
+            preAshenDeathCount = preAshenDeathCount
         )
     }
 
@@ -158,7 +167,8 @@ fun BattleScreen(
         state.playerHitFlashTimerSec > 0f ||
         state.playerDamagePopTimerSec > 0f ||
         state.shieldBlockedTimerSec > 0f ||
-        (state.dummyPhase >= 2 && state.dummyHatFallTimerSec < 0.85f)
+        (state.dummyPhase >= 2 && state.dummyHatFallTimerSec < 0.85f) ||
+        state.phase == BattlePhase.DEFEAT
 
     LaunchedEffect(state.phase, hasActiveFx) {
         if (state.phase == BattlePhase.FIGHT_MINIGAME || state.phase == BattlePhase.BULLET_HELL || hasActiveFx) {
@@ -171,6 +181,19 @@ fun BattleScreen(
                     lastNanos = nanos
                 }
             }
+        }
+    }
+
+    LaunchedEffect(state.encounterId, state.defeatSequenceId) {
+        if (state.encounterId == battleSessionId && state.defeatSequenceId > 0L) {
+            onPlayerDefeated()
+        }
+    }
+
+    LaunchedEffect(state.ashenGaveUp) {
+        if (state.ashenGaveUp) {
+            delay(650L)
+            onExitBattle()
         }
     }
 
@@ -605,22 +628,202 @@ fun BattleScreen(
                         }
                     }
 
-                    // Centerpiece: Large 512x512 Monochrome White-on-Black Undertale Opponent Sprite + Slash FX
-                    Box(
-                        modifier = Modifier
-                            .size(164.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        BossSpriteCanvas(
-                            enemyId = state.enemy.id,
-                            isHitFlash = !reduceFlash && state.isEnemyHitFlash,
-                            isSpareReady = state.canSpare,
-                            expression = state.bossExpression,
-                            monochromeBattle = true,
-                            dummyPhase = state.dummyPhase,
-                            dummyHatFallProgress = state.dummyHatFallProgress,
-                            modifier = Modifier.size(152.dp)
-                        )
+                    // Centerpiece: Fallen Loka / Solo-Solve Animation OR Undertale Monochrome Opponent Sprite
+                    if (state.phase == BattlePhase.DEFEAT) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1.35f)
+                                .fillMaxHeight(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when {
+                                state.lokaAutoSolving && state.deathAnimTimerSec >= 1.15f -> {
+                                    // Pre-Ashen Death #3+: Loka stands up annoyed, dashes across & solves the fight himself!
+                                    val solveProg = state.lokaAutoSolveProgress
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.size(144.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                                val offsetFrac = if (solveProg <= 0f) 0f else kotlin.math.sin(solveProg * kotlin.math.PI.toFloat())
+                                                val cx = size.width * (0.42f + offsetFrac * 0.42f)
+                                                val cy = size.height * 0.52f
+                                                drawLokaOverworldSprite(
+                                                    center = Offset(cx, cy),
+                                                    unit = 15.dp.toPx(),
+                                                    isGlitched = worldId == WorldId.GLITCHED_WORLD,
+                                                    isMoving = solveProg > 0f && solveProg < 0.95f,
+                                                    isRunning = solveProg > 0f && solveProg < 0.95f,
+                                                    animClock = state.deathAnimTimerSec,
+                                                    facingRight = true
+                                                )
+                                                if (solveProg > 0.25f) {
+                                                    val starRadius = 22.dp.toPx() * (1f + solveProg)
+                                                    drawPixelSaveStar(
+                                                        center = Offset(cx + 28.dp.toPx(), cy - 16.dp.toPx()),
+                                                        sizePx = 9.dp.toPx(),
+                                                        color = MercyYellow
+                                                    )
+                                                    drawCircle(
+                                                        color = MercyYellow.copy(alpha = (1f - solveProg * 0.6f) * 0.45f),
+                                                        radius = starRadius,
+                                                        center = Offset(size.width * 0.9f, cy),
+                                                        style = Stroke(3.dp.toPx())
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        BossSpriteCanvas(
+                                            enemyId = state.enemy.id,
+                                            isHitFlash = solveProg in 0.45f..0.75f,
+                                            isSpareReady = state.mercyProgress >= 100,
+                                            expression = if (solveProg > 0.6f) PortraitExpression.HAPPY else PortraitExpression.SURPRISED,
+                                            monochromeBattle = true,
+                                            dummyPhase = state.dummyPhase,
+                                            dummyHatFallProgress = state.dummyHatFallProgress,
+                                            modifier = Modifier.size(134.dp)
+                                        )
+                                    }
+                                }
+
+                                else -> {
+                                    // Fallen Loka collapsing onto the floor (+ Ashen beside him if already met, or scolding Loka portrait if pre-Ashen)
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(164.dp)
+                                                .testTag("battle_fallen_loka_stage"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                                drawLokaFallenSprite(
+                                                    center = Offset(size.width * 0.5f, size.height * 0.52f),
+                                                    spriteSizePx = minOf(size.width, size.height) * 0.88f,
+                                                    fallProgress = state.deathFallProgress,
+                                                    soulColor = state.activeSoul.color,
+                                                    isGlitched = worldId == WorldId.GLITCHED_WORLD
+                                                )
+                                                if (state.isAshenRewinding) {
+                                                    val rw = (state.ashenRewindTimerSec / 0.68f).coerceIn(0f, 1f)
+                                                    drawCircle(
+                                                        color = GlitchCyan.copy(alpha = 0.25f + rw * 0.45f),
+                                                        radius = size.minDimension * (0.20f + rw * 0.35f),
+                                                        style = Stroke(4.dp.toPx())
+                                                    )
+                                                    drawPixelSaveStar(
+                                                        center = Offset(size.width * 0.5f, size.height * 0.26f),
+                                                        sizePx = 11.dp.toPx() * (0.7f + rw),
+                                                        color = MercyYellow
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        Spacer(Modifier.width(12.dp))
+                                        if (state.hasMetAshenAtStart) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                modifier = Modifier
+                                                    .background(Color.Black.copy(alpha = 0.86f))
+                                                    .border(2.dp, if (state.isAshenRewinding) GlitchCyan else Color.White, RoundedCornerShape(0.dp))
+                                                    .padding(8.dp)
+                                            ) {
+                                                AshenFlowerCanvas(
+                                                    isCreepySmirk = state.deathAnimTimerSec > 0.65f && !state.ashenGaveUp,
+                                                    expression = if (state.isAshenRewinding) PortraitExpression.DETERMINED else PortraitExpression.NEUTRAL,
+                                                    modifier = Modifier.size(66.dp)
+                                                )
+                                                Text(
+                                                    text = tr(language, "ASHEN", "آشن"),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (state.isAshenRewinding) GlitchCyan else MercyYellow
+                                                )
+                                            }
+                                        } else if (state.deathFallProgress >= 0.65f) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                modifier = Modifier
+                                                    .background(Color.Black.copy(alpha = 0.88f))
+                                                    .border(2.dp, DangerRed, RoundedCornerShape(0.dp))
+                                                    .padding(8.dp)
+                                            ) {
+                                                LokaPortraitCanvas(
+                                                    saveCount = 0,
+                                                    isSickGlitched = worldId == WorldId.GLITCHED_WORLD,
+                                                    expression = PortraitExpression.ANGRY,
+                                                    modifier = Modifier.size(56.dp)
+                                                )
+                                                Text(
+                                                    text = tr(language, "LOKA (${state.defeatCountBeforeAshen}/3)", "لوكا (${state.defeatCountBeforeAshen}/3)"),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = DangerRed
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if (state.phase == BattlePhase.VICTORY && state.lokaAutoSolvedVictory) {
+                        Row(
+                            modifier = Modifier
+                                .weight(1.35f)
+                                .fillMaxHeight(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                LokaFullBodySpriteCanvas(
+                                    isGlitched = worldId == WorldId.GLITCHED_WORLD,
+                                    expression = PortraitExpression.DETERMINED,
+                                    modifier = Modifier.size(134.dp)
+                                )
+                                Text(
+                                    text = tr(language, "SOLO CLEAR ★", "حلّها لوحده ★"),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MercyYellow
+                                )
+                            }
+                            BossSpriteCanvas(
+                                enemyId = state.enemy.id,
+                                isHitFlash = false,
+                                isSpareReady = true,
+                                expression = PortraitExpression.HAPPY,
+                                monochromeBattle = true,
+                                dummyPhase = state.dummyPhase,
+                                dummyHatFallProgress = state.dummyHatFallProgress,
+                                modifier = Modifier.size(134.dp)
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(164.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            BossSpriteCanvas(
+                                enemyId = state.enemy.id,
+                                isHitFlash = !reduceFlash && state.isEnemyHitFlash,
+                                isSpareReady = state.canSpare,
+                                expression = state.bossExpression,
+                                monochromeBattle = true,
+                                dummyPhase = state.dummyPhase,
+                                dummyHatFallProgress = state.dummyHatFallProgress,
+                                modifier = Modifier.size(152.dp)
+                            )
                         if (state.slashFxTimerSec > 0f && state.lastStrikeDamage != null) {
                             val progress = (1f - (state.slashFxTimerSec / 0.50f)).coerceIn(0f, 1f)
                             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -673,16 +876,18 @@ fun BattleScreen(
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }
+                        }
                     }
 
                     // Right Slot: Classic White Undertale Monster Speech Bubble during Enemy Dialogue
-                    Box(
-                        modifier = Modifier
-                            .weight(0.95f)
-                            .fillMaxHeight()
-                            .padding(start = 10.dp),
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
+                    if (state.phase != BattlePhase.DEFEAT && !(state.phase == BattlePhase.VICTORY && state.lokaAutoSolvedVictory)) {
+                        Box(
+                            modifier = Modifier
+                                .weight(0.95f)
+                                .fillMaxHeight()
+                                .padding(start = 10.dp),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
                         if (state.phase == BattlePhase.ENEMY_DIALOGUE) {
                             val enemyVoicePitch = when (state.enemy.id) {
                                 EnemyId.RUINS_DUMMY -> 280f
@@ -719,6 +924,7 @@ fun BattleScreen(
                                     textColor = Color.Black
                                 )
                             }
+                        }
                         }
                     }
                 }
@@ -786,62 +992,168 @@ fun BattleScreen(
                         }
                     }
 
-                    BattlePhase.VICTORY, BattlePhase.DEFEAT -> Row(
+                    BattlePhase.VICTORY -> Row(
                         modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             Text(
                                 text = when {
-                                    state.phase == BattlePhase.DEFEAT -> tr(language, "SOUL SHATTERED", "تحطّمت الروح")
+                                    state.lokaAutoSolvedVictory -> tr(language, "LOKA FINISHED IT HIMSELF!", "لوكا حلّ القتال لحاله!")
                                     state.battleWonSpared && !state.enemy.canBefriend -> tr(language, "YOU WON! STOPPED WITHOUT KILLING!", "فزت! تم إيقافه بدون قتل!")
                                     state.battleWonSpared -> tr(language, "YOU WON! FRIENDSHIP FORGED!", "فزت! صداقة جديدة!")
                                     else -> tr(language, "YOU WON!", "انتصار!")
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 color = when {
-                                    state.phase == BattlePhase.DEFEAT -> DangerRed
+                                    state.lokaAutoSolvedVictory -> MercyYellow
                                     state.battleWonSpared && !state.enemy.canBefriend -> GlitchCyan
                                     state.battleWonSpared -> MercyYellow
                                     else -> SepiaGold
                                 }
                             )
-                            Text(text = "* ${state.dialogueText}", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                            val victoryBody = if (state.lokaAutoSolvedVictory) {
+                                tr(
+                                    language,
+                                    "Loka: \"See?! Finished it on my FIRST try without you! Now let's keep going!\"",
+                                    "لوكا: «شوف! خلّصتها من أول مرة لحالي! يلا الحين نكمّل طريقنا!»"
+                                )
+                            } else "* ${state.dialogueText}"
+                            Text(text = victoryBody, style = MaterialTheme.typography.bodyMedium, color = Color.White)
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (state.phase == BattlePhase.DEFEAT) {
-                                Button(
-                                    onClick = {
-                                        battleViewModel.initEncounter(
-                                            encounterId = battleSessionId,
-                                            enemyId = enemyId,
-                                            worldId = worldId,
-                                            armor = equippedArmor,
-                                            weapon = equippedWeapon,
-                                            relic = equippedRelic,
-                                            difficulty = difficulty,
-                                            allies = friendAllies,
-                                            helpedKidIds = helpedKidIds,
-                                            itemCounts = itemCounts
-                                        )
-                                    },
-                                    shape = RoundedCornerShape(0.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = UndertaleOrange, contentColor = Color.Black),
-                                    modifier = Modifier.height(48.dp)
-                                ) {
-                                    Text(tr(language, "RETRY", "إعادة"), style = MaterialTheme.typography.labelLarge)
-                                }
+                        Spacer(Modifier.width(10.dp))
+                        OutlinedButton(
+                            onClick = onExitBattle,
+                            shape = RoundedCornerShape(0.dp),
+                            border = BorderStroke(2.dp, Color.White),
+                            modifier = Modifier
+                                .height(48.dp)
+                                .testTag("battle_finish_exit_button")
+                        ) {
+                            Text(tr(language, "CONTINUE", "متابعة"), style = MaterialTheme.typography.labelLarge, color = Color.White)
+                        }
+                    }
+
+                    BattlePhase.DEFEAT -> Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val titleText = when {
+                                state.isAshenRewinding -> tr(language, "REWINDING TIME ⟳", "جاري إرجاع الزمن ⟳")
+                                state.hasMetAshenAtStart -> tr(language, "ASHEN OFFERS TIME REWIND", "آشن يسألك: إرجاع الزمن أم اليأس؟")
+                                state.lokaAutoSolving -> tr(language, "LOKA TAKES CONTROL!", "لوكا يأخذ التحكم!")
+                                state.defeatCountBeforeAshen == 2 -> tr(language, "LOKA IS WORRIED! (2/3)", "لوكا يعاتب ويحذّر! (2/3)")
+                                else -> tr(language, "LOKA SCOLDS YOU! (1/3)", "لوكا يعاتبك! (1/3)")
                             }
-                            OutlinedButton(
-                                onClick = onExitBattle,
-                                shape = RoundedCornerShape(0.dp),
-                                border = BorderStroke(2.dp, Color.White),
-                                modifier = Modifier
-                                    .height(48.dp)
-                                    .testTag("battle_finish_exit_button")
-                            ) {
-                                Text(tr(language, "CONTINUE", "متابعة"), style = MaterialTheme.typography.labelLarge, color = Color.White)
+                            Text(
+                                text = titleText,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = when {
+                                    state.isAshenRewinding -> GlitchCyan
+                                    state.hasMetAshenAtStart || state.lokaAutoSolving -> MercyYellow
+                                    else -> DangerRed
+                                }
+                            )
+                            val bodyMsg = when {
+                                state.ashenGaveUp -> tr(
+                                    language,
+                                    "Ashen: \"Alright... pulling your Soul back before it shatters forever.\"",
+                                    "آشن: «حسناً... سنسحب الروح قبل أن تنكسر للأبد.»"
+                                )
+                                state.isAshenRewinding -> tr(
+                                    language,
+                                    "Ashen: \"Hold tight! Rewinding the clock so we try again!\"",
+                                    "آشن: «تمسك! سأرجع بالزمن للخلف لنعيد القتال!»"
+                                )
+                                state.hasMetAshenAtStart -> tr(
+                                    language,
+                                    "Ashen: \"Knocked down on the floor already, Loka? Should I rewind time to retry, or do we give up?\"",
+                                    "آشن: «وقعت على الأرض بهذه السرعة يا لوكا؟ تبي نعيد وأرجع بالزمن، ولا خلاص نيأس؟»"
+                                )
+                                state.lokaAutoSolving && state.deathAnimTimerSec >= 1.55f -> tr(
+                                    language,
+                                    "* Loka rushes past you and solves the Ruins Dummy fight all by himself!",
+                                    "* لوكا يتقدم بنفسه ويحسم قتال دمية التدريب لحاله!"
+                                )
+                                state.lokaAutoSolving -> tr(
+                                    language,
+                                    "Loka: \"Enough! Three losses at the start?! Step aside—watch ME finish this fight myself!\"",
+                                    "لوكا: «كفاية! ثلاث مرات نخسر هنا؟ تنحّ شوي، أنا بخلّص هذا القتال لحالي الحين!»"
+                                )
+                                state.defeatCountBeforeAshen == 2 -> tr(
+                                    language,
+                                    "Loka: \"Twice already?! Come on, we're STILL at the very beginning—our position looks terrible right now!\"",
+                                    "لوكا: «مرتين؟! ترا إحنا لسة في البداية وموقفنا سيء جداً إذا بنموت من أولها!»"
+                                )
+                                else -> tr(
+                                    language,
+                                    "Loka: \"Hey!! Did you just let me drop to a cotton Dummy?! Wake up and dodge!\"",
+                                    "لوكا: «هيه!! تركتني أطيح أمام دمية قطن؟! ركّز وتفادَ الهجمات!»"
+                                )
+                            }
+                            Text(text = bodyMsg, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        if (!state.lokaAutoSolving && !state.isAshenRewinding && !state.ashenGaveUp) {
+                            if (state.hasMetAshenAtStart) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Button(
+                                        onClick = battleViewModel::triggerAshenTimeRewind,
+                                        shape = RoundedCornerShape(0.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = GlitchCyan, contentColor = Color.Black),
+                                        modifier = Modifier
+                                            .height(48.dp)
+                                            .testTag("battle_ashen_rewind_button")
+                                    ) {
+                                        Text(tr(language, "REWIND & RETRY ⟳", "نعيد (إرجاع الزمن) ⟳"), style = MaterialTheme.typography.labelLarge)
+                                    }
+                                    OutlinedButton(
+                                        onClick = battleViewModel::triggerAshenGiveUp,
+                                        shape = RoundedCornerShape(0.dp),
+                                        border = BorderStroke(2.dp, DangerRed),
+                                        modifier = Modifier
+                                            .height(48.dp)
+                                            .testTag("battle_ashen_giveup_button")
+                                    ) {
+                                        Text(tr(language, "GIVE UP", "نيأس وخلاص"), style = MaterialTheme.typography.labelLarge, color = DangerRed)
+                                    }
+                                }
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = battleViewModel::retryEncounter,
+                                        shape = RoundedCornerShape(0.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = UndertaleOrange, contentColor = Color.Black),
+                                        modifier = Modifier
+                                            .height(48.dp)
+                                            .testTag("battle_pre_ashen_retry_button")
+                                    ) {
+                                        Text(tr(language, "RETRY", "إعادة"), style = MaterialTheme.typography.labelLarge)
+                                    }
+                                    OutlinedButton(
+                                        onClick = onExitBattle,
+                                        shape = RoundedCornerShape(0.dp),
+                                        border = BorderStroke(2.dp, Color.White),
+                                        modifier = Modifier
+                                            .height(48.dp)
+                                            .testTag("battle_finish_exit_button")
+                                    ) {
+                                        Text(tr(language, "CONTINUE", "خروج"), style = MaterialTheme.typography.labelLarge, color = Color.White)
+                                    }
+                                }
                             }
                         }
                     }

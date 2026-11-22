@@ -621,12 +621,12 @@ fun WorldExploreScreen(
                     val offsetX = (-20f - idx * 16f).dp.toPx()
                     val offsetY = (12f + cos(ambientClock * 5f + idx) * 2f).dp.toPx()
                     val kc = Offset(px * size.width + offsetX, py * size.height + offsetY)
-                    drawOverworldKidSprite(kid = kid, center = kc, unitPx = 7.5.dp.toPx(), isRescued = false)
+                    drawOverworldKidSprite(kid = kid, center = kc, unitPx = 8.5.dp.toPx(), isRescued = false)
                 }
 
                 drawLokaOverworldSprite(
                     center = Offset(px * size.width, py * size.height),
-                    unit = 11.dp.toPx(),
+                    unit = 14.0.dp.toPx(),
                     isGlitched = world == WorldId.GLITCHED_WORLD,
                     isMoving = moveAnimHoldSec > 0f,
                     isRunning = state.isRunningMode,
@@ -941,7 +941,7 @@ fun WorldExploreScreen(
                             else -> PortraitExpression.NEUTRAL
                         },
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(56.dp)
                             .background(Color(0xFF0C0C10), RoundedCornerShape(0.dp))
                             .border(2.dp, Color.White, RoundedCornerShape(0.dp))
                     )

@@ -588,4 +588,119 @@ class LokaParadoxLogicAndSaveTest {
         assertEquals(0.945f, battleVm.state.value.soulX, 0.001f)
         assertEquals(0.055f, battleVm.state.value.soulY, 0.001f)
     }
+
+    @Test
+    fun lokaRedesignedAndFallenGrids_areExact64x64() {
+        val lokaGrids = listOf(
+            PixelSprites.lokaPortraitGrid,
+            PixelSprites.lokaOverworldGrid,
+            PixelSprites.lokaFallenGrid,
+            PixelSprites.lokaWalkFrameAGrid,
+            PixelSprites.lokaWalkFrameBGrid,
+            PixelSprites.lokaRunFrameAGrid,
+            PixelSprites.lokaRunFrameBGrid
+        )
+        lokaGrids.forEach { grid ->
+            assertEquals(64, grid.size)
+            assertTrue(grid.all { it.length == 64 })
+        }
+        // Boyish design verification: no pink rosy cheek blush 'r' pixels in portrait or overworld sprites
+        assertTrue(PixelSprites.lokaPortraitGrid.none { 'r' in it })
+        assertTrue(PixelSprites.lokaOverworldGrid.none { 'r' in it })
+    }
+
+    @Test
+    fun defeatFlow_preAshenScoldsAnd3rdDeathAutoSolves_whilePostAshenOffersRewind() {
+        val gameVm = GameViewModel(app)
+        assertFalse(gameVm.uiState.value.hasMetAshen)
+        assertEquals(0, gameVm.uiState.value.preAshenDeathCount)
+
+        // Pre-Ashen Ruins Dummy encounter: Death 1 & 2 scold + warn, Death 3 auto-solves cleanly!
+        val battleVm = BattleViewModel()
+        battleVm.initEncounter(
+            encounterId = 500L,
+            enemyId = EnemyId.RUINS_DUMMY,
+            worldId = WorldId.NORMAL_WORLD,
+            armor = ArmorCatalog.byId("casual_jacket"),
+            weapon = WeaponCatalog.byId("worn_stick"),
+            relic = RelicCatalog.byId("golden_locket"),
+            difficulty = GameDifficulty.NORMAL,
+            allies = emptySet(),
+            helpedKidIds = emptySet(),
+            itemCounts = emptyMap(),
+            hasMetAshen = gameVm.uiState.value.hasMetAshen,
+            preAshenDeathCount = gameVm.uiState.value.preAshenDeathCount
+        )
+
+        // Death #1
+        battleVm.applyLethalHitForTest()
+        gameVm.recordPlayerDefeat()
+        assertEquals(BattlePhase.DEFEAT, battleVm.state.value.phase)
+        assertEquals(1, battleVm.state.value.defeatCountBeforeAshen)
+        assertFalse(battleVm.state.value.lokaAutoSolving)
+        repeat(20) { battleVm.tick(0.04f) }
+        assertEquals(1.0f, battleVm.state.value.deathFallProgress, 0.001f)
+
+        // Retry -> Death #2
+        battleVm.retryEncounter()
+        assertEquals(BattlePhase.PLAYER_MENU, battleVm.state.value.phase)
+        battleVm.applyLethalHitForTest()
+        gameVm.recordPlayerDefeat()
+        assertEquals(BattlePhase.DEFEAT, battleVm.state.value.phase)
+        assertEquals(2, battleVm.state.value.defeatCountBeforeAshen)
+        assertFalse(battleVm.state.value.lokaAutoSolving)
+        assertEquals(2, gameVm.uiState.value.preAshenDeathCount)
+
+        // Retry -> Death #3 -> Loka takes control & auto-solves fight!
+        battleVm.retryEncounter()
+        battleVm.applyLethalHitForTest()
+        gameVm.recordPlayerDefeat()
+        assertEquals(BattlePhase.DEFEAT, battleVm.state.value.phase)
+        assertEquals(3, battleVm.state.value.defeatCountBeforeAshen)
+        assertTrue(battleVm.state.value.lokaAutoSolving)
+
+        // Advance past 3.55s -> auto-resolves as VICTORY with 100% Mercy & lokaAutoSolvedVictory
+        repeat(95) { battleVm.tick(0.04f) }
+        val soloWin = battleVm.state.value
+        assertEquals(BattlePhase.VICTORY, soloWin.phase)
+        assertTrue(soloWin.lokaAutoSolvedVictory)
+        assertTrue(soloWin.battleWonSpared)
+        assertEquals(100, soloWin.mercyProgress)
+
+        // Meet Ashen -> now post-Ashen defeats offer Rewind Time or Give Up (never auto-solve)
+        gameVm.exitRuinsToAshen()
+        assertTrue(gameVm.uiState.value.hasMetAshen)
+
+        val overworldBattleVm = BattleViewModel()
+        overworldBattleVm.initEncounter(
+            encounterId = 501L,
+            enemyId = EnemyId.VEX,
+            worldId = WorldId.NORMAL_WORLD,
+            armor = ArmorCatalog.byId("casual_jacket"),
+            weapon = WeaponCatalog.byId("worn_stick"),
+            relic = RelicCatalog.byId("golden_locket"),
+            difficulty = GameDifficulty.NORMAL,
+            allies = emptySet(),
+            helpedKidIds = emptySet(),
+            itemCounts = emptyMap(),
+            hasMetAshen = gameVm.uiState.value.hasMetAshen,
+            preAshenDeathCount = gameVm.uiState.value.preAshenDeathCount
+        )
+        overworldBattleVm.applyLethalHitForTest()
+        assertEquals(BattlePhase.DEFEAT, overworldBattleVm.state.value.phase)
+        assertTrue(overworldBattleVm.state.value.hasMetAshenAtStart)
+        assertFalse(overworldBattleVm.state.value.lokaAutoSolving)
+
+        // Rewind Time restarts the battle cleanly at full HP!
+        overworldBattleVm.triggerAshenTimeRewind()
+        assertTrue(overworldBattleVm.state.value.isAshenRewinding)
+        repeat(20) { overworldBattleVm.tick(0.04f) }
+        assertEquals(BattlePhase.PLAYER_MENU, overworldBattleVm.state.value.phase)
+        assertEquals(overworldBattleVm.state.value.maxPlayerHp, overworldBattleVm.state.value.playerHp)
+
+        // Give Up flag triggers clean withdrawal
+        overworldBattleVm.applyLethalHitForTest()
+        overworldBattleVm.triggerAshenGiveUp()
+        assertTrue(overworldBattleVm.state.value.ashenGaveUp)
+    }
 }
